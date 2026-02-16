@@ -92,6 +92,15 @@
         animation: slide-right-left 3s ease-in-out infinite 1s; /* Start after 1s delay */
       }
 
+      /* NEW: Running Text Animation */
+      @keyframes marquee {
+        from { transform: translateX(100%); }
+        to { transform: translateX(-100%); }
+      }
+      .animate-marquee {
+        animation: marquee 15s linear infinite;
+      }
+
 
       /* PRINT STYLES GLOBAL */
       @media print {

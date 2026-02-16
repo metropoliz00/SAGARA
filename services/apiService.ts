@@ -1,9 +1,9 @@
 
 // ... existing imports
-import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument } from '../types';
+import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, OrganizationStructure } from '../types';
 
 // PENTING: Ganti URL di bawah ini dengan URL Deployment Web App Google Apps Script Anda yang baru.
-const API_URL = 'https://script.google.com/macros/s/AKfycbw_VjtUAi_REhCgUYoLoMtCmk1qL71Oo9NavRan-9Ng6QVZ8CBH0lyIKFlJpSY8qLka/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwnhZI6AvmUDdfRU4O6zVv2Ol36XWbpZ3LrHRS0XoudsK9ikGHocAR0tsUayb55uSlK/exec';
 
 // ... (existing code for ApiResponse, isApiConfigured, getCategoryColor, fetchApi)
 
@@ -177,8 +177,8 @@ export const apiService = {
   },
 
   // --- Class Config (Schedule, Piket, Seating, KKTP) ---
-  getClassConfig: async (classId: string): Promise<{schedule: ScheduleItem[], piket: PiketGroup[], seats: SeatingLayouts, kktp?: Record<string, number>, academicCalendar?: AcademicCalendarData, timeSlots?: string[]}> => {
-     const defaultConfig = {schedule: [], piket: [], seats: { classical: [], groups: [], ushape: [] }, academicCalendar: {}, timeSlots: []};
+  getClassConfig: async (classId: string): Promise<{schedule: ScheduleItem[], piket: PiketGroup[], seats: SeatingLayouts, kktp?: Record<string, number>, academicCalendar?: AcademicCalendarData, timeSlots?: string[], organization?: OrganizationStructure}> => {
+     const defaultConfig = {schedule: [], piket: [], seats: { classical: [], groups: [], ushape: [] }, academicCalendar: {}, timeSlots: [], organization: { roles: {}, sections: [] }};
      if (!isApiConfigured() || !classId) return defaultConfig;
      
      const res = await fetchApi('GET', { action: 'getClassConfig', classId });
@@ -187,7 +187,7 @@ export const apiService = {
      }
      return defaultConfig;
   },
-  saveClassConfig: async (key: 'SCHEDULE' | 'PIKET' | 'SEATING' | 'KKTP' | 'ACADEMIC_CALENDAR' | 'TIME_SLOTS', data: any, classId: string) => {
+  saveClassConfig: async (key: 'SCHEDULE' | 'PIKET' | 'SEATING' | 'KKTP' | 'ACADEMIC_CALENDAR' | 'TIME_SLOTS' | 'ORGANIZATION', data: any, classId: string) => {
      return await fetchApi('POST', { action: 'saveClassConfig', payload: { key, data, classId } });
   },
 

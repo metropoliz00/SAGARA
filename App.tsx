@@ -859,7 +859,17 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex flex-col items-center justify-center h-full min-h-[80vh] text-gray-500 animate-fade-in">
+        <div className="flex flex-col items-center justify-center h-full min-h-[80vh] text-gray-500 animate-fade-in overflow-hidden relative">
+           
+           {/* Running Text Container */}
+           <div className="w-full absolute top-10 left-0 overflow-hidden">
+              <div className="animate-marquee whitespace-nowrap">
+                  <span className="text-2xl font-extrabold text-[#5AB2FF] tracking-wide drop-shadow-sm">
+                    {schoolProfile.runningText || "Selamat datang di UPT SD Negeri Remen 2"}
+                  </span>
+              </div>
+           </div>
+
            <div className="relative w-24 h-24 flex items-center justify-center mb-6 animate-bounce">
               <div className="absolute inset-0 bg-[#A0DEFF]/30 rounded-full blur-2xl opacity-60 animate-pulse"></div>
               <img 
@@ -903,6 +913,7 @@ const App: React.FC = () => {
                       onSavePermission={handleSavePermissionRequest}
                       onSaveLiaison={handleSaveLiaison}
                       onSaveKarakter={handleSaveKarakter}
+                      onUpdateStudent={handleUpdateStudent} // NEW: Pass student updater
                    />;
         }
         const teachers = users.filter(u => u.role === 'guru');
@@ -934,6 +945,7 @@ const App: React.FC = () => {
                   onSavePermission={handleSavePermissionRequest}
                   onUpdateLiaisonStatus={handleUpdateLiaisonStatus} // Passed updater
                   classId={activeClassId}
+                  onUpdateStudent={handleUpdateStudent} // NEW: Pass student updater
                />;
       case 'liaison-book': 
         if (isStudentRole) { setCurrentView('dashboard'); return null; }

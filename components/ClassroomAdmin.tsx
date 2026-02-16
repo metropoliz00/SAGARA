@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { 
-  Calendar, ClipboardList, Map, CheckCircle, BookOpen,
+  Calendar, ClipboardList, Map, CheckCircle, BookOpen, Users,
   Printer, FileSpreadsheet, Upload, Download, Loader2, CalendarDays, RefreshCw
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
-import { Student, InventoryItem, Guest, ScheduleItem, PiketGroup, TeacherProfileData, SeatingLayouts, AcademicCalendarData, Holiday } from '../types';
+import { Student, InventoryItem, Guest, ScheduleItem, PiketGroup, TeacherProfileData, SeatingLayouts, AcademicCalendarData, Holiday, OrganizationStructure } from '../types';
 import { DEFAULT_TIME_SLOTS } from '../constants';
 
 // Import Sub-Components
@@ -16,6 +16,7 @@ import SeatingTab from './classroom/SeatingTab';
 import InventoryTab from './classroom/InventoryTab';
 import GuestBookTab from './classroom/GuestBookTab';
 import AcademicCalendarTab from './classroom/AcademicCalendarTab';
+import OrganizationChartTab from './classroom/OrganizationChartTab'; // NEW IMPORT
 
 interface ClassroomAdminProps {
   students?: Student[];
@@ -36,7 +37,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
   classId,
   userRole // Destructure new prop
 }) => {
-  const [activeTab, setActiveTab] = useState<'schedule' | 'piket' | 'seating' | 'inventory' | 'guestbook' | 'calendar'>('schedule');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'piket' | 'seating' | 'inventory' | 'guestbook' | 'calendar' | 'organization'>('schedule');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -48,6 +49,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
   const [seatingLayouts, setSeatingLayouts] = useState<SeatingLayouts>({ classical: [], groups: [], ushape: [] });
   const [academicCalendar, setAcademicCalendar] = useState<AcademicCalendarData>({});
   const [timeSlots, setTimeSlots] = useState<string[]>(DEFAULT_TIME_SLOTS);
+  const [organization, setOrganization] = useState<OrganizationStructure>({ roles: {}, sections: [] }); // NEW STATE
 
   // --- Initial Fetch ---
   useEffect(() => {
@@ -103,6 +105,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
         if (configData.seats) setSeatingLayouts(configData.seats);
         if (configData.academicCalendar) setAcademicCalendar(configData.academicCalendar);
         if (configData.timeSlots && configData.timeSlots.length > 0) setTimeSlots(configData.timeSlots);
+        if (configData.organization) setOrganization(configData.organization); // NEW: Set organization data
 
     } catch (e) {
         console.error("Failed to load classroom data", e);
@@ -216,6 +219,16 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
     }
   };
 
+  const handleSaveOrganization = async (newOrganization: OrganizationStructure) => {
+    setOrganization(newOrganization);
+    try {
+      await apiService.saveClassConfig('ORGANIZATION', newOrganization, classId);
+      onShowNotification("Struktur organisasi berhasil disimpan!", 'success');
+    } catch {
+      onShowNotification("Gagal menyimpan struktur organisasi.", 'error');
+    }
+  };
+
   // --- Utility Functions ---
   const handlePrint = () => {
     window.print();
@@ -239,6 +252,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
                 { id: 'schedule', label: 'Jadwal', icon: Calendar },
                 { id: 'piket', label: 'Piket', icon: ClipboardList },
                 { id: 'seating', label: 'Denah', icon: Map },
+                { id: 'organization', label: 'Struktur', icon: Users },
                 { id: 'calendar', label: 'Kalender', icon: CalendarDays },
                 { id: 'inventory', label: 'Inventaris', icon: CheckCircle },
                 { id: 'guestbook', label: 'Buku Tamu', icon: BookOpen },
@@ -277,6 +291,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
       {activeTab === 'schedule' && <ScheduleTab schedule={schedule} timeSlots={timeSlots} onSave={handleSaveScheduleAndTimes} onShowNotification={onShowNotification} />}
       {activeTab === 'piket' && <PiketTab piketGroups={piketGroups} students={students} onSave={handleSavePiket} />}
       {activeTab === 'seating' && <SeatingTab seatingLayouts={seatingLayouts} setSeatingLayouts={setSeatingLayouts} students={students} onSave={handleSaveSeating} teacherProfile={teacherProfile} />}
+      {activeTab === 'organization' && <OrganizationChartTab students={students} teacherProfile={teacherProfile} initialStructure={organization} onSave={handleSaveOrganization} />}
       {activeTab === 'calendar' && (
           <AcademicCalendarTab 
               initialData={academicCalendar} 
