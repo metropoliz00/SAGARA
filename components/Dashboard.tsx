@@ -42,6 +42,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, []);
 
   const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(currentDate);
+  const formattedTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(currentDate).replace(/\./g, ':');
   const getLocalISODate = (date: Date) => { const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const d = String(date.getDate()).padStart(2, '0'); return `${y}-${m}-${d}`; };
   const formatLongDate = (dateStr: string) => { if (!dateStr) return "-"; try { const date = new Date(dateStr + 'T00:00:00'); if (isNaN(date.getTime())) return dateStr; return new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date); } catch (e) { return dateStr; } };
   const getGreeting = () => { const hour = currentDate.getHours(); if (hour >= 5 && hour < 11) return "Pagi"; if (hour >= 11 && hour < 15) return "Siang"; if (hour >= 15 && hour < 19) return "Sore"; return "Malam"; };
@@ -112,16 +113,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const getRowVariant = (index: number) => {
       const variants = ['bg-white border-gray-100', 'bg-[#FFF9D0]/30 border-amber-100', 'bg-[#CAF4FF]/20 border-blue-100'];
       return variants[index % variants.length];
-  };
-
-  // Theme Helpers for Link Cards
-  const getLinkCardStyle = (index: number) => {
-      const styles = [
-          'bg-white border-gray-200 hover:border-[#5AB2FF]', 
-          'bg-[#FFF9D0] border-amber-200 hover:border-amber-400',
-          'bg-[#CAF4FF] border-blue-200 hover:border-blue-400'
-      ];
-      return styles[index % styles.length];
   };
 
   const curriculumProgress = useMemo(() => {
@@ -198,9 +189,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <BookOpen size={18} />
                 <span className="text-sm font-bold">{teachingClass ? `Kelas ${teachingClass}` : 'ALL'}</span>
             </div>
-            <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100">
-                <Calendar size={18} className="text-[#5AB2FF]" />
-                <span className="text-sm font-medium text-gray-700 capitalize">{formattedDate}</span>
+            <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100">
+                <Calendar size={24} className="text-[#5AB2FF] shrink-0" />
+                <div>
+                    <p className="text-lg font-bold text-gray-800 tabular-nums tracking-wider">{formattedTime}</p>
+                    <p className="text-xs font-medium text-gray-500 capitalize">{formattedDate}</p>
+                </div>
             </div>
             </div>
         </div>
@@ -215,9 +209,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     href={link.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className={`flex flex-col items-center justify-center p-3 w-24 h-24 rounded-xl transition-all border shadow-sm hover:-translate-y-1 hover:shadow-md group text-center ${
-                        getLinkCardStyle(index)
-                    }`}
+                    className="flex flex-col items-center justify-center p-3 w-24 h-24 rounded-xl transition-all border-2 bg-white border-[#CAF4FF] hover:border-[#5AB2FF] shadow-sm hover:-translate-y-1 hover:shadow-lg group text-center"
                   >
                     <div className="w-10 h-10 mb-2 rounded-lg bg-white shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform">
                        {link.icon ? (
@@ -235,8 +227,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Summary Widgets - Themed */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* 1. Total Siswa (Ocean Blue) */}
-            <div onClick={() => onChangeView('students')} className="bg-[#5AB2FF] text-white p-5 rounded-2xl shadow-lg shadow-blue-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
+            {/* 1. Total Siswa (Ocean Blue Gradient) */}
+            <div onClick={() => onChangeView('students')} className="bg-gradient-to-br from-[#5AB2FF] to-[#A0DEFF] text-white p-5 rounded-2xl shadow-lg shadow-blue-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
                 <div className="flex justify-between items-start">
                     <div>
                     <p className="text-sm font-medium text-blue-100 mb-1">Total Siswa</p>
@@ -250,20 +242,20 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {/* 2. Attendance (Sky Blue) */}
-            <div onClick={() => onChangeView('attendance')} className="bg-[#A0DEFF] text-white p-5 rounded-2xl shadow-lg shadow-sky-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+            {/* 2. Attendance (Sky Blue Gradient - Dark Text) */}
+            <div onClick={() => onChangeView('attendance')} className="bg-gradient-to-br from-[#A0DEFF] to-white text-slate-800 p-5 rounded-2xl shadow-lg shadow-sky-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                 <div className="flex justify-between items-start">
                     <div>
-                    <p className="text-sm font-medium text-blue-50 mb-1">Kehadiran</p>
+                    <p className="text-sm font-medium text-slate-600 mb-1">Kehadiran</p>
                     <div className="flex items-end gap-2">
                         <h3 className="text-3xl font-bold">
                         {totalStudents > 0 ? Math.round((totalPresent / (totalPresent + totalSick + totalPermit + totalAlpha || 1)) * 100) : 0}%
                         </h3>
                     </div>
                     </div>
-                    <div className="p-2 bg-white/20 rounded-lg"><UserCheck size={20} className="text-white" /></div>
+                    <div className="p-2 bg-slate-800/10 rounded-lg"><UserCheck size={20} className="text-slate-700" /></div>
                 </div>
-                <div className="mt-4 flex space-x-1 text-[10px] font-bold">
+                <div className="mt-4 flex space-x-1 text-[10px] font-bold text-white">
                     <div className="flex-1 bg-emerald-500 rounded-l-md py-1 text-center truncate shadow-sm">H: {totalPresent}</div>
                     <div className="w-10 bg-amber-400 py-1 text-center shadow-sm">S: {totalSick}</div>
                     <div className="w-10 bg-indigo-500 py-1 text-center shadow-sm">I: {totalPermit}</div>
@@ -489,7 +481,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </button>
             </div>
             )}
-            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`p-4 rounded-full shadow-xl text-white transition-all transform hover:scale-110 ${isFabOpen ? 'bg-red-500 rotate-45' : 'bg-[#5AB2FF]'}`}><Plus size={28} /></button>
+            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`p-4 rounded-full shadow-xl text-white transition-all transform hover:scale-110 ${isFabOpen ? 'bg-red-500 rotate-45' : 'bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF]'}`}><Plus size={28} /></button>
         </div>
       </div>
     </div>

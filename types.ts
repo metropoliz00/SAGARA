@@ -68,6 +68,8 @@ export interface Student {
     permit: number;
     alpha: number;
   };
+  
+  teacherNotes?: string; // NEW: Catatan Wali Kelas
 }
 
 export interface Subject {
@@ -177,6 +179,14 @@ export interface EmploymentLink {
   icon?: string; // Base64
 }
 
+// FIX: Add missing SupportDocument interface
+export interface SupportDocument {
+  id: string;
+  classId: string;
+  name: string;
+  url: string;
+}
+
 // NEW: Learning Report Interface (Laporan Pembelajaran - existing)
 export interface LearningReport {
   id: string;
@@ -245,6 +255,7 @@ export interface TeacherProfileData {
   photo?: string; // Base64 Data URL for Profile Picture
 }
 
+// FIX: Add missing properties developerInfo and headmasterSignature
 export interface SchoolProfileData {
   name: string;
   npsn: string;
@@ -255,12 +266,26 @@ export interface SchoolProfileData {
   semester: string;
   regencyLogo?: string; // Base64
   schoolLogo?: string; // Base64
+  runningText?: string; // NEW: Teks Berjalan
+  headmasterSignature?: string;
+  developerInfo?: {
+    name: string;
+    moto: string;
+    photo: string;
+  };
 }
 
 // Data Kalender Pendidikan
 export interface AcademicCalendarData {
   [yearMonth: string]: (string | null)[]; // Key: YYYY-MM, Value: array of 31 day contents
 }
+
+// --- NEW: Struktur Organisasi ---
+export interface OrganizationStructure {
+  roles: Record<string, string | null>; // e.g., { president: 'student123', vicePresident: null, ... }
+  sections: { id: string; name: string }[];
+}
+
 
 // --- Penilaian Sikap & Karakter ---
 
@@ -318,4 +343,5 @@ export interface KarakterAssessment {
 }
 
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore';
+// FIX: Add 'support-docs' to ViewState type for navigation
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs';

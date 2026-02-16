@@ -50,7 +50,7 @@ const StudentList: React.FC<StudentListProps> = ({
   // ID Card Pagination & Zoom State
   const [idCardPage, setIdCardPage] = useState(1);
   const [zoomScale, setZoomScale] = useState(0.8);
-  const CARDS_PER_PAGE = 10; // 2 cols x 5 rows
+  const CARDS_PER_PAGE = 8; // 4 cols x 2 rows
   
   // Custom Modal for Delete Confirmation
   const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, studentId: string | null}>({isOpen: false, studentId: null});
@@ -91,7 +91,17 @@ const StudentList: React.FC<StudentListProps> = ({
 
   const isPhotoError = (url?: string) => url && (url.startsWith('ERROR') || url.startsWith('error'));
 
-  const handlePrint = () => { window.print(); };
+  const handlePrint = () => {
+    if (viewType === 'id-cards') {
+      document.body.classList.add('printing-id-cards');
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('printing-id-cards');
+      }, 1000);
+    } else {
+      window.print();
+    }
+  };
 
   const confirmDelete = () => {
       if (deleteModal.studentId) {
@@ -382,7 +392,7 @@ const StudentList: React.FC<StudentListProps> = ({
 
   // --- Main List View (Grid) ---
   return (
-    <div className={`space-y-6 animate-fade-in relative page-portrait`}>
+    <div className={`space-y-6 animate-fade-in relative ${viewType === 'id-cards' ? '' : 'page-portrait'}`}>
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4 no-print">
         <div><h2 className="text-2xl font-bold text-gray-800">Manajemen Siswa</h2><p className="text-gray-500">Database lengkap profil siswa.</p></div>
         <div className="flex flex-wrap gap-2 justify-end">
@@ -460,9 +470,9 @@ const StudentList: React.FC<StudentListProps> = ({
           </div>
         ) : viewType === 'id-cards' ? (
             /* ID CARD LAYOUT WRAPPER (A4 SIMULATION + PAGINATION) */
-            <div className="p-0 bg-gray-200 min-h-screen flex flex-col items-center pt-8 print:p-0 print:bg-white print:block">
+            <div id="printable-id-section" className="p-0 bg-gray-200 min-h-screen flex flex-col items-center pt-8 print:p-0 print:bg-white print:block">
                 <div className="no-print mb-4 text-center text-gray-500 text-sm">
-                    <p className="font-bold text-gray-700">Tampilan Kartu Presensi</p>
+                    <p className="font-bold text-gray-700">Tampilan Kartu Presensi (Lanskap)</p>
                     <div className="flex items-center justify-center gap-4 mt-2">
                         <button onClick={() => setZoomScale(s => Math.max(0.3, s - 0.1))} className="p-1 rounded bg-white shadow border hover:bg-gray-50"><ZoomOut size={16}/></button>
                         <span className="text-xs font-mono w-12">{Math.round(zoomScale * 100)}%</span>
@@ -472,62 +482,30 @@ const StudentList: React.FC<StudentListProps> = ({
                 </div>
                 
                 <div className="scale-container w-full flex flex-col items-center print:block print:transform-none">
-                    {/* SCREEN PREVIEW: Single Page (10 Cards) */}
+                    {/* SCREEN PREVIEW: Single Page */}
                     <div className="sheet-wrapper print:hidden mb-4">
-                        <div className="sheet-a4" style={{ transform: `scale(${zoomScale})`, transformOrigin: 'top center', marginBottom: `-${(1 - zoomScale) * 40}%` }}>
+                        <div className="sheet-a4" style={{ transform: `scale(${zoomScale})`, transformOrigin: 'top center', marginBottom: `-${(1 - zoomScale) * 20}%` }}>
                             {currentIdCardStudents.map((student) => (
-                                <div key={student.id} className="id-card-container w-[90mm] h-[53mm] relative overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col rounded-xl">
-                                    {/* HEADER */}
-                                    <div className="h-[12mm] w-full bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] flex flex-row items-center px-3 justify-between text-white shadow-sm">
-                                        <div className="flex flex-col">
-                                            <h3 className="text-[10px] font-extrabold uppercase tracking-wide leading-tight">KARTU ABSENSI</h3>
-                                            <p className="text-[7px] font-medium uppercase opacity-90">{schoolProfile?.name || 'SEKOLAH DASAR'}</p>
-                                        </div>
-                                        <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center">
-                                            <div className="w-3 h-3 bg-white rounded-full"></div>
-                                        </div>
+                                <div key={student.id} className="id-card-container w-[65mm] h-[90mm] relative overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col rounded-xl">
+                                    <div className="h-[10mm] w-full bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] flex items-center px-3 justify-between text-white shadow-sm">
+                                        <div className="flex flex-col"><h3 className="text-[9px] font-extrabold uppercase tracking-wide">KARTU ABSENSI</h3><p className="text-[6px] font-medium uppercase opacity-90">{schoolProfile?.name}</p></div>
+                                        <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center"><div className="w-2 h-2 bg-white rounded-full"></div></div>
                                     </div>
-                                    
-                                    {/* BODY */}
-                                    <div className="flex-1 flex items-center p-2 gap-3 bg-white relative z-10">
-                                        {/* Photo Frame */}
-                                        <div className="w-[20mm] h-[26mm] bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                                            {student.photo && !isPhotoError(student.photo) ? (
-                                                <img src={student.photo} alt="Foto" className="w-full h-full object-cover"/>
-                                            ) : (
-                                                <User size={24} className="text-gray-300"/>
-                                            )}
+                                    <div className="flex-1 flex flex-col items-center p-2 gap-2 bg-white relative z-10">
+                                        <div className="w-[40mm] h-[50mm] bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                                            {student.photo && !isPhotoError(student.photo) ? <img src={student.photo} alt="Foto" className="w-full h-full object-cover"/> : <User size={32} className="text-gray-300"/>}
                                         </div>
-                                        
-                                        {/* Info */}
-                                        <div className="flex-1 text-[9px] text-gray-800 leading-tight space-y-1.5">
-                                            <div>
-                                                <span className="block text-[6px] text-gray-400 font-bold uppercase tracking-wider">Nama Lengkap</span>
-                                                <span className="font-bold text-[#1e3a8a] text-[10px] line-clamp-2">{student.name}</span>
-                                            </div>
-                                            <div className="flex gap-4">
-                                                <div>
-                                                    <span className="block text-[6px] text-gray-400 font-bold uppercase tracking-wider">NIS</span>
-                                                    <span className="font-mono font-bold text-gray-600">{student.nis}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="block text-[6px] text-gray-400 font-bold uppercase tracking-wider">NPSN</span>
-                                                    <span className="font-mono font-bold text-gray-600">{schoolProfile?.npsn || '-'}</span>
-                                                </div>
-                                            </div>
+                                        <div className="text-center">
+                                            <span className="font-bold text-[#1e3a8a] text-[11px] line-clamp-2 leading-tight">{student.name}</span>
+                                            <span className="block font-mono font-bold text-gray-500 text-[9px] mt-1">NIS: {student.nis}</span>
                                         </div>
-
-                                        {/* QR Code */}
-                                        <div className="shrink-0 flex flex-col items-center justify-center">
+                                        <div className="mt-auto pb-1">
                                             <div className="p-1 bg-white border border-gray-100 rounded-lg shadow-sm">
-                                                <QRCode value={student.id} size={64} style={{ height: "auto", maxWidth: "100%", width: "16mm" }} viewBox={`0 0 256 256`} />
+                                                <QRCode value={student.id} size={70} style={{ height: "auto", maxWidth: "100%", width: "20mm" }} viewBox={`0 0 256 256`} />
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* FOOTER DECORATION */}
                                     <div className="h-[3mm] w-full bg-[#FFF9D0] absolute bottom-0 left-0 z-0"></div>
-                                    <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-[#CAF4FF] rounded-full opacity-40 z-0 pointer-events-none"></div>
                                 </div>
                             ))}
                         </div>
@@ -535,82 +513,37 @@ const StudentList: React.FC<StudentListProps> = ({
 
                     {/* Pagination Controls */}
                     <div className="no-print flex items-center justify-center gap-4 py-4 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-200 fixed bottom-8 z-30 px-6">
-                        <button 
-                            onClick={goToPrevPage} 
-                            disabled={idCardPage === 1}
-                            className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                            <ChevronLeft size={24} className="text-gray-700"/>
-                        </button>
-                        <span className="font-bold text-gray-700 text-sm">
-                            Halaman {idCardPage} / {totalIdCardPages || 1}
-                        </span>
-                        <button 
-                            onClick={goToNextPage} 
-                            disabled={idCardPage === totalIdCardPages}
-                            className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                            <ChevronRight size={24} className="text-gray-700"/>
-                        </button>
+                        <button onClick={goToPrevPage} disabled={idCardPage === 1} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronLeft size={24} className="text-gray-700"/></button>
+                        <span className="font-bold text-gray-700 text-sm">Halaman {idCardPage} / {totalIdCardPages || 1}</span>
+                        <button onClick={goToNextPage} disabled={idCardPage === totalIdCardPages} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronRight size={24} className="text-gray-700"/></button>
                     </div>
                     
                     {/* PRINT VERSION: Loop ALL Pages (Hidden on Screen) */}
                     <div className="hidden print:block">
                         {allIdCardChunks.map((chunk, pageIndex) => (
-                            <div key={pageIndex} className="sheet-a4 id-card-grid">
+                            <div key={pageIndex} className="sheet-a4">
                                 {chunk.map((student) => (
-                                        <div key={student.id} className="id-card-container w-[90mm] h-[53mm] relative overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col rounded-xl break-inside-avoid page-break-inside-avoid">
-                                            {/* HEADER */}
-                                            <div className="h-[12mm] w-full bg-[#5AB2FF] flex flex-row items-center px-3 justify-between text-white" style={{background: '#5AB2FF', WebkitPrintColorAdjust: 'exact'}}>
-                                                <div className="flex flex-col">
-                                                    <h3 className="text-[10px] font-extrabold uppercase tracking-wide leading-tight">KARTU ABSENSI</h3>
-                                                    <p className="text-[7px] font-medium uppercase opacity-90">{schoolProfile?.name || 'SEKOLAH DASAR'}</p>
-                                                </div>
-                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center border border-white/30">
-                                                    <div className="w-3 h-3 bg-white rounded-full"></div>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* BODY */}
-                                            <div className="flex-1 flex items-center p-2 gap-3 bg-white relative z-10">
-                                                {/* Photo Frame */}
-                                                <div className="w-[20mm] h-[26mm] bg-gray-50 rounded-lg border border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
-                                                    {student.photo && !isPhotoError(student.photo) ? (
-                                                        <img src={student.photo} alt="Foto" className="w-full h-full object-cover"/>
-                                                    ) : (
-                                                        <div className="text-gray-300 text-[8px]">FOTO</div>
-                                                    )}
-                                                </div>
-                                                
-                                                {/* Info */}
-                                                <div className="flex-1 text-[9px] text-gray-800 leading-tight space-y-1.5">
-                                                    <div>
-                                                        <span className="block text-[6px] text-gray-500 font-bold uppercase tracking-wider">Nama Lengkap</span>
-                                                        <span className="font-bold text-[#1e3a8a] text-[10px] line-clamp-2">{student.name}</span>
-                                                    </div>
-                                                    <div className="flex gap-4">
-                                                        <div>
-                                                            <span className="block text-[6px] text-gray-500 font-bold uppercase tracking-wider">NIS</span>
-                                                            <span className="font-mono font-bold text-gray-700">{student.nis}</span>
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-[6px] text-gray-500 font-bold uppercase tracking-wider">NPSN</span>
-                                                            <span className="font-mono font-bold text-gray-700">{schoolProfile?.npsn || '-'}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* QR Code */}
-                                                <div className="shrink-0 flex flex-col items-center justify-center">
-                                                    <div className="p-1 bg-white border border-gray-300 rounded-lg">
-                                                        <QRCode value={student.id} size={64} style={{ height: "auto", maxWidth: "100%", width: "16mm" }} viewBox={`0 0 256 256`} />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* FOOTER DECORATION */}
-                                            <div className="h-[3mm] w-full bg-[#FFF9D0] absolute bottom-0 left-0 z-0 border-t border-gray-100" style={{background: '#FFF9D0', WebkitPrintColorAdjust: 'exact'}}></div>
+                                    <div key={student.id} className="id-card-container w-[65mm] h-[90mm] relative overflow-hidden bg-white border border-gray-300 flex flex-col rounded-xl break-inside-avoid">
+                                        <div className="h-[10mm] w-full bg-[#5AB2FF] flex items-center px-3 justify-between text-white" style={{background: '#5AB2FF', WebkitPrintColorAdjust: 'exact'}}>
+                                            <div className="flex flex-col"><h3 className="text-[9px] font-extrabold uppercase">KARTU ABSENSI</h3><p className="text-[6px] font-medium uppercase opacity-90">{schoolProfile?.name}</p></div>
+                                            <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center border border-white/30"><div className="w-2 h-2 bg-white rounded-full"></div></div>
                                         </div>
+                                        <div className="flex-1 flex flex-col items-center p-2 gap-2 bg-white relative z-10">
+                                            <div className="w-[40mm] h-[50mm] bg-gray-100 border border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
+                                                {student.photo && !isPhotoError(student.photo) ? <img src={student.photo} alt="Foto" className="w-full h-full object-cover"/> : <div className="text-gray-400 text-[8px]">FOTO</div>}
+                                            </div>
+                                            <div className="text-center">
+                                                <span className="font-bold text-black text-[11px] line-clamp-2 leading-tight">{student.name}</span>
+                                                <span className="block font-mono font-bold text-gray-700 text-[9px] mt-1">NIS: {student.nis}</span>
+                                            </div>
+                                            <div className="mt-auto pb-1">
+                                                <div className="p-1 bg-white border border-gray-300 rounded-lg">
+                                                    <QRCode value={student.id} size={70} style={{ height: "auto", maxWidth: "100%", width: "20mm" }} viewBox={`0 0 256 256`} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="h-[3mm] w-full bg-[#FFF9D0] absolute bottom-0 left-0 z-0" style={{background: '#FFF9D0', WebkitPrintColorAdjust: 'exact'}}></div>
+                                    </div>
                                 ))}
                             </div>
                         ))}

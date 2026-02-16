@@ -1,0 +1,249 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { Student, TeacherProfileData, OrganizationStructure } from '../../types';
+import { Users, User, GripVertical, Plus, Save, Trash2, PenTool, Loader2, X } from 'lucide-react';
+
+interface OrganizationChartTabProps {
+  students: Student[];
+  teacherProfile?: TeacherProfileData;
+  initialStructure: OrganizationStructure;
+  onSave: (structure: OrganizationStructure) => void;
+}
+
+const PREDEFINED_ROLES = [
+    { id: 'president', label: 'Ketua Kelas' },
+    { id: 'vicePresident', label: 'Wakil Ketua Kelas' },
+    { id: 'secretary1', label: 'Sekretaris 1' },
+    { id: 'secretary2', label: 'Sekretaris 2' },
+    { id: 'treasurer1', label: 'Bendahara 1' },
+    { id: 'treasurer2', label: 'Bendahara 2' },
+];
+
+const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, teacherProfile, initialStructure, onSave }) => {
+    const [structure, setStructure] = useState<OrganizationStructure>(initialStructure || { roles: {}, sections: [] });
+    const [editingSection, setEditingSection] = useState<{id: string, name: string} | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    useEffect(() => {
+        setStructure(initialStructure || { roles: {}, sections: [] });
+    }, [initialStructure]);
+
+    const { unassignedStudents, studentMap } = useMemo(() => {
+        const assignedIds = new Set(Object.values(structure.roles).filter(Boolean));
+        const unassigned = students.filter(s => !assignedIds.has(s.id));
+        const map = new Map(students.map(s => [s.id, s]));
+        return { unassignedStudents: unassigned, studentMap: map };
+    }, [students, structure.roles]);
+
+    const handleDragStart = (e: React.DragEvent, studentId: string, sourceRole: string) => {
+        e.dataTransfer.setData('application/json', JSON.stringify({ studentId, sourceRole }));
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDrop = (e: React.DragEvent, targetRole: string) => {
+        e.preventDefault();
+        const { studentId, sourceRole } = JSON.parse(e.dataTransfer.getData('application/json'));
+        if (!studentId) return;
+
+        setStructure(prev => {
+            const newRoles = { ...prev.roles };
+            const studentInTarget = newRoles[targetRole]; // Student being replaced
+
+            // 1. Place dragged student into target role
+            newRoles[targetRole] = studentId;
+
+            // 2. Clear student from source role
+            if (sourceRole !== 'unassigned') {
+                newRoles[sourceRole] = null;
+            }
+            
+            // 3. If target was occupied, move the replaced student to the source role (swap)
+            if (studentInTarget && sourceRole !== 'unassigned') {
+                newRoles[sourceRole] = studentInTarget;
+            }
+            
+            return { ...prev, roles: newRoles };
+        });
+    };
+
+    const removeStudentFromRole = (roleId: string) => {
+        setStructure(prev => {
+            const newRoles = { ...prev.roles };
+            delete newRoles[roleId];
+            return { ...prev, roles: newRoles };
+        });
+    };
+
+    const handleAddSection = () => {
+        const newId = `section_${Date.now()}`;
+        setStructure(prev => ({
+            ...prev,
+            sections: [...prev.sections, { id: newId, name: 'Seksi Baru' }]
+        }));
+    };
+
+    const handleUpdateSectionName = () => {
+        if (!editingSection) return;
+        setStructure(prev => ({
+            ...prev,
+            sections: prev.sections.map(s => s.id === editingSection.id ? { ...s, name: editingSection.name } : s)
+        }));
+        setEditingSection(null);
+    };
+
+    const handleDeleteSection = (id: string) => {
+        if(confirm('Hapus seksi ini?')) {
+            setStructure(prev => ({
+                ...prev,
+                roles: Object.fromEntries(Object.entries(prev.roles).filter(([key]) => key !== id)),
+                sections: prev.sections.filter(s => s.id !== id)
+            }));
+        }
+    };
+    
+    const handleSave = async () => {
+        setIsSaving(true);
+        await onSave(structure);
+        setIsSaving(false);
+    };
+    
+    const RoleBox = ({ roleId, label }: { roleId: string; label: string }) => {
+        const studentId = structure.roles[roleId];
+        const student = studentId ? studentMap.get(studentId) : null;
+        return (
+            <div 
+                className="flex flex-col items-center"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDrop(e, roleId)}
+            >
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+                <div className={`w-32 h-20 mt-1 rounded-lg flex items-center justify-center p-2 text-center transition-all ${student ? 'bg-white shadow-md border-2 border-indigo-200 cursor-grab active:cursor-grabbing' : 'bg-gray-100 border-2 border-dashed border-gray-300'}`}>
+                    {student ? (
+                        <div 
+                            className="w-full h-full flex flex-col items-center" 
+                            draggable 
+                            onDragStart={(e) => handleDragStart(e, student.id, roleId)}
+                            title={student.name}
+                        >
+                            <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover"/>
+                            <p className="text-xs font-bold text-gray-800 mt-1 leading-tight">{student.name.split(' ').slice(0, 2).join(' ')}</p>
+                        </div>
+                    ) : <span className="text-xs text-gray-400">Tarik Siswa</span>}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 print:block">
+            {/* Student List */}
+            <div className="lg:w-72 shrink-0 bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-fit no-print">
+                <h3 className="font-bold text-gray-800 mb-2">Siswa Belum Ditugaskan ({unassignedStudents.length})</h3>
+                <div 
+                    className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar p-1 bg-gray-50 rounded-lg"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => removeStudentFromRole(JSON.parse(e.dataTransfer.getData('application/json')).sourceRole)}
+                >
+                    {unassignedStudents.map(student => (
+                        <div key={student.id} draggable onDragStart={(e) => handleDragStart(e, student.id, 'unassigned')} className="bg-white border p-2 rounded-lg flex items-center gap-2 cursor-grab active:cursor-grabbing hover:shadow-md">
+                            <GripVertical size={14} className="text-gray-400" />
+                            <span className="text-xs font-medium">{student.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Organization Chart */}
+            <div className="flex-1 print-container">
+                <div className="flex justify-end mb-4 no-print">
+                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 disabled:opacity-50">
+                        <Save size={16} /> {isSaving ? 'Menyimpan...' : 'Simpan Struktur'}
+                    </button>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm min-h-[600px] text-center">
+                    <h3 className="font-bold text-xl uppercase mb-8">Struktur Organisasi Kelas</h3>
+                    
+                    {/* Level 1: Guru */}
+                    <div className="flex justify-center mb-4">
+                        <div className="flex flex-col items-center">
+                            <span className="text-xs font-bold text-gray-400 uppercase">Guru Kelas</span>
+                            <div className="w-40 h-24 mt-1 rounded-lg flex items-center justify-center p-2 text-center bg-amber-100 border-2 border-amber-200 shadow-lg">
+                                <div className="flex flex-col items-center" title={teacherProfile?.name}>
+                                    <img src={teacherProfile?.photo} alt={teacherProfile?.name} className="w-10 h-10 rounded-full object-cover"/>
+                                    <p className="text-xs font-bold text-gray-800 mt-1 leading-tight">{teacherProfile?.name?.split(' ').slice(0, 2).join(' ')}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Connecting Line */}
+                    <div className="w-px h-8 bg-gray-300 mx-auto"></div>
+                    
+                    {/* Level 2: Ketua Kelas */}
+                    <div className="flex justify-center mb-4">
+                        <RoleBox roleId="president" label="Ketua Kelas" />
+                    </div>
+
+                    {/* Connecting Line */}
+                    <div className="w-px h-8 bg-gray-300 mx-auto"></div>
+
+                    {/* Level 3: Wakil Ketua Kelas */}
+                    <div className="flex justify-center mb-4">
+                        <RoleBox roleId="vicePresident" label="Wakil Ketua" />
+                    </div>
+                    
+                    {/* Connecting Lines */}
+                    <div className="w-1/2 h-8 border-l border-r border-t border-gray-300 mx-auto"></div>
+                    
+                    {/* Level 4: Sekretaris & Bendahara */}
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="bg-gray-50 p-3 rounded-lg border">
+                            <h4 className="font-bold mb-2">Sekretaris</h4>
+                            <div className="flex justify-around"><RoleBox roleId="secretary1" label="Sekretaris 1" /><RoleBox roleId="secretary2" label="Sekretaris 2" /></div>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg border">
+                            <h4 className="font-bold mb-2">Bendahara</h4>
+                            <div className="flex justify-around"><RoleBox roleId="treasurer1" label="Bendahara 1" /><RoleBox roleId="treasurer2" label="Bendahara 2" /></div>
+                        </div>
+                    </div>
+
+                    {/* Level 5: Seksi */}
+                    <div className="border-t pt-6">
+                        <h4 className="font-bold mb-4">Seksi - Seksi</h4>
+                        <div className="flex flex-wrap justify-center gap-6">
+                            {structure.sections.map(section => (
+                                <div key={section.id} className="relative group">
+                                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity no-print">
+                                        <button onClick={() => setEditingSection(section)} className="p-1 bg-white rounded-full shadow border text-gray-500 hover:text-indigo-600"><PenTool size={12}/></button>
+                                        <button onClick={() => handleDeleteSection(section.id)} className="p-1 bg-white rounded-full shadow border text-gray-500 hover:text-red-600"><Trash2 size={12}/></button>
+                                    </div>
+                                    <RoleBox roleId={section.id} label={section.name} />
+                                </div>
+                            ))}
+                            <div className="flex flex-col items-center no-print">
+                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">&nbsp;</span>
+                                <button onClick={handleAddSection} className="w-32 h-20 mt-1 rounded-lg flex items-center justify-center p-2 text-center transition-all bg-gray-100 border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-white text-gray-400 hover:text-indigo-500">
+                                    <Plus size={24}/>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {editingSection && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setEditingSection(null)}>
+                    <div className="bg-white p-4 rounded-lg shadow-lg flex gap-2" onClick={e => e.stopPropagation()}>
+                        <input 
+                            value={editingSection.name} 
+                            onChange={e => setEditingSection({...editingSection, name: e.target.value})}
+                            className="border p-2 rounded"
+                        />
+                        <button onClick={handleUpdateSectionName} className="bg-indigo-500 text-white px-4 rounded">Simpan</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default OrganizationChartTab;

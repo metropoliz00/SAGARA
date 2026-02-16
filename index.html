@@ -66,6 +66,42 @@
         animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
 
+      /* NEW: Soft float animation for logo */
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-6px); }
+        100% { transform: translateY(0px); }
+      }
+      .animate-float {
+        animation: float 4s ease-in-out infinite;
+      }
+
+      /* NEW: Animations for Developer FAB */
+      @keyframes slide-in-right {
+        from { transform: translateX(100px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      .animate-slide-in-right {
+          animation: slide-in-right 0.7s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
+      }
+      @keyframes slide-right-left {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(-8px); }
+      }
+      .animate-slide-rl {
+        animation: slide-right-left 3s ease-in-out infinite 1s; /* Start after 1s delay */
+      }
+
+      /* NEW: Running Text Animation */
+      @keyframes marquee {
+        from { transform: translateX(100%); }
+        to { transform: translateX(-100%); }
+      }
+      .animate-marquee {
+        animation: marquee 15s linear infinite;
+      }
+
+
       /* PRINT STYLES GLOBAL */
       @media print {
         @page {
@@ -107,21 +143,25 @@
 
         /* A4 Sheet Simulation Reset for Print */
         .sheet-a4 {
-            width: 210mm !important;
-            height: 297mm !important;
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
-            padding: 10mm !important; /* Margin kertas 1cm */
+            padding: 0 !important;
             page-break-after: always;
             box-shadow: none !important;
             border: none !important;
             transform: none !important; /* Reset scale for print */
             overflow: visible !important;
             display: grid !important; /* Ensure grid is active in print */
+            grid-template-columns: repeat(4, 1fr) !important;
+            grid-template-rows: repeat(2, 1fr) !important;
+            gap: 5mm !important; 
+            align-content: start;
         }
 
         .id-card-grid {
            display: grid !important;
-           grid-template-columns: repeat(2, 1fr) !important;
+           grid-template-columns: repeat(4, 1fr) !important;
            gap: 5mm !important; /* Jarak antar kartu */
            align-content: start;
         }
@@ -144,16 +184,16 @@
           }
           
           .sheet-a4 {
-              width: 210mm;
-              height: 297mm; /* Fixed height for consistency */
+              width: 297mm; /* A4 Landscape width */
+              height: 210mm; /* A4 Landscape height */
               background: white;
               padding: 10mm;
               box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
               
               /* Grid Layout on Screen matches Print */
               display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              grid-template-rows: repeat(5, 1fr); /* 5 Rows exactly */
+              grid-template-columns: repeat(4, 1fr);
+              grid-template-rows: repeat(2, 1fr);
               gap: 5mm; 
               align-content: start;
           }
@@ -204,6 +244,31 @@
 
         body.printing-report-log #printable-report-section {
           page: report-log-page;
+        }
+        
+        /* NEW: Force Landscape for ID Card Printing */
+        @page id-card-page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
+        body.printing-id-cards #printable-id-section {
+            page: id-card-page;
+        }
+        body.printing-id-cards * {
+            visibility: hidden;
+        }
+        body.printing-id-cards #printable-id-section,
+        body.printing-id-cards #printable-id-section * {
+            visibility: visible;
+        }
+        body.printing-id-cards #printable-id-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: auto;
+            margin: 0;
+            padding: 0;
         }
       }
     </style>
