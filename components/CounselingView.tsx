@@ -123,13 +123,13 @@ const CounselingView: React.FC<CounselingViewProps> = ({ students, logs, onCreat
             <p className="text-gray-500">Monitoring perilaku, prestasi, dan bimbingan siswa.</p>
          </div>
          <div className="flex gap-2">
-            <button onClick={()=>openModal('positive')} className="flex items-center bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-600 shadow-md transition-all">
+            <button onClick={()=>openModal('positive')} className="flex items-center bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow-md transition-all">
                 <Star size={18} className="mr-2"/> Input Prestasi
             </button>
-            <button onClick={()=>openModal('negative')} className="flex items-center bg-rose-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-rose-600 shadow-md transition-all">
+            <button onClick={()=>openModal('negative')} className="flex items-center bg-rose-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-rose-700 shadow-md transition-all">
                 <AlertTriangle size={18} className="mr-2"/> Input Pelanggaran
             </button>
-            <button onClick={()=>openModal('counseling')} className="flex items-center bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-600 shadow-md transition-all">
+            <button onClick={()=>openModal('counseling')} className="flex items-center bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition-all">
                 <HeartHandshake size={18} className="mr-2"/> Catat Konseling
             </button>
          </div>
@@ -139,7 +139,7 @@ const CounselingView: React.FC<CounselingViewProps> = ({ students, logs, onCreat
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
          <div 
             onClick={() => setActiveFilter('all')}
-            className={`bg-gradient-to-br from-[#5AB2FF] to-[#A0DEFF] text-white p-5 rounded-2xl shadow-lg shadow-blue-200 cursor-pointer transition-all hover:-translate-y-1`}
+            className={`bg-[#5AB2FF] text-white p-5 rounded-2xl shadow-lg shadow-blue-200 cursor-pointer transition-all hover:-translate-y-1`}
          >
             <div className="flex justify-between items-start">
                <div>
@@ -152,11 +152,11 @@ const CounselingView: React.FC<CounselingViewProps> = ({ students, logs, onCreat
 
          <div 
             onClick={() => setActiveFilter('positive')}
-            className={`bg-emerald-500 text-white p-5 rounded-2xl shadow-lg shadow-emerald-200 cursor-pointer transition-all hover:-translate-y-1`}
+            className={`bg-[#A0DEFF] text-white p-5 rounded-2xl shadow-lg shadow-sky-200 cursor-pointer transition-all hover:-translate-y-1`}
          >
             <div className="flex justify-between items-start">
                <div>
-                  <p className="text-sm text-emerald-100 font-medium">Perilaku Positif</p>
+                  <p className="text-sm text-blue-50 font-medium">Perilaku Positif</p>
                   <h3 className="text-3xl font-bold">{stats.positive}</h3>
                </div>
                <div className="p-2 bg-white/20 rounded-lg"><TrendingUp size={20} className="text-white"/></div>
@@ -340,7 +340,7 @@ const CounselingView: React.FC<CounselingViewProps> = ({ students, logs, onCreat
                   </div>
                   <div className="p-4 bg-gray-50 border-t flex justify-end gap-3">
                       <button onClick={()=>setIsModalOpen(false)} className="px-4 py-2 rounded-lg border">Batal</button>
-                      <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg">Simpan Jurnal</button>
+                      <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg">Simpan Jurnal</button>
                   </div>
               </div>
           </div>

@@ -66,32 +66,16 @@
         animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
 
-      /* NEW: Soft float animation for logo */
-      @keyframes float {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-6px); }
-        100% { transform: translateY(0px); }
+      /* Running Text Animation */
+      @keyframes marquee {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
       }
-      .animate-float {
-        animation: float 4s ease-in-out infinite;
+      .animate-marquee {
+        display: inline-block;
+        animation: marquee 12s linear infinite;
+        white-space: nowrap;
       }
-
-      /* NEW: Animations for Developer FAB */
-      @keyframes slide-in-right {
-        from { transform: translateX(100px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-      .animate-slide-in-right {
-          animation: slide-in-right 0.7s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
-      }
-      @keyframes slide-right-left {
-        0%, 100% { transform: translateX(0); }
-        50% { transform: translateX(-8px); }
-      }
-      .animate-slide-rl {
-        animation: slide-right-left 3s ease-in-out infinite 1s; /* Start after 1s delay */
-      }
-
 
       /* PRINT STYLES GLOBAL */
       @media print {

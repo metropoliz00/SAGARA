@@ -22,9 +22,8 @@ import StudentMonitor from './components/StudentMonitor';
 import LiaisonBookView from './components/LiaisonBookView'; 
 import StudentPortal from './components/StudentPortal'; 
 import BackupRestore from './components/BackupRestore';
-import SupportDocumentsView from './components/SupportDocumentsView';
 import CustomModal from './components/CustomModal'; 
-import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument } from './types';
+import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry } from './types';
 import { MOCK_SUBJECTS, MOCK_STUDENTS, MOCK_EXTRACURRICULARS } from './constants';
 import { apiService } from './services/apiService';
 import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X } from 'lucide-react';
@@ -67,7 +66,6 @@ const App: React.FC = () => {
   const [learningReports, setLearningReports] = useState<LearningReport[]>([]);
   const [liaisonLogs, setLiaisonLogs] = useState<LiaisonLog[]>([]);
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]); 
-  const [supportDocuments, setSupportDocuments] = useState<SupportDocument[]>([]);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'warning'} | null>(null);
   
   // -- NEW STATE: Navigation Target for Journal --
@@ -94,8 +92,7 @@ const App: React.FC = () => {
     name: 'Guru', nip: '', nuptk: '', birthInfo: '', education: '', position: '', rank: '', teachingClass: '', phone: '', email: '', address: ''
   });
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>({
-    name: 'Sekolah', npsn: '', address: '', headmaster: '', headmasterNip: '', headmasterSignature: '', year: new Date().getFullYear().toString(), semester: '1',
-    developerInfo: { name: '', moto: '', photo: '' }
+    name: 'Sekolah', npsn: '', address: '', headmaster: '', headmasterNip: '', year: new Date().getFullYear().toString(), semester: '1'
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,18 +137,11 @@ const App: React.FC = () => {
       }
   }, [currentView, currentUser]);
 
-  const canSelectClass = useMemo(() => {
-    if (!currentUser) return false;
-    return currentUser.role === 'admin' || 
-           currentUser.role === 'supervisor' || 
-           (currentUser.role === 'guru' && String(currentUser.classId).toUpperCase() === 'ALL');
-  }, [currentUser]);
-
   useEffect(() => {
-      if (canSelectClass && selectedClassId) {
+      if ((currentUser?.role === 'admin' || currentUser?.role === 'supervisor') && selectedClassId) {
           localStorage.setItem('sagara_classId', selectedClassId);
       }
-  }, [selectedClassId, canSelectClass]);
+  }, [selectedClassId, currentUser]);
 
   const handleLogout = () => {
       setCurrentUser(null);
@@ -205,7 +195,7 @@ const App: React.FC = () => {
   // -- Initialize Selected Class ID based on User Role --
   useEffect(() => {
     if (currentUser) {
-        if (canSelectClass) {
+        if (currentUser.role === 'admin' || currentUser.role === 'supervisor') {
             const currentStr = String(selectedClassId || '');
             const isValid = selectedClassId && availableClasses.some(c => String(c).toUpperCase() === currentStr.toUpperCase());
             // Only auto-select if no valid selection exists and list is populated
@@ -216,11 +206,10 @@ const App: React.FC = () => {
             setCurrentView('dashboard'); 
             if (currentUser.classId) setSelectedClassId(String(currentUser.classId));
         } else {
-            // Homeroom teacher
             setSelectedClassId(String(currentUser.classId || ''));
         }
     }
-  }, [currentUser, availableClasses, selectedClassId, canSelectClass]);
+  }, [currentUser, availableClasses, selectedClassId]);
 
   // -- CALCULATE ADMINISTRATION COMPLETENESS --
   useEffect(() => {
@@ -259,14 +248,10 @@ const App: React.FC = () => {
     if (currentUser.role === 'admin') return { isGlobalReadOnly: false, allowedSubjects: ['all'] };
     if (currentUser.role === 'supervisor') return { isGlobalReadOnly: true, allowedSubjects: ['all'] }; // Supervisor Read-Only Global
     if (currentUser.role === 'siswa') return { isGlobalReadOnly: true, allowedSubjects: [] };
-    
-    // For 'guru' role
     const pos = (currentUser.position || '').toLowerCase();
-    if (pos.includes('pai') || pos.includes('agama')) return { isGlobalReadOnly: false, allowedSubjects: ['pai'] };
-    if (pos.includes('pjok') || pos.includes('olahraga')) return { isGlobalReadOnly: false, allowedSubjects: ['pjok'] };
-    if (pos.includes('inggris')) return { isGlobalReadOnly: false, allowedSubjects: ['inggris'] };
-    
-    // Default for homeroom teachers
+    if (pos.includes('pai') || pos.includes('agama')) return { isGlobalReadOnly: true, allowedSubjects: ['pai'] };
+    if (pos.includes('pjok') || pos.includes('olahraga')) return { isGlobalReadOnly: true, allowedSubjects: ['pjok'] };
+    if (pos.includes('inggris')) return { isGlobalReadOnly: true, allowedSubjects: ['inggris'] };
     return { isGlobalReadOnly: false, allowedSubjects: ['all'] };
   }, [currentUser]);
 
@@ -279,8 +264,8 @@ const App: React.FC = () => {
 
   const activeClassId = useMemo(() => {
     if (!currentUser) return '';
-    return canSelectClass ? selectedClassId : String(currentUser.classId || '');
-  }, [currentUser, selectedClassId, canSelectClass]);
+    return (currentUser.role === 'admin' || currentUser.role === 'supervisor') ? selectedClassId : String(currentUser.classId || '');
+  }, [currentUser, selectedClassId]);
 
   const filteredStudents = useMemo(() => students.filter(s => isClassMatch(s.classId, activeClassId)), [students, activeClassId]);
   const filteredAgendas = useMemo(() => agendas.filter(a => isClassMatch(a.classId, activeClassId)), [agendas, activeClassId]);
@@ -303,7 +288,6 @@ const App: React.FC = () => {
   const filteredKarakter = useMemo(() => karakterAssessments.filter(k => isClassMatch(k.classId, activeClassId)), [karakterAssessments, activeClassId]);
   const filteredHolidays = useMemo(() => holidays.filter(h => isClassMatch(h.classId, activeClassId)), [holidays, activeClassId]);
   const filteredReports = useMemo(() => learningReports.filter(r => isClassMatch(r.classId, activeClassId)), [learningReports, activeClassId]);
-  const filteredSupportDocuments = useMemo(() => supportDocuments.filter(d => isClassMatch(d.classId, activeClassId)), [supportDocuments, activeClassId]);
   
   const filteredLiaison = useMemo(() => {
       return liaisonLogs.filter(l => {
@@ -711,35 +695,6 @@ const App: React.FC = () => {
       const reqs = await apiService.getPermissionRequests(currentUser);
       setPermissionRequests(reqs);
   };
-
-  const handleSaveSupportDocument = async (doc: Omit<SupportDocument, 'id'> | SupportDocument) => {
-    if (isDemoMode) {
-      const newDoc = { ...doc, id: (doc as any).id || `doc-${Date.now()}` } as SupportDocument;
-      setSupportDocuments(prev => {
-        const exists = prev.find(d => d.id === newDoc.id);
-        if (exists) return prev.map(d => d.id === newDoc.id ? newDoc : d);
-        return [newDoc, ...prev];
-      });
-      handleShowNotification('Dokumen disimpan (Demo).', 'success');
-      return;
-    }
-    await apiService.saveSupportDocument(doc);
-    handleShowNotification('Dokumen berhasil disimpan.', 'success');
-    await fetchData();
-  };
-
-  const handleDeleteSupportDocument = async (id: string) => {
-    showConfirm('Hapus dokumen ini?', async () => {
-      if (isDemoMode) {
-        setSupportDocuments(prev => prev.filter(d => d.id !== id));
-        handleShowNotification('Dokumen dihapus (Demo).', 'success');
-        return;
-      }
-      await apiService.deleteSupportDocument(id, activeClassId);
-      handleShowNotification('Dokumen berhasil dihapus.', 'success');
-      await fetchData();
-    });
-  };
   
   const fetchData = async () => {
     // ... (fetchData implementation unchanged)
@@ -759,7 +714,7 @@ const App: React.FC = () => {
     }
 
     try {
-      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions, fSupportDocs] = await Promise.all([
+      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions] = await Promise.all([
         currentUser?.role === 'admin' ? apiService.getUsers(currentUser) : Promise.resolve([]),
         apiService.getStudents(currentUser),
         apiService.getAgendas(currentUser),
@@ -774,8 +729,7 @@ const App: React.FC = () => {
         apiService.getEmploymentLinks(),
         apiService.getLearningReports(selectedClassId),
         apiService.getLiaisonLogs(currentUser), 
-        apiService.getPermissionRequests(currentUser),
-        apiService.getSupportDocuments(currentUser),
+        apiService.getPermissionRequests(currentUser), 
       ]);
       
       setUsers(fUsers);
@@ -790,7 +744,6 @@ const App: React.FC = () => {
       setEmploymentLinks(fLinks);
       setLearningReports(fReports);
       setLiaisonLogs(fLiaison);
-      setSupportDocuments(fSupportDocs);
       
       const hydratedPermissions = fPermissions.map((p: any) => ({
           ...p,
@@ -859,7 +812,17 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex flex-col items-center justify-center h-full min-h-[80vh] text-gray-500 animate-fade-in">
+        <div className="flex flex-col items-center justify-center h-full min-h-[80vh] text-gray-500 animate-fade-in overflow-hidden relative">
+           
+           {/* Running Text Container */}
+           <div className="w-full absolute top-10 left-0 overflow-hidden">
+              <div className="animate-marquee whitespace-nowrap">
+                  <span className="text-2xl font-extrabold text-[#5AB2FF] tracking-wide drop-shadow-sm">
+                    Selamat datang di UPT SD Negeri Remen 2
+                  </span>
+              </div>
+           </div>
+
            <div className="relative w-24 h-24 flex items-center justify-center mb-6 animate-bounce">
               <div className="absolute inset-0 bg-[#A0DEFF]/30 rounded-full blur-2xl opacity-60 animate-pulse"></div>
               <img 
@@ -1066,16 +1029,6 @@ const App: React.FC = () => {
                   classId={activeClassId}
                   userRole={currentUser.role} // NEW: Pass user role
                 />;
-      case 'support-docs':
-        if (isStudentRole) { setCurrentView('dashboard'); return null; }
-        return <SupportDocumentsView
-                  documents={filteredSupportDocuments}
-                  onSave={handleSaveSupportDocument}
-                  onDelete={handleDeleteSupportDocument}
-                  onShowNotification={handleShowNotification}
-                  classId={activeClassId}
-                  isReadOnly={isGlobalReadOnly}
-                />;
       case 'employment-links': 
         if (currentUser.role !== 'admin') {
            setCurrentView('dashboard');
@@ -1181,7 +1134,7 @@ const App: React.FC = () => {
               </h1>
             </div>
 
-            {canSelectClass && (
+            {(isAdminRole || isSupervisor) && (
                 <div className="hidden lg:flex items-center bg-[#CAF4FF]/30 border border-[#A0DEFF]/50 rounded-lg px-3 py-1.5 shadow-sm">
                     <Filter size={14} className="text-[#5AB2FF] mr-2" />
                     <span className="text-xs font-bold text-gray-500 uppercase mr-2">Pilih Kelas:</span>
@@ -1236,7 +1189,9 @@ const App: React.FC = () => {
                     </div>
                     <div className="hidden md:flex flex-col items-start mr-2">
                         <span className="text-xs font-bold text-gray-700">{currentUser?.fullName}</span>
-                        <span className="text-[10px] text-gray-500 capitalize">{currentUser?.role}</span>
+                        <span className="text-[10px] text-gray-500 capitalize">
+                            {currentUser?.role === 'supervisor' ? 'Kepala Sekolah' : currentUser?.role}
+                        </span>
                     </div>
                     <ChevronDown size={16} className={`text-gray-400 transition-transform duration-300 hidden md:block ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -1269,7 +1224,7 @@ const App: React.FC = () => {
         </header>
 
         {/* Mobile Filter for Admin/Supervisor */}
-        {canSelectClass && (
+        {(isAdminRole || isSupervisor) && (
             <div className="lg:hidden bg-white border-b px-4 py-2 flex items-center justify-center shadow-sm relative z-20">
                 <span className="text-xs font-bold text-gray-500 uppercase mr-2">Kelas Aktif:</span>
                 <select 

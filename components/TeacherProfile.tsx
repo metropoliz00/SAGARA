@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, User, Building, Printer, FileText, Loader2, Code } from 'lucide-react';
+import { Save, User, Building, Printer, FileText, Loader2 } from 'lucide-react';
 import { TeacherProfileData, SchoolProfileData } from '../types';
 
 // Import Sub-Components
 import TeacherIdentityTab from './profile/TeacherIdentityTab';
 import SchoolDataTab from './profile/SchoolDataTab';
-import DeveloperInfoTab from './profile/DeveloperInfoTab';
 
 interface TeacherProfileProps {
   initialTeacher: TeacherProfileData;
@@ -16,10 +15,8 @@ interface TeacherProfileProps {
   userRole?: string;
 }
 
-type ProfileTab = 'profile' | 'school' | 'developer';
-
 const TeacherProfile: React.FC<TeacherProfileProps> = ({ initialTeacher, initialSchool, onSave, onShowNotification, userRole }) => {
-  const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'school'>('profile');
   const [isSaving, setIsSaving] = useState(false);
   
   const [profile, setProfile] = useState<TeacherProfileData>(initialTeacher);
@@ -133,9 +130,9 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ initialTeacher, initial
     try {
       if (activeTab === 'profile') {
         await onSave('teacher', profile);
-      } else if (activeTab === 'school' || activeTab === 'developer') {
+      } else if (activeTab === 'school') {
         if (!canEditSchool) {
-            onShowNotification('Anda tidak memiliki akses untuk mengubah data ini.', 'error');
+            onShowNotification('Anda tidak memiliki akses untuk mengubah data sekolah.', 'error');
             return;
         }
         await onSave('school', school);
@@ -176,15 +173,6 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ initialTeacher, initial
               <Building size={20} />
               <span>Data Sekolah</span>
             </button>
-            {canEditSchool && (
-              <button 
-                onClick={() => setActiveTab('developer')}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'developer' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Code size={20} />
-                <span>Info Pengembang</span>
-              </button>
-            )}
           </div>
 
           <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl shadow-lg p-6 text-white text-center">
@@ -204,30 +192,8 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ initialTeacher, initial
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8 relative overflow-hidden">
              
              {activeTab === 'profile' && <TeacherIdentityTab profile={profile} setProfile={setProfile} onSave={handleSaveProfile} isSaving={isSaving} />}
-             
              {activeTab === 'school' && <SchoolDataTab school={school} setSchool={setSchool} onSave={handleSaveProfile} isSaving={isSaving} isReadOnly={!canEditSchool} />}
-             
-             {activeTab === 'developer' && canEditSchool && (
-                <DeveloperInfoTab 
-                    school={school}
-                    setSchool={setSchool}
-                    isReadOnly={!canEditSchool}
-                />
-             )}
 
-             {/* General Save Button for Developer Tab */}
-             {activeTab === 'developer' && (
-                <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end">
-                    <button 
-                        onClick={handleSaveProfile}
-                        disabled={isSaving}
-                        className="flex items-center space-x-2 bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                        <span>{isSaving ? 'Menyimpan...' : 'Simpan Info Pengembang'}</span>
-                    </button>
-                </div>
-             )}
           </div>
         </div>
       </div>
