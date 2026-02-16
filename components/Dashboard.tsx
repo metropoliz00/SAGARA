@@ -42,6 +42,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, []);
 
   const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(currentDate);
+  const formattedTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(currentDate).replace(/\./g, ':');
   const getLocalISODate = (date: Date) => { const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const d = String(date.getDate()).padStart(2, '0'); return `${y}-${m}-${d}`; };
   const formatLongDate = (dateStr: string) => { if (!dateStr) return "-"; try { const date = new Date(dateStr + 'T00:00:00'); if (isNaN(date.getTime())) return dateStr; return new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date); } catch (e) { return dateStr; } };
   const getGreeting = () => { const hour = currentDate.getHours(); if (hour >= 5 && hour < 11) return "Pagi"; if (hour >= 11 && hour < 15) return "Siang"; if (hour >= 15 && hour < 19) return "Sore"; return "Malam"; };
@@ -198,9 +199,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <BookOpen size={18} />
                 <span className="text-sm font-bold">{teachingClass ? `Kelas ${teachingClass}` : 'ALL'}</span>
             </div>
-            <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100">
-                <Calendar size={18} className="text-[#5AB2FF]" />
-                <span className="text-sm font-medium text-gray-700 capitalize">{formattedDate}</span>
+            <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100">
+                <Calendar size={24} className="text-[#5AB2FF] shrink-0" />
+                <div>
+                    <p className="text-lg font-bold text-gray-800 tabular-nums tracking-wider">{formattedTime}</p>
+                    <p className="text-xs font-medium text-gray-500 capitalize">{formattedDate}</p>
+                </div>
             </div>
             </div>
         </div>

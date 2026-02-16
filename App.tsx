@@ -1228,7 +1228,7 @@ const App: React.FC = () => {
         )}
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 scroll-smooth print:p-0 relative z-10">
-           <div className="max-w-7xl mx-auto print:w-full">
+           <div className="max-w-[1440px] mx-auto print:w-full">
              {error && (
                 <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between no-print">
                    <span className="text-sm flex items-center"><AlertCircle size={16} className="mr-2" /> {error}</span>
