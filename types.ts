@@ -68,6 +68,8 @@ export interface Student {
     permit: number;
     alpha: number;
   };
+  
+  teacherNotes?: string; // NEW: Catatan Wali Kelas
 }
 
 export interface Subject {
@@ -255,6 +257,7 @@ export interface SchoolProfileData {
   semester: string;
   regencyLogo?: string; // Base64
   schoolLogo?: string; // Base64
+  runningText?: string; // NEW: Teks Berjalan
 }
 
 // Data Kalender Pendidikan

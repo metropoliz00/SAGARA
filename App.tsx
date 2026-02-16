@@ -91,9 +91,19 @@ const App: React.FC = () => {
   const [teacherProfile, setTeacherProfile] = useState<TeacherProfileData>({
     name: 'Guru', nip: '', nuptk: '', birthInfo: '', education: '', position: '', rank: '', teachingClass: '', phone: '', email: '', address: ''
   });
-  const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>({
-    name: 'Sekolah', npsn: '', address: '', headmaster: '', headmasterNip: '', year: new Date().getFullYear().toString(), semester: '1'
+  
+  // Initialize schoolProfile from localStorage if available to persist runningText
+  const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(() => {
+      try {
+          const saved = localStorage.getItem('sagara_school_profile');
+          return saved ? JSON.parse(saved) : {
+            name: 'Sekolah', npsn: '', address: '', headmaster: '', headmasterNip: '', year: new Date().getFullYear().toString(), semester: '1', runningText: ''
+          };
+      } catch (e) {
+          return { name: 'Sekolah', npsn: '', address: '', headmaster: '', headmasterNip: '', year: new Date().getFullYear().toString(), semester: '1', runningText: '' };
+      }
   });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -143,6 +153,13 @@ const App: React.FC = () => {
       }
   }, [selectedClassId, currentUser]);
 
+  // Persist School Profile updates
+  useEffect(() => {
+      if (schoolProfile) {
+          localStorage.setItem('sagara_school_profile', JSON.stringify(schoolProfile));
+      }
+  }, [schoolProfile]);
+
   const handleLogout = () => {
       setCurrentUser(null);
       setStudents([]); // Clear data from memory
@@ -154,6 +171,7 @@ const App: React.FC = () => {
       localStorage.removeItem('sagara_view');
       localStorage.removeItem('sagara_classId');
       localStorage.removeItem('sagara_student_tab');
+      // Note: We deliberately do NOT clear 'sagara_school_profile' to keep runningText on logout
       
       setCurrentView('dashboard');
   };
@@ -776,7 +794,9 @@ const App: React.FC = () => {
           }));
       }
 
-      if(fProfiles.school) setSchoolProfile(fProfiles.school);
+      if(fProfiles.school) {
+          setSchoolProfile(fProfiles.school);
+      }
 
     } catch (err: any) {
       console.warn("Gagal memuat data:", err);
@@ -818,7 +838,7 @@ const App: React.FC = () => {
            <div className="w-full absolute top-10 left-0 overflow-hidden">
               <div className="animate-marquee whitespace-nowrap">
                   <span className="text-2xl font-extrabold text-[#5AB2FF] tracking-wide drop-shadow-sm">
-                    Selamat datang di UPT SD Negeri Remen 2
+                    {schoolProfile.runningText || "Selamat datang di UPT SD Negeri Remen 2"}
                   </span>
               </div>
            </div>
@@ -866,6 +886,7 @@ const App: React.FC = () => {
                       onSavePermission={handleSavePermissionRequest}
                       onSaveLiaison={handleSaveLiaison}
                       onSaveKarakter={handleSaveKarakter}
+                      onUpdateStudent={handleUpdateStudent} // NEW: Pass student updater
                    />;
         }
         const teachers = users.filter(u => u.role === 'guru');
@@ -897,6 +918,7 @@ const App: React.FC = () => {
                   onSavePermission={handleSavePermissionRequest}
                   onUpdateLiaisonStatus={handleUpdateLiaisonStatus} // Passed updater
                   classId={activeClassId}
+                  onUpdateStudent={handleUpdateStudent} // NEW: Pass student updater
                />;
       case 'liaison-book': 
         if (isStudentRole) { setCurrentView('dashboard'); return null; }

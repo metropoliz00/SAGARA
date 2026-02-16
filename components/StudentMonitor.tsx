@@ -9,7 +9,7 @@ import {
   UserCheck, BookOpen, Calendar, Send, 
   PieChart as PieIcon, List, FileText, ChevronDown, CheckCircle, XCircle, CheckSquare, Clock,
   MapPin, TrendingUp, ListTodo, Award, Star, AlertTriangle, HeartHandshake, LayoutDashboard, Medal,
-  Activity, Trophy, User as UserIcon
+  Activity, Trophy, User as UserIcon, Save, Loader2, MessageSquare
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
@@ -25,13 +25,14 @@ interface StudentMonitorProps {
   onSavePermission: (date: string, records: any[]) => Promise<void>;
   onUpdateLiaisonStatus: (ids: string[], status: 'Diterima' | 'Ditolak' | 'Selesai') => Promise<void>;
   classId: string; // Current context classId from Admin selection
+  onUpdateStudent: (student: Student) => Promise<void>; // Prop added
 }
 
 type MonitorTab = 'dashboard' | 'profile' | 'permissions' | 'liaison';
 
 const StudentMonitor: React.FC<StudentMonitorProps> = ({
   students, allAttendance, grades, agendas, liaisonLogs,
-  onSaveLiaison, onSavePermission, onUpdateLiaisonStatus, classId
+  onSaveLiaison, onSavePermission, onUpdateLiaisonStatus, classId, onUpdateStudent
 }) => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<MonitorTab>('dashboard');
@@ -42,6 +43,10 @@ const StudentMonitor: React.FC<StudentMonitorProps> = ({
   const [permReason, setPermReason] = useState('');
   const [isSubmittingPerm, setIsSubmittingPerm] = useState(false);
 
+  // Teacher Note State
+  const [teacherNote, setTeacherNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+
   // Initialize selection if students exist
   useEffect(() => {
     if (students.length > 0 && !selectedStudentId) {
@@ -50,6 +55,13 @@ const StudentMonitor: React.FC<StudentMonitorProps> = ({
   }, [students]);
 
   const selectedStudent = useMemo(() => students.find(s => s.id === selectedStudentId), [students, selectedStudentId]);
+
+  // Sync note state when student changes
+  useEffect(() => {
+      if (selectedStudent) {
+          setTeacherNote(selectedStudent.teacherNotes || '');
+      }
+  }, [selectedStudent]);
 
   // --- Derived Data (Matching StudentPortal Logic) ---
 
@@ -168,6 +180,19 @@ const StudentMonitor: React.FC<StudentMonitorProps> = ({
   const handleStatusChange = async (id: string, status: 'Diterima' | 'Ditolak' | 'Selesai') => {
       if(confirm('Update status laporan ini?')) {
           await onUpdateLiaisonStatus([id], status);
+      }
+  };
+
+  const handleSaveNote = async () => {
+      if (!selectedStudent) return;
+      setIsSavingNote(true);
+      try {
+          await onUpdateStudent({ ...selectedStudent, teacherNotes: teacherNote });
+          alert("Catatan Wali Kelas berhasil disimpan.");
+      } catch (error) {
+          alert("Gagal menyimpan catatan.");
+      } finally {
+          setIsSavingNote(false);
       }
   };
 
@@ -449,6 +474,29 @@ const StudentMonitor: React.FC<StudentMonitorProps> = ({
                 {/* TAB: PROFILE (New) */}
                 {activeTab === 'profile' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* New Section: Catatan Wali Kelas */}
+                        <div className="md:col-span-2 bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl text-white shadow-lg">
+                            <h3 className="font-bold text-lg mb-3 flex items-center">
+                                <MessageSquare className="mr-2" size={20}/> Catatan Wali Kelas
+                            </h3>
+                            <textarea 
+                                className="w-full bg-white/20 border border-white/30 rounded-xl p-4 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 resize-none font-medium min-h-[100px]"
+                                placeholder="Tulis catatan, motivasi, atau pesan khusus untuk siswa ini..."
+                                value={teacherNote}
+                                onChange={(e) => setTeacherNote(e.target.value)}
+                            />
+                            <div className="flex justify-end mt-3">
+                                <button 
+                                    onClick={handleSaveNote}
+                                    disabled={isSavingNote}
+                                    className="flex items-center bg-white text-indigo-700 px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-indigo-50 disabled:opacity-70 transition-colors"
+                                >
+                                    {isSavingNote ? <Loader2 size={16} className="animate-spin mr-2"/> : <Save size={16} className="mr-2"/>}
+                                    Simpan Catatan
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Card Kesehatan */}
                         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                             <h3 className="font-bold text-gray-800 mb-4 flex items-center">

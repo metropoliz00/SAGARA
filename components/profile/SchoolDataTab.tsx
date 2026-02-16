@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { SchoolProfileData } from '../../types';
 import { compressImage } from '../../utils/imageHelper';
-import { Loader2, AlertCircle, Save, Lock } from 'lucide-react';
+import { Loader2, AlertCircle, Save, Lock, Megaphone } from 'lucide-react';
 
 interface SchoolDataTabProps {
   school: SchoolProfileData;
@@ -111,6 +111,23 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
             </select>
         </div>
         
+        {/* NEW: Running Text Input */}
+        <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <Megaphone size={16} className="mr-1.5 text-indigo-500"/>
+                Teks Berjalan (Loading Screen)
+            </label>
+            <input 
+                disabled={isReadOnly} 
+                type="text" 
+                value={school.runningText || ''} 
+                onChange={(e) => setSchool({...school, runningText: e.target.value})} 
+                placeholder="Contoh: Selamat datang di UPT SD Negeri Remen 2"
+                className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" 
+            />
+            <p className="text-[10px] text-gray-400 mt-1">*Teks ini akan muncul di layar loading aplikasi.</p>
+        </div>
+
         {/* Logo Uploads */}
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
             <label className="block text-sm font-bold text-gray-700 mb-2">Logo Kabupaten / Dinas</label>
