@@ -7,7 +7,7 @@ import {
   BookOpen, Award, LayoutDashboard, Clock, Activity,
   Star, AlertTriangle, HeartHandshake, ListTodo, TrendingUp,
   MapPin, CheckSquare, X, Medal, Heart, MessageCircle, Trophy,
-  Sun, Moon, BookHeart, Dumbbell, Apple, UsersRound, BookOpenCheck, Sparkles, Quote, MessageSquare, Edit, Save, Loader2
+  Sun, Moon, BookHeart, Dumbbell, Apple, UsersRound, BookOpenCheck, Sparkles, Quote
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
@@ -25,7 +25,6 @@ interface StudentPortalProps {
   onSaveLiaison: (log: Omit<LiaisonLog, 'id'>) => Promise<void>;
   onSavePermission: (date: string, records: any[]) => Promise<void>;
   onSaveKarakter: (studentId: string, assessment: Omit<KarakterAssessment, 'studentId' | 'classId'>) => Promise<void>;
-  onUpdateStudent: (student: Student) => Promise<void>; // Prop added
 }
 
 type PortalTab = 'dashboard' | 'profile' | 'character' | 'permissions' | 'liaison';
@@ -94,7 +93,7 @@ const HABITS_CONFIG: Record<KarakterIndicatorKey, { icon: any, color: string, bg
 
 const StudentPortal: React.FC<StudentPortalProps> = ({
   student, allAttendance, grades, liaisonLogs, agendas, behaviorLogs, permissionRequests, karakterAssessments,
-  onSaveLiaison, onSavePermission, onSaveKarakter, onUpdateStudent
+  onSaveLiaison, onSavePermission, onSaveKarakter
 }) => {
   const [activeTab, setActiveTab] = useState<PortalTab>('dashboard');
 
@@ -114,11 +113,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   const [karakterForm, setKarakterForm] = useState<Partial<KarakterAssessment>>({});
   const [isSavingKarakter, setIsSavingKarakter] = useState(false);
 
-  // Profile Edit State
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState<Student>(student);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-
   useEffect(() => {
       const existing = karakterAssessments.find(k => k.studentId === student.id);
       if (existing) {
@@ -131,10 +125,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
           });
       }
   }, [karakterAssessments, student.id]);
-
-  useEffect(() => {
-      setProfileForm(student);
-  }, [student]);
 
   const handleKarakterChange = (key: KarakterIndicatorKey, value: string) => {
       setKarakterForm(prev => ({ ...prev, [key]: value }));
@@ -161,27 +151,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
           alert('Gagal menyimpan penilaian.');
       } finally {
           setIsSavingKarakter(false);
-      }
-  };
-
-  const handleProfileChange = (field: keyof Student, value: string | number) => {
-      setProfileForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const saveProfile = async () => {
-      setIsSavingProfile(true);
-      try {
-          // We pass the full profileForm, but ensure critical fields (like behaviorScore, attendance) 
-          // are not accidentally modified by using the original student object for those, 
-          // although here we are using profileForm which was initialized with student.
-          // The critical check is that we are only exposing inputs for non-critical fields.
-          await onUpdateStudent(profileForm);
-          alert('Data profil berhasil diperbarui.');
-          setIsEditingProfile(false);
-      } catch (error) {
-          alert('Gagal menyimpan profil.');
-      } finally {
-          setIsSavingProfile(false);
       }
   };
 
@@ -413,21 +382,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
           {/* TAB: DASHBOARD */}
           {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                  {/* Catatan Wali Kelas Widget */}
-                  {student.teacherNotes && (
-                      <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-4 opacity-10">
-                              <MessageSquare size={100} />
-                          </div>
-                          <h3 className="font-bold text-lg mb-2 flex items-center relative z-10">
-                              <MessageSquare className="mr-2" size={20}/> Pesan dari Wali Kelas
-                          </h3>
-                          <div className="relative z-10 bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/20">
-                              <p className="text-sm md:text-base leading-relaxed font-medium">"{student.teacherNotes}"</p>
-                          </div>
-                      </div>
-                  )}
-
                   {/* Row 1: Attendance Graph & Agenda */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       
@@ -583,221 +537,76 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
           {/* TAB: PROFILE */}
           {activeTab === 'profile' && (
-            <div className="space-y-6">
-                <div className="flex justify-end">
-                    {isEditingProfile ? (
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => setIsEditingProfile(false)} 
-                                className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold text-sm hover:bg-gray-200"
-                            >
-                                Batal
-                            </button>
-                            <button 
-                                onClick={saveProfile} 
-                                disabled={isSavingProfile}
-                                className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 flex items-center shadow-md"
-                            >
-                                {isSavingProfile ? <Loader2 className="animate-spin mr-2" size={16}/> : <Save className="mr-2" size={16}/>}
-                                Simpan Perubahan
-                            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Card Kesehatan */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                        <Activity className="mr-2 text-rose-500" size={20}/> Fisik & Kesehatan
+                    </h3>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="bg-rose-50 p-3 rounded-xl text-center">
+                            <span className="block text-xs text-rose-600 font-bold uppercase">Tinggi</span>
+                            <span className="text-lg font-bold text-gray-800">{student.height || '-'} <span className="text-xs font-normal text-gray-500">cm</span></span>
                         </div>
-                    ) : (
-                        <button 
-                            onClick={() => setIsEditingProfile(true)} 
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 flex items-center shadow-md"
-                        >
-                            <Edit className="mr-2" size={16}/> Edit Data
-                        </button>
-                    )}
+                        <div className="bg-rose-50 p-3 rounded-xl text-center">
+                            <span className="block text-xs text-rose-600 font-bold uppercase">Berat</span>
+                            <span className="text-lg font-bold text-gray-800">{student.weight || '-'} <span className="text-xs font-normal text-gray-500">kg</span></span>
+                        </div>
+                        <div className="bg-rose-50 p-3 rounded-xl text-center">
+                            <span className="block text-xs text-rose-600 font-bold uppercase">Gol. Darah</span>
+                            <span className="text-lg font-bold text-gray-800">{student.bloodType || '-'}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span className="text-sm font-bold text-gray-700 block mb-1">Riwayat Penyakit / Catatan Medis</span>
+                        <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200 min-h-[60px]">
+                            {student.healthNotes || 'Tidak ada catatan kesehatan khusus.'}
+                        </p>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Card Kesehatan */}
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                            <Activity className="mr-2 text-rose-500" size={20}/> Fisik & Kesehatan
-                        </h3>
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div className="bg-rose-50 p-3 rounded-xl text-center">
-                                <span className="block text-xs text-rose-600 font-bold uppercase">Tinggi</span>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="number" 
-                                        className="w-full bg-white border border-rose-200 rounded px-1 text-center font-bold text-gray-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
-                                        value={profileForm.height}
-                                        onChange={(e) => handleProfileChange('height', Number(e.target.value))}
-                                    />
-                                ) : (
-                                    <span className="text-lg font-bold text-gray-800">{student.height || '-'} <span className="text-xs font-normal text-gray-500">cm</span></span>
-                                )}
-                            </div>
-                            <div className="bg-rose-50 p-3 rounded-xl text-center">
-                                <span className="block text-xs text-rose-600 font-bold uppercase">Berat</span>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="number" 
-                                        className="w-full bg-white border border-rose-200 rounded px-1 text-center font-bold text-gray-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
-                                        value={profileForm.weight}
-                                        onChange={(e) => handleProfileChange('weight', Number(e.target.value))}
-                                    />
-                                ) : (
-                                    <span className="text-lg font-bold text-gray-800">{student.weight || '-'} <span className="text-xs font-normal text-gray-500">kg</span></span>
-                                )}
-                            </div>
-                            <div className="bg-rose-50 p-3 rounded-xl text-center">
-                                <span className="block text-xs text-rose-600 font-bold uppercase">Gol. Darah</span>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="text" 
-                                        className="w-full bg-white border border-rose-200 rounded px-1 text-center font-bold text-gray-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
-                                        value={profileForm.bloodType}
-                                        onChange={(e) => handleProfileChange('bloodType', e.target.value)}
-                                    />
-                                ) : (
-                                    <span className="text-lg font-bold text-gray-800">{student.bloodType || '-'}</span>
-                                )}
+                {/* Card Minat & Bakat */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                        <Star className="mr-2 text-amber-500" size={20}/> Minat & Bakat
+                    </h3>
+                    <div className="space-y-4">
+                        <div>
+                            <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Hobi / Kegemaran</span>
+                            <div className="text-base font-medium text-gray-800 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">
+                                {student.hobbies || '-'}
                             </div>
                         </div>
                         <div>
-                            <span className="text-sm font-bold text-gray-700 block mb-1">Riwayat Penyakit / Catatan Medis</span>
-                            {isEditingProfile ? (
-                                <textarea 
-                                    className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-rose-500"
-                                    value={profileForm.healthNotes}
-                                    onChange={(e) => handleProfileChange('healthNotes', e.target.value)}
-                                    rows={2}
-                                />
-                            ) : (
-                                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200 min-h-[60px]">
-                                    {student.healthNotes || 'Tidak ada catatan kesehatan khusus.'}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Card Minat & Bakat */}
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                            <Star className="mr-2 text-amber-500" size={20}/> Minat & Bakat
-                        </h3>
-                        <div className="space-y-4">
-                            <div>
-                                <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Hobi / Kegemaran</span>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="text" 
-                                        className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                        value={profileForm.hobbies}
-                                        onChange={(e) => handleProfileChange('hobbies', e.target.value)}
-                                    />
-                                ) : (
-                                    <div className="text-base font-medium text-gray-800 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">
-                                        {student.hobbies || '-'}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Cita-cita</span>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="text" 
-                                        className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                        value={profileForm.ambition}
-                                        onChange={(e) => handleProfileChange('ambition', e.target.value)}
-                                    />
-                                ) : (
-                                    <div className="text-base font-medium text-gray-800 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">
-                                        {student.ambition || '-'}
-                                    </div>
-                                )}
+                            <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Cita-cita</span>
+                            <div className="text-base font-medium text-gray-800 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">
+                                {student.ambition || '-'}
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Additional Bio Fields */}
-                    <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                            <User className="mr-2 text-blue-500" size={20}/> Biodata Tambahan
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Alamat</label>
-                                {isEditingProfile ? (
-                                    <textarea 
-                                        className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                        value={profileForm.address}
-                                        onChange={(e) => handleProfileChange('address', e.target.value)}
-                                        rows={2}
-                                    />
-                                ) : (
-                                    <p className="text-sm text-gray-800 p-2 bg-gray-50 rounded border border-gray-100">{student.address || '-'}</p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">No. HP Wali</label>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="text" 
-                                        className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                        value={profileForm.parentPhone}
-                                        onChange={(e) => handleProfileChange('parentPhone', e.target.value)}
-                                    />
-                                ) : (
-                                    <p className="text-sm text-gray-800 p-2 bg-gray-50 rounded border border-gray-100">{student.parentPhone || '-'}</p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Pekerjaan Ayah</label>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="text" 
-                                        className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                        value={profileForm.fatherJob}
-                                        onChange={(e) => handleProfileChange('fatherJob', e.target.value)}
-                                    />
-                                ) : (
-                                    <p className="text-sm text-gray-800 p-2 bg-gray-50 rounded border border-gray-100">{student.fatherJob || '-'}</p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Pekerjaan Ibu</label>
-                                {isEditingProfile ? (
-                                    <input 
-                                        type="text" 
-                                        className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                        value={profileForm.motherJob}
-                                        onChange={(e) => handleProfileChange('motherJob', e.target.value)}
-                                    />
-                                ) : (
-                                    <p className="text-sm text-gray-800 p-2 bg-gray-50 rounded border border-gray-100">{student.motherJob || '-'}</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Card Prestasi */}
-                    <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                            <Trophy className="mr-2 text-yellow-500" size={20}/> Catatan Prestasi
-                        </h3>
-                        {student.achievements && student.achievements.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {student.achievements.map((ach, idx) => (
-                                    <div key={idx} className="flex items-center p-3 bg-yellow-50 border border-yellow-100 rounded-xl">
-                                        <div className="p-2 bg-white rounded-full text-yellow-500 shadow-sm mr-3">
-                                            <Trophy size={16}/>
-                                        </div>
-                                        <span className="font-medium text-gray-700">{ach}</span>
+                {/* Card Prestasi */}
+                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                        <Trophy className="mr-2 text-yellow-500" size={20}/> Catatan Prestasi
+                    </h3>
+                    {student.achievements && student.achievements.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {student.achievements.map((ach, idx) => (
+                                <div key={idx} className="flex items-center p-3 bg-yellow-50 border border-yellow-100 rounded-xl">
+                                    <div className="p-2 bg-white rounded-full text-yellow-500 shadow-sm mr-3">
+                                        <Trophy size={16}/>
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border-dashed border border-gray-200">
-                                Belum ada data prestasi tercatat.
-                            </div>
-                        )}
-                    </div>
+                                    <span className="font-medium text-gray-700">{ach}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border-dashed border border-gray-200">
+                            Belum ada data prestasi tercatat.
+                        </div>
+                    )}
                 </div>
             </div>
           )}

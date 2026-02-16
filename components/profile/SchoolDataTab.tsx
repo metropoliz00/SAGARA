@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { SchoolProfileData } from '../../types';
 import { compressImage } from '../../utils/imageHelper';
-import { Loader2, AlertCircle, Save, Lock, Megaphone } from 'lucide-react';
+import { Loader2, AlertCircle, Save, Lock, Upload, Trash2 } from 'lucide-react';
 
 interface SchoolDataTabProps {
   school: SchoolProfileData;
@@ -54,6 +54,25 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
         if (input) input.value = ''; 
       }
     }
+  };
+
+  const handleSignatureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const resizedBase64 = await compressImage(file, 300, 0.6);
+        setSchool({ ...school, headmasterSignature: resizedBase64 });
+      } catch (error) {
+        console.error("Gagal upload TTD", error);
+        alert("Gagal memproses tanda tangan.");
+      }
+    }
+  };
+
+  const handleRemoveSignature = () => {
+    if (isReadOnly) return;
+    setSchool({ ...school, headmasterSignature: '' });
   };
 
   return (
@@ -111,23 +130,6 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
             </select>
         </div>
         
-        {/* NEW: Running Text Input */}
-        <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                <Megaphone size={16} className="mr-1.5 text-indigo-500"/>
-                Teks Berjalan (Loading Screen)
-            </label>
-            <input 
-                disabled={isReadOnly} 
-                type="text" 
-                value={school.runningText || ''} 
-                onChange={(e) => setSchool({...school, runningText: e.target.value})} 
-                placeholder="Contoh: Selamat datang di UPT SD Negeri Remen 2"
-                className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" 
-            />
-            <p className="text-[10px] text-gray-400 mt-1">*Teks ini akan muncul di layar loading aplikasi.</p>
-        </div>
-
         {/* Logo Uploads */}
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
             <label className="block text-sm font-bold text-gray-700 mb-2">Logo Kabupaten / Dinas</label>
@@ -198,6 +200,34 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">NIP Kepala Sekolah</label>
             <input disabled={isReadOnly} type="text" value={school.headmasterNip} onChange={(e) => setSchool({...school, headmasterNip: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" />
+        </div>
+        <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tanda Tangan Kepala Sekolah</label>
+            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-gray-100 transition-colors">
+                {!school.headmasterSignature ? (
+                    <label className={`cursor-pointer flex flex-col items-center group ${isReadOnly ? 'cursor-not-allowed' : ''}`}>
+                        <div className="p-3 bg-white rounded-full shadow-sm mb-2 group-hover:scale-110 transition-transform">
+                            <Upload size={24} className="text-indigo-500"/>
+                        </div>
+                        <span className="text-sm font-medium text-gray-600 group-hover:text-indigo-600 transition-colors">Upload Tanda Tangan</span>
+                        <span className="text-xs text-gray-400 mt-1">Format PNG Transparan (Max 2MB)</span>
+                        {!isReadOnly && <input type="file" accept="image/*" onChange={handleSignatureUpload} className="hidden" />}
+                    </label>
+                ) : (
+                    <div className="relative group w-full max-w-xs flex justify-center">
+                        <img src={school.headmasterSignature} alt="Signature" className="h-24 object-contain" />
+                        {!isReadOnly && (
+                            <button 
+                                onClick={handleRemoveSignature} 
+                                className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-red-200 shadow-sm"
+                                title="Hapus Tanda Tangan"
+                            >
+                                <Trash2 size={16}/>
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
         </div>
         <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end">

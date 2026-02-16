@@ -68,8 +68,6 @@ export interface Student {
     permit: number;
     alpha: number;
   };
-  
-  teacherNotes?: string; // NEW: Catatan Wali Kelas
 }
 
 export interface Subject {
@@ -253,16 +251,29 @@ export interface SchoolProfileData {
   address: string;
   headmaster: string;
   headmasterNip: string;
+  headmasterSignature?: string;
   year: string;
   semester: string;
   regencyLogo?: string; // Base64
   schoolLogo?: string; // Base64
-  runningText?: string; // NEW: Teks Berjalan
+  developerInfo?: {
+    name: string;
+    moto: string;
+    photo: string; // Base64
+  };
 }
 
 // Data Kalender Pendidikan
 export interface AcademicCalendarData {
   [yearMonth: string]: (string | null)[]; // Key: YYYY-MM, Value: array of 31 day contents
+}
+
+// NEW: Support Document
+export interface SupportDocument {
+  id: string;
+  classId: string;
+  name: string;
+  url: string;
 }
 
 // --- Penilaian Sikap & Karakter ---
@@ -321,4 +332,4 @@ export interface KarakterAssessment {
 }
 
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs';
