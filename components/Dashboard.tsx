@@ -115,16 +115,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       return variants[index % variants.length];
   };
 
-  // Theme Helpers for Link Cards
-  const getLinkCardStyle = (index: number) => {
-      const styles = [
-          'bg-white border-gray-200 hover:border-[#5AB2FF]', 
-          'bg-[#FFF9D0] border-amber-200 hover:border-amber-400',
-          'bg-[#CAF4FF] border-blue-200 hover:border-blue-400'
-      ];
-      return styles[index % styles.length];
-  };
-
   const curriculumProgress = useMemo(() => {
     if (!subjects || !grades || students.length === 0) return [];
     return subjects.map((subject) => {
@@ -219,9 +209,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     href={link.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className={`flex flex-col items-center justify-center p-3 w-24 h-24 rounded-xl transition-all border shadow-sm hover:-translate-y-1 hover:shadow-md group text-center ${
-                        getLinkCardStyle(index)
-                    }`}
+                    className="flex flex-col items-center justify-center p-3 w-24 h-24 rounded-xl transition-all border-2 bg-white border-[#CAF4FF] hover:border-[#5AB2FF] shadow-sm hover:-translate-y-1 hover:shadow-lg group text-center"
                   >
                     <div className="w-10 h-10 mb-2 rounded-lg bg-white shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform">
                        {link.icon ? (

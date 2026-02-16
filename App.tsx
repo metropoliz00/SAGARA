@@ -94,7 +94,8 @@ const App: React.FC = () => {
     name: 'Guru', nip: '', nuptk: '', birthInfo: '', education: '', position: '', rank: '', teachingClass: '', phone: '', email: '', address: ''
   });
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>({
-    name: 'Sekolah', npsn: '', address: '', headmaster: '', headmasterNip: '', year: new Date().getFullYear().toString(), semester: '1'
+    name: 'Sekolah', npsn: '', address: '', headmaster: '', headmasterNip: '', headmasterSignature: '', year: new Date().getFullYear().toString(), semester: '1',
+    developerInfo: { name: '', moto: '', photo: '' }
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -251,10 +251,16 @@ export interface SchoolProfileData {
   address: string;
   headmaster: string;
   headmasterNip: string;
+  headmasterSignature?: string;
   year: string;
   semester: string;
   regencyLogo?: string; // Base64
   schoolLogo?: string; // Base64
+  developerInfo?: {
+    name: string;
+    moto: string;
+    photo: string; // Base64
+  };
 }
 
 // Data Kalender Pendidikan

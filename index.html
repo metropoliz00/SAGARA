@@ -76,6 +76,23 @@
         animation: float 4s ease-in-out infinite;
       }
 
+      /* NEW: Animations for Developer FAB */
+      @keyframes slide-in-right {
+        from { transform: translateX(100px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      .animate-slide-in-right {
+          animation: slide-in-right 0.7s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
+      }
+      @keyframes slide-right-left {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(-8px); }
+      }
+      .animate-slide-rl {
+        animation: slide-right-left 3s ease-in-out infinite 1s; /* Start after 1s delay */
+      }
+
+
       /* PRINT STYLES GLOBAL */
       @media print {
         @page {

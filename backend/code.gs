@@ -63,7 +63,7 @@ function setupDatabase() {
     { name: SHEETS.HOLIDAYS, headers: ["ID", "Class ID", "Tanggal", "Keterangan", "Tipe"] },
     { name: SHEETS.COUNSELING, headers: ["ID", "Class ID", "Student ID", "Nama Siswa", "Tanggal", "Tipe", "Kategori", "Deskripsi", "Poin", "Emosi", "Status"] },
     { name: SHEETS.EXTRACURRICULARS, headers: ["ID", "Class ID", "Nama Ekskul", "Kategori", "Jadwal", "Pelatih", "Anggota (JSON ID)"] },
-    { name: SHEETS.PROFILES, headers: ["Nama Sekolah", "NIP/NPSN", "Alamat", "Kepala Sekolah", "NIP Kepsek", "Tahun Ajaran", "Semester", "Logo Kab (Base64)", "Logo Sekolah (Base64)"] },
+    { name: SHEETS.PROFILES, headers: ["Nama Sekolah", "NIP/NPSN", "Alamat", "Kepala Sekolah", "NIP Kepsek", "TTD Kepsek (Base64)", "Tahun Ajaran", "Semester", "Logo Kab (Base64)", "Logo Sekolah (Base64)", "Developer Name", "Developer Moto", "Developer Photo (Base64)"] },
     { name: SHEETS.INVENTORY, headers: ["ID", "Class ID", "Nama Barang", "Kondisi", "Jumlah"] },
     { name: SHEETS.GUESTS, headers: ["ID", "Class ID", "Tanggal", "Waktu", "Nama Tamu", "Instansi", "Keperluan"] },
     { name: SHEETS.SIKAP, headers: ["Student ID", "Class ID", "Keimanan", "Kewargaan", "Bernalar Kritis", "Kreatif", "Gotong Royong", "Mandiri", "Kesehatan", "Komunikasi"] },
@@ -632,7 +632,14 @@ function getProfiles() {
   if (rows.length < 2) return response({ status: "success", data: {} });
   const r = rows[1];
   return response({ status: "success", data: {
-    school: { name: String(r[0]), npsn: String(r[1]), address: String(r[2]), headmaster: String(r[3]), headmasterNip: String(r[4]), year: String(r[5]), semester: String(r[6]), regencyLogo: String(r[7]), schoolLogo: String(r[8]) }
+    school: { 
+      name: String(r[0]), npsn: String(r[1]), address: String(r[2]), headmaster: String(r[3]), headmasterNip: String(r[4]), headmasterSignature: String(r[5] || ''), year: String(r[6]), semester: String(r[7]), regencyLogo: String(r[8]), schoolLogo: String(r[9]),
+      developerInfo: {
+        name: String(r[10] || ''),
+        moto: String(r[11] || ''),
+        photo: String(r[12] || '')
+      }
+    }
   }});
 }
 
@@ -640,7 +647,8 @@ function saveProfile(p) {
   const sheet = getSheet(SHEETS.PROFILES);
   if (p.key === 'school') {
     const v = p.value;
-    const row = [v.name, v.npsn, v.address, v.headmaster, v.headmasterNip, v.year, v.semester, v.regencyLogo||'', v.schoolLogo||''];
+    const devInfo = v.developerInfo || {};
+    const row = [v.name, v.npsn, v.address, v.headmaster, v.headmasterNip, v.headmasterSignature || '', v.year, v.semester, v.regencyLogo||'', v.schoolLogo||'', devInfo.name || '', devInfo.moto || '', devInfo.photo || ''];
     if (sheet.getLastRow() < 2) sheet.appendRow(row);
     else sheet.getRange(2, 1, 1, row.length).setValues([row]);
   }

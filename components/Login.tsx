@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
-import { User, Lock, Loader2, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
-import { User as UserType } from '../types';
+import { User, Lock, Loader2, ArrowRight, Sparkles, Eye, EyeOff, Code, X } from 'lucide-react';
+import { User as UserType, SchoolProfileData } from '../types';
 
 interface LoginProps {
   onLoginSuccess: (user: UserType) => void;
@@ -16,10 +16,29 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
 
+  // Developer Info State
+  const [devInfo, setDevInfo] = useState<{ name: string; moto: string; photo: string; } | null>(null);
+  const [isDevModalOpen, setIsDevModalOpen] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setInitialLoading(false);
     }, 4000);
+
+    const fetchPublicInfo = async () => {
+      if (apiService.isConfigured()) {
+        try {
+          const profiles = await apiService.getProfiles();
+          if (profiles.school && profiles.school.developerInfo && profiles.school.developerInfo.name) {
+            setDevInfo(profiles.school.developerInfo);
+          }
+        } catch (e) {
+          console.error("Could not fetch public info", e);
+        }
+      }
+    };
+    fetchPublicInfo();
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -211,6 +230,40 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </div>
         )}
       </div>
+
+      {/* Developer Info FAB */}
+      {devInfo && (
+        <button 
+            onClick={() => setIsDevModalOpen(true)}
+            className="fixed bottom-6 right-6 z-20 w-14 h-14 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:text-indigo-600 hover:border-indigo-300 transition-all transform animate-slide-in-right animate-slide-rl"
+            title="Tentang Pengembang"
+        >
+            <Code size={24} />
+        </button>
+      )}
+
+      {/* Developer Info Modal */}
+      {isDevModalOpen && devInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsDevModalOpen(false)}>
+            <div 
+              className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden transform transition-all scale-100 border-2 border-[#A0DEFF]" 
+              onClick={e => e.stopPropagation()}
+            >
+                <div className="p-8 flex flex-col items-center text-center">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
+                        Pengembang Aplikasi
+                    </p>
+                    <img src={devInfo.photo} alt={devInfo.name} className="w-24 h-36 rounded-lg object-cover mb-4 border-4 border-[#CAF4FF] shadow-lg"/>
+                    <h3 className="text-lg font-bold text-gray-800">{devInfo.name}</h3>
+                    <p className="text-gray-500 mt-2 text-sm italic">"{devInfo.moto}"</p>
+                    <button onClick={() => setIsDevModalOpen(false)} className="mt-6 bg-gray-100 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 };
