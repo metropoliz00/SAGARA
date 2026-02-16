@@ -1,9 +1,9 @@
 
 // ... existing imports
-import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry } from '../types';
+import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument } from '../types';
 
 // PENTING: Ganti URL di bawah ini dengan URL Deployment Web App Google Apps Script Anda yang baru.
-const API_URL = 'https://script.google.com/macros/s/AKfycbwTNOJvWGum6_eoAcsY_pHsItATBWME7fMi9iUA_Wf-fpG4Wy_qcYNph4vNXhhlnG8t/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzt4455Dxg-cDndiIurRbMRRue2jwAjBqDKuVGVaxU-dasiTrAfiEMeHF6WBXekDxwG/exec';
 
 // ... (existing code for ApiResponse, isApiConfigured, getCategoryColor, fetchApi)
 
@@ -352,6 +352,19 @@ export const apiService = {
   },
   processPermissionRequest: async (id: string, action: 'approve' | 'reject') => {
     return await fetchApi('POST', { action: 'processPermissionRequest', payload: { id, action } });
+  },
+
+  // --- NEW: Support Documents ---
+  getSupportDocuments: async (user: User | null): Promise<SupportDocument[]> => {
+    if (!isApiConfigured()) return [];
+    const result = await fetchApi('GET', { action: 'getSupportDocuments', user });
+    return result.status === 'success' && result.data ? result.data : [];
+  },
+  saveSupportDocument: async (doc: Omit<SupportDocument, 'id'> | SupportDocument) => {
+    return await fetchApi('POST', { action: 'saveSupportDocument', payload: doc });
+  },
+  deleteSupportDocument: async (id: string, classId: string) => {
+    return await fetchApi('POST', { action: 'deleteSupportDocument', id, classId });
   },
 
   // --- NEW: Restore Data (Admin) ---

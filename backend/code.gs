@@ -22,6 +22,7 @@ const SHEETS = {
   JURNAL_KELAS: "JurnalKelas", 
   LIAISON: "BukuPenghubung", 
   PERMISSIONS: "PermissionRequests",
+  SUPPORT_DOCS: "BuktiDukung",
   JADWAL: "JadwalPelajaran",
   PIKET: "JadwalPiket",
   DENAH: "DenahDuduk",
@@ -72,6 +73,7 @@ function setupDatabase() {
     { name: SHEETS.JURNAL_KELAS, headers: ["ID", "Class ID", "Tanggal", "Hari", "Jam Ke", "Mata Pelajaran", "Materi", "Kegiatan Pembelajaran", "Evaluasi", "Refleksi", "Tindak Lanjut"] },
     { name: SHEETS.LIAISON, headers: ["ID", "Class ID", "Student ID", "Tanggal", "Pengirim", "Pesan", "Status", "Kategori"] },
     { name: SHEETS.PERMISSIONS, headers: ["ID", "Class ID", "Student ID", "Tanggal", "Tipe", "Alasan", "Status"] },
+    { name: SHEETS.SUPPORT_DOCS, headers: ["ID", "Class ID", "Nama File", "URL"] },
     // Config Sheets
     { name: SHEETS.JADWAL, headers: ["ID", "Class ID", "Hari", "Jam", "Mata Pelajaran"] },
     { name: SHEETS.PIKET, headers: ["Class ID", "Hari", "Student IDs (JSON)"] },
@@ -228,6 +230,10 @@ function handleRequest(e, method) {
     if (action === "getPermissionRequests") return getPermissionRequests(user);
     if (action === "savePermissionRequest") return savePermissionRequest(params.payload);
     if (action === "processPermissionRequest") return processPermissionRequest(params.payload);
+
+    if (action === "getSupportDocuments") return getSupportDocuments(user);
+    if (action === "saveSupportDocument") return saveSupportDocument(params.payload);
+    if (action === "deleteSupportDocument") return deleteSupportDocument(params.id, classId);
 
     if (action === "restoreData") {
        if (!user || user.role !== 'admin') return response({ status: "error", message: "Hanya admin yang bisa restore data." });
@@ -975,6 +981,45 @@ function processPermissionRequest(p) {
   }
   return response({ status: "error" });
 }
+
+// --- NEW: SUPPORT DOCUMENTS ---
+function getSupportDocuments(user) {
+  const rows = getData(SHEETS.SUPPORT_DOCS);
+  const data = rows.map(r => ({ id: String(r[0]), classId: String(r[1]), name: String(r[2]), url: String(r[3]) }));
+  return response({ status: "success", data });
+}
+
+function saveSupportDocument(doc) {
+  const sheet = getSheet(SHEETS.SUPPORT_DOCS);
+  const id = doc.id || Utilities.getUuid();
+  const rowData = [id, doc.classId, doc.name, doc.url];
+  
+  if (doc.id) {
+    const data = sheet.getDataRange().getValues();
+    const idx = data.findIndex(r => String(r[0]) === String(doc.id));
+    if (idx > 0) {
+      sheet.getRange(idx + 1, 1, 1, rowData.length).setValues([rowData]);
+    } else {
+      sheet.appendRow(rowData);
+    }
+  } else {
+    sheet.appendRow(rowData);
+  }
+  
+  return response({ status: "success", id: id });
+}
+
+function deleteSupportDocument(id, classId) {
+  const sheet = getSheet(SHEETS.SUPPORT_DOCS);
+  const data = sheet.getDataRange().getValues();
+  const idx = data.findIndex(r => String(r[0]) === String(id));
+  if(idx > 0) {
+    sheet.deleteRow(idx + 1);
+    return response({ status: "success" });
+  }
+  return response({ status: "error", message: "Document not found" });
+}
+
 
 function restoreData(data) {
   // Dangerous: clears all sheets and repopulates.

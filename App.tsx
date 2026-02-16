@@ -22,8 +22,9 @@ import StudentMonitor from './components/StudentMonitor';
 import LiaisonBookView from './components/LiaisonBookView'; 
 import StudentPortal from './components/StudentPortal'; 
 import BackupRestore from './components/BackupRestore';
+import SupportDocumentsView from './components/SupportDocumentsView';
 import CustomModal from './components/CustomModal'; 
-import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry } from './types';
+import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument } from './types';
 import { MOCK_SUBJECTS, MOCK_STUDENTS, MOCK_EXTRACURRICULARS } from './constants';
 import { apiService } from './services/apiService';
 import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X } from 'lucide-react';
@@ -66,6 +67,7 @@ const App: React.FC = () => {
   const [learningReports, setLearningReports] = useState<LearningReport[]>([]);
   const [liaisonLogs, setLiaisonLogs] = useState<LiaisonLog[]>([]);
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]); 
+  const [supportDocuments, setSupportDocuments] = useState<SupportDocument[]>([]);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'warning'} | null>(null);
   
   // -- NEW STATE: Navigation Target for Journal --
@@ -288,6 +290,7 @@ const App: React.FC = () => {
   const filteredKarakter = useMemo(() => karakterAssessments.filter(k => isClassMatch(k.classId, activeClassId)), [karakterAssessments, activeClassId]);
   const filteredHolidays = useMemo(() => holidays.filter(h => isClassMatch(h.classId, activeClassId)), [holidays, activeClassId]);
   const filteredReports = useMemo(() => learningReports.filter(r => isClassMatch(r.classId, activeClassId)), [learningReports, activeClassId]);
+  const filteredSupportDocuments = useMemo(() => supportDocuments.filter(d => isClassMatch(d.classId, activeClassId)), [supportDocuments, activeClassId]);
   
   const filteredLiaison = useMemo(() => {
       return liaisonLogs.filter(l => {
@@ -695,6 +698,35 @@ const App: React.FC = () => {
       const reqs = await apiService.getPermissionRequests(currentUser);
       setPermissionRequests(reqs);
   };
+
+  const handleSaveSupportDocument = async (doc: Omit<SupportDocument, 'id'> | SupportDocument) => {
+    if (isDemoMode) {
+      const newDoc = { ...doc, id: (doc as any).id || `doc-${Date.now()}` } as SupportDocument;
+      setSupportDocuments(prev => {
+        const exists = prev.find(d => d.id === newDoc.id);
+        if (exists) return prev.map(d => d.id === newDoc.id ? newDoc : d);
+        return [newDoc, ...prev];
+      });
+      handleShowNotification('Dokumen disimpan (Demo).', 'success');
+      return;
+    }
+    await apiService.saveSupportDocument(doc);
+    handleShowNotification('Dokumen berhasil disimpan.', 'success');
+    await fetchData();
+  };
+
+  const handleDeleteSupportDocument = async (id: string) => {
+    showConfirm('Hapus dokumen ini?', async () => {
+      if (isDemoMode) {
+        setSupportDocuments(prev => prev.filter(d => d.id !== id));
+        handleShowNotification('Dokumen dihapus (Demo).', 'success');
+        return;
+      }
+      await apiService.deleteSupportDocument(id, activeClassId);
+      handleShowNotification('Dokumen berhasil dihapus.', 'success');
+      await fetchData();
+    });
+  };
   
   const fetchData = async () => {
     // ... (fetchData implementation unchanged)
@@ -714,7 +746,7 @@ const App: React.FC = () => {
     }
 
     try {
-      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions] = await Promise.all([
+      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions, fSupportDocs] = await Promise.all([
         currentUser?.role === 'admin' ? apiService.getUsers(currentUser) : Promise.resolve([]),
         apiService.getStudents(currentUser),
         apiService.getAgendas(currentUser),
@@ -729,7 +761,8 @@ const App: React.FC = () => {
         apiService.getEmploymentLinks(),
         apiService.getLearningReports(selectedClassId),
         apiService.getLiaisonLogs(currentUser), 
-        apiService.getPermissionRequests(currentUser), 
+        apiService.getPermissionRequests(currentUser),
+        apiService.getSupportDocuments(currentUser),
       ]);
       
       setUsers(fUsers);
@@ -744,6 +777,7 @@ const App: React.FC = () => {
       setEmploymentLinks(fLinks);
       setLearningReports(fReports);
       setLiaisonLogs(fLiaison);
+      setSupportDocuments(fSupportDocs);
       
       const hydratedPermissions = fPermissions.map((p: any) => ({
           ...p,
@@ -1018,6 +1052,16 @@ const App: React.FC = () => {
                   onAddHoliday={handleAddHoliday}
                   classId={activeClassId}
                   userRole={currentUser.role} // NEW: Pass user role
+                />;
+      case 'support-docs':
+        if (isStudentRole) { setCurrentView('dashboard'); return null; }
+        return <SupportDocumentsView
+                  documents={filteredSupportDocuments}
+                  onSave={handleSaveSupportDocument}
+                  onDelete={handleDeleteSupportDocument}
+                  onShowNotification={handleShowNotification}
+                  classId={activeClassId}
+                  isReadOnly={isGlobalReadOnly}
                 />;
       case 'employment-links': 
         if (currentUser.role !== 'admin') {

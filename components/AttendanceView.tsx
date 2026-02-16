@@ -624,7 +624,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                  <label className="font-bold">Tanggal:</label>
                  <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} className="border p-2 rounded-lg"/>
                  <button onClick={handleMarkAllPresent} className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg font-bold"><CheckSquare size={18} className="inline mr-2"/> Isi Hadir</button>
-                 <button onClick={handleSaveDaily} disabled={saving} className="bg-[#5AB2FF] text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 hover:bg-[#A0DEFF]"><Save size={18} className="inline mr-2"/> {saving ? 'Menyimpan...' : 'Simpan'}</button>
+                 <button onClick={handleSaveDaily} disabled={saving} className="bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 shadow-md"><Save size={18} className="inline mr-2"/> {saving ? 'Menyimpan...' : 'Simpan'}</button>
              </div>
              <div className="bg-white rounded-xl border overflow-hidden">
                 <table className="w-full text-sm">
@@ -690,7 +690,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                         </div>
                         <span className="text-sm font-medium text-gray-700">Lewati Hari Libur & Minggu</span>
                     </label>
-                    <button onClick={handleSaveBatch} disabled={savingBatch} className="flex items-center bg-[#5AB2FF] text-white px-6 py-2.5 rounded-xl font-bold shadow-lg hover:bg-[#A0DEFF] transition-transform active:scale-95 w-full md:w-auto justify-center">
+                    <button onClick={handleSaveBatch} disabled={savingBatch} className="flex items-center bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition-transform active:scale-95 w-full md:w-auto justify-center">
                         {savingBatch ? <Loader2 className="animate-spin mr-2" size={18}/> : <Save className="mr-2" size={18}/>}
                         Simpan Rentang
                     </button>
@@ -808,7 +808,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                               <button 
                                 onClick={handleSaveHolidayInline}
                                 disabled={isSavingHoliday}
-                                className={`flex-1 flex items-center justify-center py-2.5 bg-[#5AB2FF] text-white rounded-lg text-sm font-bold shadow-md hover:bg-[#A0DEFF] disabled:opacity-50 ${!holidayForm.id ? 'w-full' : ''}`}
+                                className={`flex-1 flex items-center justify-center py-2.5 bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white rounded-lg text-sm font-bold shadow-md disabled:opacity-50 ${!holidayForm.id ? 'w-full' : ''}`}
                               >
                                   {isSavingHoliday ? <Loader2 className="animate-spin mr-2" size={16}/> : <Save className="mr-2" size={16}/>}
                                   Simpan
@@ -867,7 +867,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
            <div className="fixed bottom-8 right-8 z-40 no-print">
                <button 
                    onClick={() => setIsScannerOpen(true)}
-                   className="p-4 rounded-full shadow-xl bg-[#5AB2FF] text-white hover:bg-[#A0DEFF] transition-transform transform hover:scale-110 flex items-center justify-center"
+                   className="p-4 rounded-full shadow-xl bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white transition-transform transform hover:scale-110 flex items-center justify-center"
                    title="Scan QR Siswa"
                >
                    <Scan size={28} />

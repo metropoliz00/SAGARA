@@ -1,7 +1,7 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Student, SchoolProfileData, TeacherProfileData } from '../../types';
-import { PieChart as PieChartIcon, Printer, BarChart2, Calendar, Users, Briefcase, GraduationCap } from 'lucide-react';
+import { BarChart2, Calendar, Users, Briefcase, GraduationCap, Heart, Sparkles, DollarSign, Trophy, AlertTriangle } from 'lucide-react';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   Bar, XAxis, YAxis, CartesianGrid, BarChart as RechartsBarChart
@@ -10,13 +10,14 @@ import {
 interface StudentDashboardProps {
     students: Student[];
     schoolProfile?: SchoolProfileData;
-    teacherProfile?: TeacherProfileData; // Added teacherProfile prop
+    teacherProfile?: TeacherProfileData;
 }
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#64748b'];
+const POSITIVE_COLOR = '#10b981'; // green
+const NEGATIVE_COLOR = '#ef4444'; // red
 
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolProfile, teacherProfile }) => {
-    const [reportPickupLog, setReportPickupLog] = useState<Record<string, { pickerName: string; signature: string }>>({});
 
     const calculateAge = (birthDate: string): number => {
         if (!birthDate) return 0;
@@ -79,7 +80,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolPro
     const parentOccupationData = useMemo(() => {
         const jobs = students.flatMap(s => [s.fatherJob, s.motherJob]);
         
-        // Filter out undefined/null and empty strings
         const validJobs = jobs.filter((j): j is string => !!j && j.trim() !== '');
         
         const counts: Record<string, number> = {};
@@ -101,7 +101,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolPro
     const parentEducationData = useMemo(() => {
         const educations = students.flatMap(s => [s.fatherEducation, s.motherEducation]);
         
-        // Filter out undefined/null and empty strings
         const validEducations = educations.filter((e): e is string => !!e && e.trim() !== '');
 
         const counts: Record<string, number> = {};
@@ -112,29 +111,50 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolPro
         return Object.entries(counts).sort(([, a], [, b]) => b - a).map(([name, value])=>({name, value}));
     }, [students]);
 
-    const handleReportPickupChange = (studentId: string, field: 'pickerName' | 'signature', value: string) => {
-        setReportPickupLog(prev => ({
-            ...prev,
-            [studentId]: {
-                ...prev[studentId],
-                pickerName: field === 'pickerName' ? value : (prev[studentId]?.pickerName || ''),
-                signature: field === 'signature' ? value : (prev[studentId]?.signature || ''),
+    // NEW: Talents Data
+    const talentsData = useMemo(() => {
+        const hobbies: Record<string, number> = {};
+        const ambitions: Record<string, number> = {};
+        students.forEach(s => {
+            if (s.hobbies) {
+                const hobby = s.hobbies.trim().charAt(0).toUpperCase() + s.hobbies.trim().slice(1).toLowerCase();
+                hobbies[hobby] = (hobbies[hobby] || 0) + 1;
             }
-        }));
-    };
+            if (s.ambition) {
+                const ambition = s.ambition.trim().charAt(0).toUpperCase() + s.ambition.trim().slice(1).toLowerCase();
+                ambitions[ambition] = (ambitions[ambition] || 0) + 1;
+            }
+        });
+        const topHobbies = Object.entries(hobbies).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        const topAmbitions = Object.entries(ambitions).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        return { topHobbies, topAmbitions };
+    }, [students]);
 
-    const handlePrintReportPickup = () => {
-        document.body.classList.add('printing-report-log');
-        window.print();
-        document.body.classList.remove('printing-report-log');
-    };
+    // NEW: Economy Data
+    const economyData = useMemo(() => {
+        const statuses: Record<string, number> = { 'Mampu': 0, 'Cukup': 0, 'Kurang Mampu': 0, 'KIP': 0 };
+        students.forEach(s => {
+            const status = s.economyStatus || 'Mampu';
+            if (statuses[status] !== undefined) {
+                statuses[status]++;
+            }
+        });
+        return Object.entries(statuses).map(([name, value]) => ({ name, value }));
+    }, [students]);
 
-    // Date formatting for the signature section
-    const currentDate = new Date().toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-    });
+    // NEW: Records Data
+    const recordsData = useMemo(() => {
+        let totalAchievements = 0;
+        let totalViolations = 0;
+        students.forEach(s => {
+            totalAchievements += s.achievements?.length || 0;
+            totalViolations += s.violations?.length || 0;
+        });
+        return [
+            { name: 'Prestasi', total: totalAchievements },
+            { name: 'Pelanggaran', total: totalViolations }
+        ];
+    }, [students]);
 
     return (
         <div className="animate-fade-in space-y-6">
@@ -224,85 +244,97 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolPro
                 </div>
             </div>
 
-            <div id="printable-report-section" className="bg-white p-6 rounded-lg shadow-sm border print:shadow-none print:border-none print:p-0">
-                <div className="flex justify-between items-center mb-4 no-print">
-                    <h3 className="font-bold text-lg text-gray-800">Buku Pengambilan Rapor</h3>
-                    <button onClick={handlePrintReportPickup} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg"><Printer size={16}/> Cetak</button>
+            {/* NEW DASHBOARDS SECTION */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print-report">
+                {/* Health Dashboard */}
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                    <h3 className="font-bold text-gray-700 flex items-center mb-2"><Heart size={16} className="mr-2 text-red-500" /> Tabel Data Kesehatan</h3>
+                    <div className="max-h-[250px] overflow-y-auto">
+                        <table className="w-full text-xs text-left border-collapse">
+                            <thead className="bg-gray-50 font-semibold sticky top-0">
+                                <tr>
+                                    <th className="border p-2 w-8">No</th>
+                                    <th className="border p-2">Nama Siswa</th>
+                                    <th className="border p-2 text-center">Tinggi (cm)</th>
+                                    <th className="border p-2 text-center">Berat (kg)</th>
+                                    <th className="border p-2 text-center">Gol. Darah</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {students.map((student, index) => (
+                                    <tr key={student.id} className="hover:bg-gray-50">
+                                        <td className="border p-2 text-center">{index + 1}</td>
+                                        <td className="border p-2 font-medium">{student.name}</td>
+                                        <td className="border p-2 text-center">{student.height || '-'}</td>
+                                        <td className="border p-2 text-center">{student.weight || '-'}</td>
+                                        <td className="border p-2 text-center">{student.bloodType || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Talents Dashboard */}
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                    <h3 className="font-bold text-gray-700 flex items-center mb-4"><Sparkles size={16} className="mr-2 text-yellow-500" /> Peta Minat & Bakat</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 className="font-semibold text-sm mb-2 text-center">Top 5 Hobi</h4>
+                            <table className="w-full text-xs">
+                                <tbody>
+                                {talentsData.topHobbies.map(([name, count], i) => (
+                                    <tr key={i} className="border-b"><td className="p-1 capitalize">{name}</td><td className="p-1 text-right font-bold">{count} siswa</td></tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-sm mb-2 text-center">Top 5 Cita-cita</h4>
+                             <table className="w-full text-xs">
+                                <tbody>
+                                {talentsData.topAmbitions.map(([name, count], i) => (
+                                    <tr key={i} className="border-b"><td className="p-1 capitalize">{name}</td><td className="p-1 text-right font-bold">{count} siswa</td></tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
                 
-                {/* Print Header */}
-                <div className="print-only text-center mb-8 hidden">
-                    <h2 className="text-xl font-bold uppercase underline mb-2 tracking-wider">BUKU PENERIMAAN RAPOR</h2>
-                    <table className="mx-auto text-sm font-bold uppercase" style={{ border: 'none' }}>
-                        <tbody>
-                            <tr>
-                                <td className="text-right pr-2">KELAS / SEMESTER</td>
-                                <td className="px-1">:</td>
-                                <td className="text-left">{teacherProfile?.teachingClass || '...'} / {schoolProfile?.semester || '...'}</td>
-                            </tr>
-                            <tr>
-                                <td className="text-right pr-2">TAHUN AJARAN</td>
-                                <td className="px-1">:</td>
-                                <td className="text-left">{schoolProfile?.year || '...'}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse border border-black">
-                        <thead>
-                            <tr className="bg-gray-100 print:bg-white">
-                                <th className="border border-black p-2 w-10 text-center font-bold">NO</th>
-                                <th className="border border-black p-2 text-left font-bold">NAMA SISWA</th>
-                                <th className="border border-black p-2 text-left font-bold w-1/4">PENERIMA</th>
-                                <th className="border border-black p-2 text-center font-bold w-1/4">TANDA TANGAN</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {students.sort((a,b) => a.name.localeCompare(b.name)).map((student, index) => (
-                                <tr key={student.id}>
-                                    <td className="border border-black p-2 text-center">{index + 1}</td>
-                                    <td className="border border-black p-2 font-medium">{student.name}</td>
-                                    <td className="border border-black p-2">
-                                        {/* Input for screen, Text for print */}
-                                        <input 
-                                            type="text"
-                                            className="w-full p-1 outline-none bg-transparent placeholder-gray-300 print:placeholder-transparent"
-                                            placeholder="Nama Penerima..."
-                                            value={reportPickupLog[student.id]?.pickerName || ''}
-                                            onChange={(e) => handleReportPickupChange(student.id, 'pickerName', e.target.value)}
-                                        />
-                                    </td>
-                                    <td className="border border-black p-2 h-10">
-                                        {/* Just whitespace for signature in print */}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Print Footer with Signatures */}
-                <div className="hidden print:flex justify-between items-start mt-12 px-8 text-sm break-inside-avoid">
-                    {/* Left: Headmaster */}
-                    <div className="text-center w-64">
-                        <p className="mb-20">
-                            Mengetahui,<br/>
-                            Kepala {schoolProfile?.name || 'Sekolah'}
-                        </p>
-                        <p className="font-bold underline">{schoolProfile?.headmaster || '......................'}</p>
-                        <p>NIP. {schoolProfile?.headmasterNip || '......................'}</p>
+                {/* Economy Dashboard */}
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                    <h3 className="font-bold text-gray-700 flex items-center mb-2"><DollarSign size={16} className="mr-2 text-green-500" /> Diagram Sosial Ekonomi</h3>
+                    <div style={{width: '100%', height: 250}}>
+                        <ResponsiveContainer>
+                            <RechartsBarChart data={economyData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis allowDecimals={false}/>
+                                <Tooltip formatter={(value) => [value, 'Jumlah Siswa']} />
+                                <Bar dataKey="value" fill="#10b981" name="Jumlah Siswa" />
+                            </RechartsBarChart>
+                        </ResponsiveContainer>
                     </div>
+                </div>
 
-                    {/* Right: Teacher */}
-                    <div className="text-center w-64">
-                        <p className="mb-20">
-                            Tuban, {currentDate}<br/>
-                            Guru Kelas {teacherProfile?.teachingClass || '...'}
-                        </p>
-                        <p className="font-bold underline">{teacherProfile?.name || '......................'}</p>
-                        <p>NIP. {teacherProfile?.nip || '......................'}</p>
+                {/* Records Dashboard */}
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                    <h3 className="font-bold text-gray-700 flex items-center mb-2"><BarChart2 size={16} className="mr-2 text-blue-500" /> Catatan Prestasi & Pelanggaran</h3>
+                     <div style={{width: '100%', height: 250}}>
+                        <ResponsiveContainer>
+                            <RechartsBarChart data={recordsData} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis type="number" />
+                                <YAxis dataKey="name" type="category" />
+                                <Tooltip formatter={(value) => [value, 'Total Catatan']} />
+                                <Bar dataKey="total" name="Total Catatan">
+                                    {recordsData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.name === 'Prestasi' ? POSITIVE_COLOR : NEGATIVE_COLOR} />
+                                    ))}
+                                </Bar>
+                            </RechartsBarChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
             </div>

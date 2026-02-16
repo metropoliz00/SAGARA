@@ -239,8 +239,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Summary Widgets - Themed */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* 1. Total Siswa (Ocean Blue) */}
-            <div onClick={() => onChangeView('students')} className="bg-[#5AB2FF] text-white p-5 rounded-2xl shadow-lg shadow-blue-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
+            {/* 1. Total Siswa (Ocean Blue Gradient) */}
+            <div onClick={() => onChangeView('students')} className="bg-gradient-to-br from-[#5AB2FF] to-[#A0DEFF] text-white p-5 rounded-2xl shadow-lg shadow-blue-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
                 <div className="flex justify-between items-start">
                     <div>
                     <p className="text-sm font-medium text-blue-100 mb-1">Total Siswa</p>
@@ -254,20 +254,20 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {/* 2. Attendance (Sky Blue) */}
-            <div onClick={() => onChangeView('attendance')} className="bg-[#A0DEFF] text-white p-5 rounded-2xl shadow-lg shadow-sky-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+            {/* 2. Attendance (Sky Blue Gradient - Dark Text) */}
+            <div onClick={() => onChangeView('attendance')} className="bg-gradient-to-br from-[#A0DEFF] to-white text-slate-800 p-5 rounded-2xl shadow-lg shadow-sky-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                 <div className="flex justify-between items-start">
                     <div>
-                    <p className="text-sm font-medium text-blue-50 mb-1">Kehadiran</p>
+                    <p className="text-sm font-medium text-slate-600 mb-1">Kehadiran</p>
                     <div className="flex items-end gap-2">
                         <h3 className="text-3xl font-bold">
                         {totalStudents > 0 ? Math.round((totalPresent / (totalPresent + totalSick + totalPermit + totalAlpha || 1)) * 100) : 0}%
                         </h3>
                     </div>
                     </div>
-                    <div className="p-2 bg-white/20 rounded-lg"><UserCheck size={20} className="text-white" /></div>
+                    <div className="p-2 bg-slate-800/10 rounded-lg"><UserCheck size={20} className="text-slate-700" /></div>
                 </div>
-                <div className="mt-4 flex space-x-1 text-[10px] font-bold">
+                <div className="mt-4 flex space-x-1 text-[10px] font-bold text-white">
                     <div className="flex-1 bg-emerald-500 rounded-l-md py-1 text-center truncate shadow-sm">H: {totalPresent}</div>
                     <div className="w-10 bg-amber-400 py-1 text-center shadow-sm">S: {totalSick}</div>
                     <div className="w-10 bg-indigo-500 py-1 text-center shadow-sm">I: {totalPermit}</div>
@@ -493,7 +493,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </button>
             </div>
             )}
-            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`p-4 rounded-full shadow-xl text-white transition-all transform hover:scale-110 ${isFabOpen ? 'bg-red-500 rotate-45' : 'bg-[#5AB2FF]'}`}><Plus size={28} /></button>
+            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`p-4 rounded-full shadow-xl text-white transition-all transform hover:scale-110 ${isFabOpen ? 'bg-red-500 rotate-45' : 'bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF]'}`}><Plus size={28} /></button>
         </div>
       </div>
     </div>

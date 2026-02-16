@@ -262,6 +262,14 @@ export interface AcademicCalendarData {
   [yearMonth: string]: (string | null)[]; // Key: YYYY-MM, Value: array of 31 day contents
 }
 
+// NEW: Support Document
+export interface SupportDocument {
+  id: string;
+  classId: string;
+  name: string;
+  url: string;
+}
+
 // --- Penilaian Sikap & Karakter ---
 
 export const SIKAP_INDICATORS = {
@@ -318,4 +326,4 @@ export interface KarakterAssessment {
 }
 
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs';

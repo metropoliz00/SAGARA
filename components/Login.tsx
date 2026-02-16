@@ -130,7 +130,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   <p className="text-sm text-slate-500 font-medium tracking-wide">
                     Sistem Akademik & Administrasi Terintegrasi
                   </p>
-                  <p className="text-xs text-slate-400 font-bold uppercase mt-1 tracking-wider">
+                  <p className="inline-block bg-[#CAF4FF] text-blue-800 text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full mt-2 border border-blue-200 shadow-sm">
                     UPT SD NEGERI REMEN 2
                   </p>
                </div>
