@@ -139,11 +139,18 @@ const App: React.FC = () => {
       }
   }, [currentView, currentUser]);
 
+  const canSelectClass = useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.role === 'admin' || 
+           currentUser.role === 'supervisor' || 
+           (currentUser.role === 'guru' && String(currentUser.classId).toUpperCase() === 'ALL');
+  }, [currentUser]);
+
   useEffect(() => {
-      if ((currentUser?.role === 'admin' || currentUser?.role === 'supervisor') && selectedClassId) {
+      if (canSelectClass && selectedClassId) {
           localStorage.setItem('sagara_classId', selectedClassId);
       }
-  }, [selectedClassId, currentUser]);
+  }, [selectedClassId, canSelectClass]);
 
   const handleLogout = () => {
       setCurrentUser(null);
@@ -197,7 +204,7 @@ const App: React.FC = () => {
   // -- Initialize Selected Class ID based on User Role --
   useEffect(() => {
     if (currentUser) {
-        if (currentUser.role === 'admin' || currentUser.role === 'supervisor') {
+        if (canSelectClass) {
             const currentStr = String(selectedClassId || '');
             const isValid = selectedClassId && availableClasses.some(c => String(c).toUpperCase() === currentStr.toUpperCase());
             // Only auto-select if no valid selection exists and list is populated
@@ -208,10 +215,11 @@ const App: React.FC = () => {
             setCurrentView('dashboard'); 
             if (currentUser.classId) setSelectedClassId(String(currentUser.classId));
         } else {
+            // Homeroom teacher
             setSelectedClassId(String(currentUser.classId || ''));
         }
     }
-  }, [currentUser, availableClasses, selectedClassId]);
+  }, [currentUser, availableClasses, selectedClassId, canSelectClass]);
 
   // -- CALCULATE ADMINISTRATION COMPLETENESS --
   useEffect(() => {
@@ -250,10 +258,14 @@ const App: React.FC = () => {
     if (currentUser.role === 'admin') return { isGlobalReadOnly: false, allowedSubjects: ['all'] };
     if (currentUser.role === 'supervisor') return { isGlobalReadOnly: true, allowedSubjects: ['all'] }; // Supervisor Read-Only Global
     if (currentUser.role === 'siswa') return { isGlobalReadOnly: true, allowedSubjects: [] };
+    
+    // For 'guru' role
     const pos = (currentUser.position || '').toLowerCase();
-    if (pos.includes('pai') || pos.includes('agama')) return { isGlobalReadOnly: true, allowedSubjects: ['pai'] };
-    if (pos.includes('pjok') || pos.includes('olahraga')) return { isGlobalReadOnly: true, allowedSubjects: ['pjok'] };
-    if (pos.includes('inggris')) return { isGlobalReadOnly: true, allowedSubjects: ['inggris'] };
+    if (pos.includes('pai') || pos.includes('agama')) return { isGlobalReadOnly: false, allowedSubjects: ['pai'] };
+    if (pos.includes('pjok') || pos.includes('olahraga')) return { isGlobalReadOnly: false, allowedSubjects: ['pjok'] };
+    if (pos.includes('inggris')) return { isGlobalReadOnly: false, allowedSubjects: ['inggris'] };
+    
+    // Default for homeroom teachers
     return { isGlobalReadOnly: false, allowedSubjects: ['all'] };
   }, [currentUser]);
 
@@ -266,8 +278,8 @@ const App: React.FC = () => {
 
   const activeClassId = useMemo(() => {
     if (!currentUser) return '';
-    return (currentUser.role === 'admin' || currentUser.role === 'supervisor') ? selectedClassId : String(currentUser.classId || '');
-  }, [currentUser, selectedClassId]);
+    return canSelectClass ? selectedClassId : String(currentUser.classId || '');
+  }, [currentUser, selectedClassId, canSelectClass]);
 
   const filteredStudents = useMemo(() => students.filter(s => isClassMatch(s.classId, activeClassId)), [students, activeClassId]);
   const filteredAgendas = useMemo(() => agendas.filter(a => isClassMatch(a.classId, activeClassId)), [agendas, activeClassId]);
@@ -1168,7 +1180,7 @@ const App: React.FC = () => {
               </h1>
             </div>
 
-            {(isAdminRole || isSupervisor) && (
+            {canSelectClass && (
                 <div className="hidden lg:flex items-center bg-[#CAF4FF]/30 border border-[#A0DEFF]/50 rounded-lg px-3 py-1.5 shadow-sm">
                     <Filter size={14} className="text-[#5AB2FF] mr-2" />
                     <span className="text-xs font-bold text-gray-500 uppercase mr-2">Pilih Kelas:</span>
@@ -1256,7 +1268,7 @@ const App: React.FC = () => {
         </header>
 
         {/* Mobile Filter for Admin/Supervisor */}
-        {(isAdminRole || isSupervisor) && (
+        {canSelectClass && (
             <div className="lg:hidden bg-white border-b px-4 py-2 flex items-center justify-center shadow-sm relative z-20">
                 <span className="text-xs font-bold text-gray-500 uppercase mr-2">Kelas Aktif:</span>
                 <select 
