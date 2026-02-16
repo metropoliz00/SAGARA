@@ -1,0 +1,207 @@
+
+import React, { useState } from 'react';
+import { SchoolProfileData } from '../../types';
+import { compressImage } from '../../utils/imageHelper';
+import { Loader2, AlertCircle, Save, Lock } from 'lucide-react';
+
+interface SchoolDataTabProps {
+  school: SchoolProfileData;
+  setSchool: React.Dispatch<React.SetStateAction<SchoolProfileData>>;
+  onSave: () => Promise<void>;
+  isSaving: boolean;
+  isReadOnly?: boolean;
+}
+
+const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave, isSaving, isReadOnly = false }) => {
+  const [uploadingRegency, setUploadingRegency] = useState(false);
+  const [uploadingSchool, setUploadingSchool] = useState(false);
+
+  const academicYears = [
+    "2025/2026",
+    "2026/2027",
+    "2027/2028",
+    "2028/2029",
+    "2029/2030"
+  ];
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'regency' | 'school') => {
+    if (isReadOnly) return;
+    const file = event.target.files?.[0];
+    const input = event.target; // Simpan referensi untuk reset
+
+    if (file) {
+      // Set loading state
+      if (type === 'regency') setUploadingRegency(true);
+      else setUploadingSchool(true);
+
+      try {
+        // Resize ke 150px (Sangat cukup untuk logo kop surat & muat di spreadsheet)
+        // Kualitas 0.7
+        const resizedBase64 = await compressImage(file, 150, 0.7);
+        
+        if(type === 'regency') {
+           setSchool({ ...school, regencyLogo: resizedBase64 });
+        } else {
+           setSchool({ ...school, schoolLogo: resizedBase64 });
+        }
+      } catch (error) {
+        console.error("Gagal kompresi logo", error);
+        alert("Gagal memproses gambar. Cobalah gambar yang lebih kecil atau format JPG.");
+      } finally {
+        // Reset loading & input
+        if (type === 'regency') setUploadingRegency(false);
+        else setUploadingSchool(false);
+        if (input) input.value = ''; 
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+        <h3 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-2 flex justify-between items-center">
+            <span>Informasi Sekolah</span>
+            {isReadOnly && (
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full flex items-center font-normal">
+                    <Lock size={12} className="mr-1"/> Read Only
+                </span>
+            )}
+        </h3>
+        
+        <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-xs text-blue-800 flex items-start mb-4">
+            <AlertCircle size={16} className="mr-2 shrink-0 mt-0.5" />
+            <span>
+               <strong>Tips Logo:</strong> Sistem otomatis mengecilkan logo agar muat disimpan. 
+               Jika upload gagal, coba gunakan file gambar yang lebih sederhana atau format JPG.
+            </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Sekolah</label>
+            <input disabled={isReadOnly} type="text" value={school.name} onChange={(e) => setSchool({...school, name: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" />
+        </div>
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">NPSN</label>
+            <input disabled={isReadOnly} type="text" value={school.npsn} onChange={(e) => setSchool({...school, npsn: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" />
+        </div>
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tahun Pelajaran</label>
+            <select 
+            disabled={isReadOnly}
+            value={school.year} 
+            onChange={(e) => setSchool({...school, year: e.target.value})} 
+            className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+            >
+                <option value="">Pilih Tahun</option>
+                {academicYears.map(year => (
+                <option key={year} value={year}>{year}</option>
+                ))}
+            </select>
+        </div>
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+            <select
+                disabled={isReadOnly}
+                value={school.semester}
+                onChange={(e) => setSchool({...school, semester: e.target.value})}
+                className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+            >
+                <option value="1">1 (Ganjil)</option>
+                <option value="2">2 (Genap)</option>
+            </select>
+        </div>
+        
+        {/* Logo Uploads */}
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <label className="block text-sm font-bold text-gray-700 mb-2">Logo Kabupaten / Dinas</label>
+            <div className="flex items-center space-x-3">
+                <div className="w-16 h-16 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+                    {uploadingRegency ? (
+                        <Loader2 className="animate-spin text-indigo-500" size={20} />
+                    ) : school.regencyLogo ? (
+                        <img src={school.regencyLogo} alt="Logo Kab" className="w-full h-full object-contain p-1" />
+                    ) : (
+                        <span className="text-[10px] text-gray-400 text-center">Belum ada</span>
+                    )}
+                </div>
+                <div className="flex-1">
+                    {!isReadOnly && (
+                        <>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoUpload(e, 'regency')} 
+                                className="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 cursor-pointer" 
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1">Format: JPG/PNG. Max lebar otomatis diubah ke 150px.</p>
+                        </>
+                    )}
+                    {isReadOnly && <p className="text-xs text-gray-500 italic">Upload dinonaktifkan (Read Only)</p>}
+                </div>
+            </div>
+        </div>
+
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <label className="block text-sm font-bold text-gray-700 mb-2">Logo Sekolah</label>
+            <div className="flex items-center space-x-3">
+                <div className="w-16 h-16 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+                    {uploadingSchool ? (
+                        <Loader2 className="animate-spin text-indigo-500" size={20} />
+                    ) : school.schoolLogo ? (
+                        <img src={school.schoolLogo} alt="Logo Sekolah" className="w-full h-full object-contain p-1" />
+                    ) : (
+                        <span className="text-[10px] text-gray-400 text-center">Belum ada</span>
+                    )}
+                </div>
+                <div className="flex-1">
+                    {!isReadOnly && (
+                        <>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoUpload(e, 'school')} 
+                                className="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 cursor-pointer" 
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1">Format: JPG/PNG. Max lebar otomatis diubah ke 150px.</p>
+                        </>
+                    )}
+                    {isReadOnly && <p className="text-xs text-gray-500 italic">Upload dinonaktifkan (Read Only)</p>}
+                </div>
+            </div>
+        </div>
+
+        <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Alamat Sekolah</label>
+            <textarea disabled={isReadOnly} rows={2} value={school.address} onChange={(e) => setSchool({...school, address: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" />
+        </div>
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Kepala Sekolah</label>
+            <input disabled={isReadOnly} type="text" value={school.headmaster} onChange={(e) => setSchool({...school, headmaster: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" />
+        </div>
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">NIP Kepala Sekolah</label>
+            <input disabled={isReadOnly} type="text" value={school.headmasterNip} onChange={(e) => setSchool({...school, headmasterNip: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" />
+        </div>
+        </div>
+        <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end">
+            {!isReadOnly ? (
+                <button 
+                    onClick={onSave}
+                    disabled={isSaving}
+                    className="flex items-center space-x-2 bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    <span>{isSaving ? 'Menyimpan...' : 'Simpan Data Sekolah'}</span>
+                </button>
+            ) : (
+                <div className="flex items-center text-amber-600 bg-amber-50 px-4 py-2 rounded-lg text-sm border border-amber-200">
+                    <Lock size={16} className="mr-2"/>
+                    <span>Hanya Admin yang dapat mengubah data sekolah</span>
+                </div>
+            )}
+        </div>
+    </div>
+  );
+};
+
+export default SchoolDataTab;
