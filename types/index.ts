@@ -224,7 +224,10 @@ export interface LiaisonLog {
   category?: string; // New: Kesiswaan, Pelayanan, Fasilitas, Lain-lain
   message: string; // Deskripsi Permasalahan
   status?: 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai'; // Expanded status
+<<<<<<< HEAD
   response?: string; // NEW: Balasan Guru
+=======
+>>>>>>> b93430150a2addd64e51675f9a08c817779195da
 }
 
 // NEW: Permission Request (Ijin Siswa)
@@ -345,4 +348,8 @@ export interface KarakterAssessment {
 
 
 // FIX: Add 'support-docs' to ViewState type for navigation
+<<<<<<< HEAD
 export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs';
+=======
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs';
+>>>>>>> b93430150a2addd64e51675f9a08c817779195da

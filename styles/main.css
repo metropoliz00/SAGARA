@@ -82,6 +82,7 @@
         animation: slide-right-left 3s ease-in-out infinite 1s; /* Start after 1s delay */
       }
 
+<<<<<<< HEAD
       /* Marquee Animation */
       @keyframes marquee {
         0% { transform: translateX(100%); }
@@ -93,6 +94,8 @@
         padding-left: 100%; /* Ensures text starts from right */
       }
 
+=======
+>>>>>>> b93430150a2addd64e51675f9a08c817779195da
       /* PRINT STYLES GLOBAL */
       @media print {
         @page {
