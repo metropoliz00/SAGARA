@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { LiaisonLog, Student } from '../types';
-import { Search, CheckCircle, XCircle, Clock, Filter, BookOpen, CheckSquare } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Clock, Filter, BookOpen, CheckSquare, MessageCircle, Send, Loader2 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface LiaisonBookViewProps {
   logs: LiaisonLog[];
@@ -14,6 +15,8 @@ interface LiaisonBookViewProps {
 const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpdateStatus, classId }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [sendingReply, setSendingReply] = useState<string | null>(null);
 
   // Enrich logs with student names
   const enrichedLogs = useMemo(() => {
@@ -39,6 +42,39 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
   const handleStatusChange = async (id: string, newStatus: 'Diterima' | 'Ditolak' | 'Selesai') => {
       if (confirm(`Ubah status laporan menjadi ${newStatus}?`)) {
           await onUpdateStatus([id], newStatus);
+      }
+  };
+
+  const handleSendReply = async (id: string) => {
+      const message = replyText[id];
+      if (!message || !message.trim()) return;
+
+      setSendingReply(id);
+      try {
+          // Assuming apiService has been updated to handle replies
+          // Or we simulate it by updating the log if backend doesn't support specific reply endpoint yet
+          // For this implementation, let's assume we call a method to update the response.
+          await apiService.replyLiaisonLog(id, message); 
+          
+          // Optimistic update or refresh needed. 
+          // Since we can't easily refresh prop 'logs' from here without parent callback,
+          // we might just clear the text and maybe update status.
+          // Ideally onReply or onUpdateStatus triggers a refresh in App.tsx
+          
+          // Also mark as 'Diterima' if it was 'Pending'
+          const log = logs.find(l => l.id === id);
+          if (log && log.status === 'Pending') {
+              await onUpdateStatus([id], 'Diterima');
+          }
+          
+          setReplyText(prev => ({ ...prev, [id]: '' }));
+          alert('Balasan terkirim.');
+          // Trigger refresh (this depends on parent re-rendering with new data)
+          window.location.reload(); // Simple refresh to fetch new state
+      } catch (e) {
+          alert('Gagal mengirim balasan.');
+      } finally {
+          setSendingReply(null);
       }
   };
 
@@ -118,10 +154,24 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
                                         {log.category || 'Umum'}
                                     </span>
                                 </div>
-                                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 leading-relaxed">
-                                    {log.message}
+                                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 leading-relaxed italic">
+                                    "{log.message}"
                                 </p>
                             </div>
+
+                            {/* TEACHER RESPONSE DISPLAY */}
+                            {log.response && (
+                                <div className="mb-3 ml-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <MessageCircle size={14} className="text-emerald-600"/>
+                                        <span className="text-xs font-bold text-emerald-700">Balasan Guru:</span>
+                                    </div>
+                                    <div className="text-sm text-gray-800 bg-emerald-50 p-3 rounded-lg border border-emerald-100 relative">
+                                        <div className="absolute top-0 -left-2 w-0 h-0 border-t-[8px] border-t-transparent border-r-[10px] border-r-emerald-50 border-b-[8px] border-b-transparent"></div>
+                                        {log.response}
+                                    </div>
+                                </div>
+                            )}
                             
                             <div className="flex items-center justify-between mt-2">
                                 <div className="flex items-center gap-2">
@@ -130,10 +180,34 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
                                 </div>
                                 <span className="text-[10px] text-gray-400 italic">Dari: {log.sender}</span>
                             </div>
+
+                            {/* REPLY INPUT - Only if not finished */}
+                            {log.status !== 'Selesai' && log.status !== 'Ditolak' && (
+                                <div className="mt-4 pt-3 border-t border-gray-100">
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">Beri Respon / Balasan:</label>
+                                    <div className="flex gap-2">
+                                        <textarea
+                                            rows={1}
+                                            value={replyText[log.id] || ''}
+                                            onChange={(e) => setReplyText(prev => ({...prev, [log.id]: e.target.value}))}
+                                            className="flex-1 text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                                            placeholder="Tulis balasan untuk wali murid..."
+                                        />
+                                        <button 
+                                            onClick={() => handleSendReply(log.id)}
+                                            disabled={sendingReply === log.id || !replyText[log.id]}
+                                            className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-fit self-end"
+                                            title="Kirim Balasan"
+                                        >
+                                            {sendingReply === log.id ? <Loader2 size={18} className="animate-spin"/> : <Send size={18}/>}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Right: Actions */}
-                        <div className="flex md:flex-col gap-2 border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4 md:w-32 shrink-0 justify-center">
+                        <div className="flex md:flex-col gap-2 border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4 md:w-36 shrink-0 justify-center">
                             {(log.status === 'Pending' || !log.status) && (
                                 <>
                                     <button onClick={() => handleStatusChange(log.id, 'Diterima')} className="flex-1 py-1.5 px-3 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-200">
@@ -145,17 +219,17 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
                                 </>
                             )}
                             {log.status === 'Diterima' && (
-                                <button onClick={() => handleStatusChange(log.id, 'Selesai')} className="w-full py-2 px-3 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm">
-                                    Tandai Selesai
+                                <button onClick={() => handleStatusChange(log.id, 'Selesai')} className="w-full py-2 px-3 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center">
+                                    <CheckSquare size={14} className="mr-1"/> Selesai
                                 </button>
                             )}
                             {log.status === 'Selesai' && (
-                                <div className="text-center text-xs text-emerald-600 font-medium py-2 bg-emerald-50 rounded-lg">
+                                <div className="text-center text-xs text-emerald-600 font-medium py-2 bg-emerald-50 rounded-lg border border-emerald-100">
                                     Kasus Ditutup
                                 </div>
                             )}
                              {log.status === 'Ditolak' && (
-                                <div className="text-center text-xs text-red-600 font-medium py-2 bg-red-50 rounded-lg">
+                                <div className="text-center text-xs text-red-600 font-medium py-2 bg-red-50 rounded-lg border border-red-100">
                                     Kasus Ditolak
                                 </div>
                             )}

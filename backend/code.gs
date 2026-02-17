@@ -295,8 +295,9 @@ function getClassConfig(classId) {
   const kRow = kRows.find(r => String(r[0]) === classId);
   if (kRow) data.kktp = parseJSON(kRow[1]) || {};
 
+  // Fetch Global Calendar
   const cRows = getData(SHEETS.KALENDER);
-  const cRow = cRows.find(r => String(r[0]) === classId);
+  const cRow = cRows.find(r => String(r[0]) === '__SCHOOL_WIDE__');
   if (cRow) data.academicCalendar = parseJSON(cRow[1]) || {};
 
   const jRows = getData(SHEETS.JAM);
@@ -313,7 +314,6 @@ function getClassConfig(classId) {
 
 function saveClassConfig(p) {
   const { key, data, classId } = p;
-  let sheetName;
   
   if (key === 'PIKET') {
     const sheet = getSheet(SHEETS.PIKET);
@@ -337,23 +337,34 @@ function saveClassConfig(p) {
     return response({ status: "success" });
   }
 
-  // Single Row Configs
-  if (key === 'SEATING') sheetName = SHEETS.DENAH;
-  else if (key === 'KKTP') sheetName = SHEETS.KKTP;
-  else if (key === 'ACADEMIC_CALENDAR') sheetName = SHEETS.KALENDER;
-  else if (key === 'TIME_SLOTS') sheetName = SHEETS.JAM;
-  else if (key === 'ORGANIZATION') sheetName = SHEETS.STRUKTUR; // NEW
+  // Handle Single Row Configs
+  let sheetName;
+  let effectiveClassId = classId;
+
+  if (key === 'ACADEMIC_CALENDAR') {
+    sheetName = SHEETS.KALENDER;
+    effectiveClassId = '__SCHOOL_WIDE__';
+  } else if (key === 'SEATING') {
+    sheetName = SHEETS.DENAH;
+  } else if (key === 'KKTP') {
+    sheetName = SHEETS.KKTP;
+  } else if (key === 'TIME_SLOTS') {
+    sheetName = SHEETS.JAM;
+  } else if (key === 'ORGANIZATION') {
+    sheetName = SHEETS.STRUKTUR;
+  }
 
   if (sheetName) {
     const sheet = getSheet(sheetName);
     const all = sheet.getDataRange().getValues();
-    let idx = all.findIndex(r => String(r[0]) === classId);
-    const rowData = [classId, JSON.stringify(data)];
-    if (idx > 0) sheet.getRange(idx+1, 1, 1, 2).setValues([rowData]);
+    let idx = all.findIndex(r => String(r[0]) === effectiveClassId);
+    const rowData = [effectiveClassId, JSON.stringify(data)];
+    if (idx > 0) sheet.getRange(idx + 1, 1, 1, 2).setValues([rowData]);
     else sheet.appendRow(rowData);
     return response({ status: "success" });
   }
-  return response({ status: "error" });
+
+  return response({ status: "error", message: "Invalid config key" });
 }
 
 // --- OTHERS ---

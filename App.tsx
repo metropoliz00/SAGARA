@@ -1,5 +1,4 @@
 
-// ... existing imports
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -17,7 +16,7 @@ import Notification from './components/Notification';
 import AccountManagement from './components/AccountManagement';
 import EmploymentLinksAdmin from './components/EmploymentLinksAdmin';
 import LearningReportsView from './components/LearningReportsView'; 
-import LearningJournalView from './components/LearningJournalView'; // NEW IMPORT
+import LearningJournalView from './components/LearningJournalView'; 
 import StudentMonitor from './components/StudentMonitor'; 
 import LiaisonBookView from './components/LiaisonBookView'; 
 import StudentPortal from './components/StudentPortal'; 
@@ -30,7 +29,6 @@ import { apiService } from './services/apiService';
 import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X } from 'lucide-react';
 
 const App: React.FC = () => {
-  // ... (State and Effects remain unchanged)
   // -- STATE PERSISTENCE INIT --
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
       try {
@@ -301,7 +299,7 @@ const App: React.FC = () => {
   const filteredCounseling = useMemo(() => counselingLogs.filter(c => isClassMatch(c.classId, activeClassId)), [counselingLogs, activeClassId]);
   const filteredSikap = useMemo(() => sikapAssessments.filter(s => isClassMatch(s.classId, activeClassId)), [sikapAssessments, activeClassId]);
   const filteredKarakter = useMemo(() => karakterAssessments.filter(k => isClassMatch(k.classId, activeClassId)), [karakterAssessments, activeClassId]);
-  const filteredHolidays = useMemo(() => holidays.filter(h => isClassMatch(h.classId, activeClassId)), [holidays, activeClassId]);
+  const filteredHolidays = holidays;
   const filteredReports = useMemo(() => learningReports.filter(r => isClassMatch(r.classId, activeClassId)), [learningReports, activeClassId]);
   const filteredSupportDocuments = useMemo(() => supportDocuments.filter(d => isClassMatch(d.classId, activeClassId)), [supportDocuments, activeClassId]);
   
@@ -861,15 +859,6 @@ const App: React.FC = () => {
       return (
         <div className="flex flex-col items-center justify-center h-full min-h-[80vh] text-gray-500 animate-fade-in overflow-hidden relative">
            
-           {/* Running Text Container */}
-           <div className="w-full absolute top-10 left-0 overflow-hidden">
-              <div className="animate-marquee whitespace-nowrap">
-                  <span className="text-2xl font-extrabold text-[#5AB2FF] tracking-wide drop-shadow-sm">
-                    {schoolProfile.runningText || "Selamat datang di UPT SD Negeri Remen 2"}
-                  </span>
-              </div>
-           </div>
-
            <div className="relative w-24 h-24 flex items-center justify-center mb-6 animate-bounce">
               <div className="absolute inset-0 bg-[#A0DEFF]/30 rounded-full blur-2xl opacity-60 animate-pulse"></div>
               <img 

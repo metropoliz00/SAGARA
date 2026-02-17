@@ -104,6 +104,10 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
 
   const rekapStudents = useMemo(() => {
+      // If printing (detected via check or just logic), we might want all students.
+      // However, for screen we paginate. 
+      // The print logic in CSS hides everything else, but we need to ensure the TABLE inside #print-area renders ALL students if needed.
+      // For now, we keep pagination for screen. Users should ideally select "Show All" or 100 before printing for full list.
       const startIndex = (currentPage - 1) * rowsPerPage;
       return students.slice(startIndex, startIndex + rowsPerPage);
   }, [students, currentPage, rowsPerPage]);
@@ -188,7 +192,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
     const records = Object.entries(dailyAttendance).map(([id, data]: [string, any]) => ({
       studentId: id,
       classId: getRealClassId(id), 
-      status: data.status,
+      status: data.status, 
       notes: data.notes
     }));
     try {
@@ -260,9 +264,12 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const getDateKeyForDay = (day: number) => `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  
+  const getDateKeyForDay = useCallback((day: number) => 
+      `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+  [selectedYear, selectedMonth]);
 
-  const getHolidayForDay = (day: number) => {
+  const getHolidayForDay = useCallback((day: number) => {
       const dateString = getDateKeyForDay(day);
       const date = new Date(dateString + 'T00:00:00');
       const isSunday = date.getDay() === 0;
@@ -270,12 +277,62 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
       if (isSunday && !holiday) return { isRed: true, holidayDesc: 'Minggu' };
       if (holiday) return { isRed: true, holidayDesc: holiday.description, type: holiday.type };
       return { isRed: false };
-  };
+  }, [getDateKeyForDay, holidays]);
 
   const getAttendanceForDay = (studentId: string, day: number) => {
       const key = `${String(studentId).trim()}_${getDateKeyForDay(day)}`;
       return attendanceMap[key];
   };
+
+  // --- REKAP STATS CALCULATION ---
+  const effectiveDaysCount = useMemo(() => {
+      let count = 0;
+      daysArray.forEach(d => {
+          const { isRed } = getHolidayForDay(d);
+          if (!isRed) count++;
+      });
+      return count;
+  }, [daysArray, getHolidayForDay]);
+
+  const rekapStats = useMemo(() => {
+      let sakit = 0, izin = 0, alpha = 0;
+      const studentCount = students.length;
+      
+      students.forEach(s => {
+          daysArray.forEach(d => {
+              const { isRed } = getHolidayForDay(d);
+              if (!isRed) {
+                  const dateStr = getDateKeyForDay(d);
+                  const key = `${s.id}_${dateStr}`;
+                  const record = attendanceMap[key];
+                  if (record) {
+                      if (record.status === 'sick') sakit++;
+                      else if (record.status === 'permit') izin++;
+                      else if (record.status === 'alpha') alpha++;
+                  }
+              }
+          });
+      });
+
+      const totalEffectiveStudentDays = studentCount * effectiveDaysCount;
+      const getPct = (val: number) => totalEffectiveStudentDays === 0 ? 0 : (val / totalEffectiveStudentDays) * 100;
+
+      return {
+          sakit: getPct(sakit),
+          izin: getPct(izin),
+          alpha: getPct(alpha)
+      };
+  }, [students, daysArray, effectiveDaysCount, attendanceMap, getHolidayForDay, getDateKeyForDay]);
+
+  // NEW: Filter holidays for the selected month for print display
+  const currentMonthHolidays = useMemo(() => {
+      return holidays.filter(h => {
+          if (!h.date) return false;
+          const [yStr, mStr] = h.date.split('-');
+          return Number(yStr) === selectedYear && Number(mStr) === selectedMonth;
+      }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [holidays, selectedMonth, selectedYear]);
+
 
   const handleRecapCellClick = (student: Student, date: string, currentStatus?: string, currentNotes?: string) => {
       if (isReadOnly) return;
@@ -342,9 +399,9 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
     setIsSavingHoliday(true);
     try {
       if (!holidayForm.id) {
-        await onAddHoliday([{ classId: classId, date: holidayForm.date, description: holidayForm.description, type: holidayForm.type as Holiday['type'] }]);
+        await onAddHoliday([{ classId: "__SCHOOL_WIDE__", date: holidayForm.date, description: holidayForm.description, type: holidayForm.type as Holiday['type'] }]);
       } else {
-        await onUpdateHoliday(holidayForm as Holiday);
+        await onUpdateHoliday({ ...holidayForm, classId: "__SCHOOL_WIDE__" } as Holiday);
       }
       resetHolidayForm();
     } catch (e) { console.error(e); } finally { setIsSavingHoliday(false); }
@@ -364,7 +421,106 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const getHolidayColorStyle = (type?: string) => { return (type && HOLIDAY_TYPE_LEGEND[type]?.style) || SUNDAY_STYLE; };
   const getHolidayPillColor = (type: string) => { return HOLIDAY_TYPE_LEGEND[type]?.color || 'bg-gray-500'; };
-  const handlePrint = () => window.print();
+  
+  // Date helpers for footer
+  const getLastDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month, 0).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  };
+  
+  const tanggalAkhirBulan = getLastDayOfMonth(selectedYear, selectedMonth);
+  const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('id-ID', { month: 'long' });
+
+  // UPDATED PRINT FUNCTION
+  const handlePrint = () => {
+    const printContent = document.getElementById('print-area');
+    if (printContent) {
+      const printWindow = window.open('', '', 'width=1000,height=800');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Cetak Rekap Absensi</title>
+              <script src="https://cdn.tailwindcss.com"></script>
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+                
+                body {
+                  font-family: 'Inter', sans-serif;
+                  background-color: white;
+                  margin: 0;
+                  padding: 20px;
+                }
+
+                @media print {
+                  @page {
+                    size: A4 landscape;
+                    margin: 1cm;
+                  }
+                  body {
+                    margin: 0;
+                    padding: 0;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                  }
+                  
+                  /* Force visibility of print-specific elements */
+                  .print-header { display: block !important; }
+                  .print-footer { display: block !important; }
+                  .hidden { display: block !important; }
+                  
+                  /* Hide elements marked as no-print */
+                  .no-print { display: none !important; }
+                  
+                  table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 10px;
+                  }
+                  
+                  th, td {
+                    border: 1px solid #000;
+                    padding: 4px;
+                    text-align: center;
+                  }
+                  
+                  /* Adjust header colors for print */
+                  thead th {
+                    background-color: #f3f4f6 !important;
+                    color: #000 !important;
+                  }
+                }
+
+                /* Screen styles for the popup window */
+                .print-header { text-align: center; margin-bottom: 20px; }
+                .print-footer { margin-top: 30px; padding: 0 40px; font-size: 14px; }
+                
+                table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                th, td { border: 1px solid #e5e7eb; padding: 4px; text-align: center; }
+                .hidden { display: block; } /* Show hidden elements in the new window */
+                .no-print { display: none; }
+              </style>
+            </head>
+            <body>
+              ${printContent.innerHTML}
+              <script>
+                // Auto print when loaded
+                setTimeout(() => {
+                  window.print();
+                  window.close();
+                }, 1500); 
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+    }
+  };
 
   // --- BARCODE SCANNER LOGIC ---
   const handleScanSuccess = async (decodedText: string, decodedResult: any) => {
@@ -505,75 +661,186 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                  </div>
              </div>
              
-             <div className="bg-white rounded-xl shadow-sm border overflow-auto print-container">
-                <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-[#CAF4FF]/50 font-bold uppercase text-[10px]">
-                        <tr>
-                            <th className="p-2 border sticky left-0 bg-[#CAF4FF]/50 z-10 w-48">Nama Siswa</th>
-                            {daysArray.map(d => {
-                                const {isRed, type} = getHolidayForDay(d);
-                                const {bg, text} = getHolidayColorStyle(type);
-                                return <th key={d} className={`p-1 border text-center w-8 ${isRed ? `${bg} ${text}` : ''}`}>{d}</th>;
-                            })}
-                            <th className="p-1 border text-center w-8 bg-emerald-100">H</th>
-                            <th className="p-1 border text-center w-8 bg-amber-100">S</th>
-                            <th className="p-1 border text-center w-8 bg-blue-100">I</th>
-                            <th className="p-1 border text-center w-8 bg-rose-200">A</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rekapStudents.map(s => {
-                            let h=0, sk=0, i=0, a=0;
-                            for (const d of daysArray) {
-                                 const {isRed} = getHolidayForDay(d);
-                                 const record = getAttendanceForDay(s.id, d);
-                                 const status = record?.status;
-                                 if(!isRed) {
-                                     if(status === 'present' || status === 'dispensation') h++;
-                                 }
-                                 if(status === 'sick') sk++;
-                                 if(status === 'permit') i++;
-                                 if(status === 'alpha') a++;
-                            }
+             {/* Print Area Wrapper */}
+             <div id="print-area">
+                
+                {/* Print Header */}
+                <div className="print-header hidden print:block mb-8 text-center font-serif text-black">
+                    <h2 className="text-2xl font-bold uppercase mb-1">REKAP ABSENSI</h2>
+                    <p className="text-lg">Kelas {classId}</p>
+                    <p className="text-lg">Bulan {monthName} {selectedYear}</p>
+                </div>
 
-                            return (
-                                <tr key={s.id} className="hover:bg-gray-50 group">
-                                    <td className="p-2 border font-medium sticky left-0 bg-white z-10 whitespace-nowrap group-hover:bg-gray-50">{s.name}</td>
+                <div className="bg-white rounded-xl shadow-sm border overflow-visible print-container">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left border-collapse">
+                            <thead className="bg-[#CAF4FF]/50 font-bold uppercase text-[10px]">
+                                <tr>
+                                    <th className="p-2 border sticky left-0 bg-[#CAF4FF]/50 z-10 w-48">Nama Siswa</th>
                                     {daysArray.map(d => {
-                                        const dateStr = getDateKeyForDay(d);
-                                        const {isRed, holidayDesc, type} = getHolidayForDay(d);
-                                        const attendanceRecord = getAttendanceForDay(s.id, d);
-                                        const status = attendanceRecord?.status;
-                                        const notes = attendanceRecord?.notes;
-                                        const hasNote = notes && notes.trim() !== '';
-                                        const {bg} = getHolidayColorStyle(type);
-
-                                        return (
-                                            <td 
-                                                key={d} 
-                                                className={`p-1 border text-center ${!isReadOnly ? 'cursor-pointer hover:bg-gray-200' : ''} transition-colors ${isRed ? bg : ''}`} 
-                                                title={holidayDesc || (status ? `${STATUS_TEXT[status as AttendanceStatus]}${hasNote ? `: ${notes}` : ''}` : '')}
-                                                onClick={() => !isRed && !isReadOnly && handleRecapCellClick(s, dateStr, status, notes)}
-                                            >
-                                                {isRed ? <span className="text-gray-300">-</span> : 
-                                                 (status === 'present' ? <span className="text-emerald-600 font-bold">H{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  status === 'sick' ? <span className="text-amber-600 font-bold">S{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  status === 'permit' ? <span className="text-blue-600 font-bold">I{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  status === 'alpha' ? <span className="text-rose-600 font-bold">A{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> : 
-                                                  status === 'dispensation' ? <span className="text-purple-600 font-bold">D{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  <span className="opacity-0 group-hover:opacity-30 text-gray-400">.</span>)}
-                                            </td>
-                                        );
+                                        const {isRed, type} = getHolidayForDay(d);
+                                        const {bg, text} = getHolidayColorStyle(type);
+                                        return <th key={d} className={`p-1 border text-center w-8 ${isRed ? `${bg} ${text}` : ''}`}>{d}</th>;
                                     })}
-                                    <td className="p-1 border text-center font-bold bg-emerald-50">{h}</td>
-                                    <td className="p-1 border text-center font-bold bg-amber-50">{sk}</td>
-                                    <td className="p-1 border text-center font-bold bg-blue-50">{i}</td>
-                                    <td className="p-1 border text-center font-bold bg-rose-50">{a}</td>
+                                    <th className="p-1 border text-center w-8 bg-emerald-100">H</th>
+                                    <th className="p-1 border text-center w-8 bg-amber-100">S</th>
+                                    <th className="p-1 border text-center w-8 bg-blue-100">I</th>
+                                    <th className="p-1 border text-center w-8 bg-rose-200">A</th>
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody>
+                                {rekapStudents.map(s => {
+                                    let h=0, sk=0, i=0, a=0;
+                                    for (const d of daysArray) {
+                                        const {isRed} = getHolidayForDay(d);
+                                        const record = getAttendanceForDay(s.id, d);
+                                        const status = record?.status;
+                                        if(!isRed) {
+                                            if(status === 'present' || status === 'dispensation') h++;
+                                        }
+                                        if(status === 'sick') sk++;
+                                        if(status === 'permit') i++;
+                                        if(status === 'alpha') a++;
+                                    }
+
+                                    return (
+                                        <tr key={s.id} className="hover:bg-gray-50 group">
+                                            <td className="p-2 border font-medium sticky left-0 bg-white z-10 whitespace-nowrap group-hover:bg-gray-50">{s.name}</td>
+                                            {daysArray.map(d => {
+                                                const dateStr = getDateKeyForDay(d);
+                                                const {isRed, holidayDesc, type} = getHolidayForDay(d);
+                                                const attendanceRecord = getAttendanceForDay(s.id, d);
+                                                const status = attendanceRecord?.status;
+                                                const notes = attendanceRecord?.notes;
+                                                const hasNote = notes && notes.trim() !== '';
+                                                const {bg} = getHolidayColorStyle(type);
+
+                                                // Determine holiday code
+                                                let holidayCode = '-';
+                                                if (isRed) {
+                                                    if (holidayDesc === 'Minggu') holidayCode = 'LU';
+                                                    else if (type === 'cuti') holidayCode = 'CB';
+                                                    else if (type === 'semester') holidayCode = 'LS';
+                                                    else holidayCode = 'LHB';
+                                                }
+
+                                                return (
+                                                    <td 
+                                                        key={d} 
+                                                        className={`p-1 border text-center ${!isReadOnly ? 'cursor-pointer hover:bg-gray-200' : ''} transition-colors ${isRed ? bg : ''}`} 
+                                                        title={holidayDesc || (status ? `${STATUS_TEXT[status as AttendanceStatus]}${hasNote ? `: ${notes}` : ''}` : '')}
+                                                        onClick={() => !isRed && !isReadOnly && handleRecapCellClick(s, dateStr, status, notes)}
+                                                    >
+                                                        {isRed ? <span className="text-[9px] font-bold text-gray-500/80">{holidayCode}</span> : 
+                                                        (status === 'present' ? <span className="text-emerald-600 font-bold">H{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        status === 'sick' ? <span className="text-amber-600 font-bold">S{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        status === 'permit' ? <span className="text-blue-600 font-bold">I{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        status === 'alpha' ? <span className="text-rose-600 font-bold">A{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> : 
+                                                        status === 'dispensation' ? <span className="text-purple-600 font-bold">D{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        <span className="opacity-0 group-hover:opacity-30 text-gray-400">.</span>)}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="p-1 border text-center font-bold bg-emerald-50">{h}</td>
+                                            <td className="p-1 border text-center font-bold bg-amber-50">{sk}</td>
+                                            <td className="p-1 border text-center font-bold bg-blue-50">{i}</td>
+                                            <td className="p-1 border text-center font-bold bg-rose-50">{a}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Recap Summary Section - SCREEN ONLY (keep no-print) */}
+                    <div className="mt-8 flex flex-col sm:flex-row justify-end gap-4 break-inside-avoid px-4 pb-6 border-t pt-4 no-print">
+                        {/* Hari Efektif Table */}
+                        <div className="border border-gray-300 rounded-lg overflow-hidden text-sm w-full sm:w-auto">
+                            <div className="bg-gray-100 p-2 font-bold text-center border-b border-gray-300">Hari Efektif</div>
+                            <div className="p-4 text-center font-bold text-xl bg-white text-gray-800">
+                                {effectiveDaysCount} <span className="text-xs font-normal text-gray-500">Hari</span>
+                            </div>
+                        </div>
+
+                        {/* Absensi Table */}
+                        <div className="border border-gray-300 rounded-lg overflow-hidden text-sm w-full sm:w-64">
+                            <div className="bg-gray-100 p-2 font-bold text-left border-b border-gray-300 px-4">Absensi</div>
+                            <div className="bg-white">
+                                <div className="flex justify-between px-4 py-2 border-b border-gray-100">
+                                    <span className="text-gray-600">Izin</span>
+                                    <span className="font-bold text-blue-600">{rekapStats.izin.toFixed(1).replace('.', ',')}%</span>
+                                </div>
+                                <div className="flex justify-between px-4 py-2 border-b border-gray-100">
+                                    <span className="text-gray-600">Sakit</span>
+                                    <span className="font-bold text-amber-600">{rekapStats.sakit.toFixed(1).replace('.', ',')}%</span>
+                                </div>
+                                <div className="flex justify-between px-4 py-2">
+                                    <span className="text-gray-600">Alpha</span>
+                                    <span className="font-bold text-rose-600">{rekapStats.alpha.toFixed(1).replace('.', ',')}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* PRINT FOOTER */}
+                <div className="print-footer hidden print:block mt-10 text-black font-serif text-sm px-10">
+
+                  <div className="flex justify-between items-start">
+
+                    {/* ===== KIRI : HARI EFEKTIF & ABSENSI ===== */}
+                    <div className="w-[30%]">
+                      <p className="mb-2 font-bold">Hari Efektif : {effectiveDaysCount} Hari</p>
+
+                      <p className="font-bold text-xs mb-1">Absensi</p>
+                      <table className="w-full border-collapse border border-black text-xs">
+                        <tbody>
+                          <tr>
+                            <td className="border border-black px-2 py-1 font-bold bg-blue-100 print:bg-blue-100">Izin</td>
+                            <td className="border border-black text-center px-2">{rekapStats.izin.toFixed(1).replace('.', ',')}%</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-2 py-1 font-bold bg-amber-100 print:bg-amber-100">Sakit</td>
+                            <td className="border border-black text-center px-2">{rekapStats.sakit.toFixed(1).replace('.', ',')}%</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-2 py-1 font-bold bg-rose-100 print:bg-rose-100">Alpha</td>
+                            <td className="border border-black text-center px-2">{rekapStats.alpha.toFixed(1).replace('.', ',')}%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+
+                    {/* ===== TENGAH : KEPALA SEKOLAH ===== */}
+                    <div className="w-[35%] text-center">
+                      <p>Mengetahui</p>
+                      <p>Kepala {schoolProfile?.name || 'Sekolah'}</p>
+
+                      <div className="h-20 flex items-end justify-center">
+                         {schoolProfile?.headmasterSignature && <img src={schoolProfile.headmasterSignature} alt="TTD" className="h-full object-contain"/>}
+                      </div>
+
+                      <p className="font-bold underline">{schoolProfile?.headmaster || '.........................'}</p>
+                      <p>NIP. {schoolProfile?.headmasterNip || '.........................'}</p>
+                    </div>
+
+
+                    {/* ===== KANAN : WALI KELAS ===== */}
+                    <div className="w-[30%] text-center">
+                      <p>Remen, {tanggalAkhirBulan}</p>
+                      <p>Wali Kelas {classId}</p>
+
+                      <div className="h-20 flex items-end justify-center">
+                         {teacherProfile?.signature && <img src={teacherProfile.signature} alt="TTD" className="h-full object-contain"/>}
+                      </div>
+
+                      <p className="font-bold underline">{teacherProfile?.name || '.........................'}</p>
+                      <p>NIP. {teacherProfile?.nip || '.........................'}</p>
+                    </div>
+
+                  </div>
+                </div>
              </div>
 
              <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200 no-print">
@@ -768,7 +1035,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                 type="date" 
                                 value={holidayForm.date} 
                                 onChange={(e) => setHolidayForm({...holidayForm, date: e.target.value})}
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none"
+                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                               />
                           </div>
                           
@@ -779,7 +1046,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                 value={holidayForm.description} 
                                 onChange={(e) => setHolidayForm({...holidayForm, description: e.target.value})}
                                 placeholder="Contoh: HUT RI ke-79"
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none"
+                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                               />
                           </div>
 
@@ -788,7 +1055,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                               <select 
                                 value={holidayForm.type} 
                                 onChange={(e) => setHolidayForm({...holidayForm, type: e.target.value as Holiday['type']})}
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none bg-white"
+                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                               >
                                   {Object.entries(HOLIDAY_TYPE_LEGEND).map(([key, val]) => (
                                       <option key={key} value={key}>{val.label}</option>
@@ -859,73 +1126,6 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                           ))
                       )}
                   </div>
-              </div>
-          </div>
-       )}
-
-       {!isReadOnly && (
-           <div className="fixed bottom-8 right-8 z-40 no-print">
-               <button 
-                   onClick={() => setIsScannerOpen(true)}
-                   className="p-4 rounded-full shadow-xl bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white transition-transform transform hover:scale-110 flex items-center justify-center"
-                   title="Scan QR Siswa"
-               >
-                   <Scan size={28} />
-               </button>
-           </div>
-       )}
-
-       {isScannerOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in">
-              <div className="relative w-full max-w-md bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
-                  <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-center text-white">
-                      <h3 className="font-bold text-lg drop-shadow-md flex items-center"><Scan size={20} className="mr-2"/> Scan QR Siswa</h3>
-                      <div className="flex items-center gap-2">
-                          <button 
-                              onClick={() => setCameraFacingMode(prev => prev === "user" ? "environment" : "user")}
-                              className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition-colors"
-                              title="Ganti Kamera"
-                          >
-                              <RotateCcw size={20} />
-                          </button>
-                          <button onClick={() => setIsScannerOpen(false)} className="bg-black/40 hover:bg-black/60 p-2 rounded-full backdrop-blur-md transition-colors"><X size={20}/></button>
-                      </div>
-                  </div>
-                  
-                  <div id="reader" className="w-full h-[500px] bg-black relative"></div>
-
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <div className="w-72 h-72 border-2 border-white/30 rounded-3xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.75)]">
-                          
-                          <div className="absolute top-0 left-0 w-10 h-10 border-t-[5px] border-l-[5px] border-white rounded-tl-2xl -mt-1 -ml-1 shadow-sm filter drop-shadow-lg"></div>
-                          <div className="absolute top-0 right-0 w-10 h-10 border-t-[5px] border-r-[5px] border-white rounded-tr-2xl -mt-1 -mr-1 shadow-sm filter drop-shadow-lg"></div>
-                          <div className="absolute bottom-0 left-0 w-10 h-10 border-b-[5px] border-l-[5px] border-white rounded-bl-2xl -mb-1 -ml-1 shadow-sm filter drop-shadow-lg"></div>
-                          <div className="absolute bottom-0 right-0 w-10 h-10 border-b-[5px] border-r-[5px] border-white rounded-br-2xl -mb-1 -mr-1 shadow-sm filter drop-shadow-lg"></div>
-                          
-                          <div className="absolute w-[90%] left-[5%] h-0.5 bg-red-500 shadow-[0_0_20px_rgba(239,68,68,1)] animate-scan rounded-full"></div>
-                          
-                          <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-red-500/50 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-                      </div>
-                      
-                      <div className="absolute bottom-32 text-white/90 text-sm font-semibold drop-shadow-md bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                          Posisikan QR Code di dalam kotak
-                      </div>
-                  </div>
-
-                  {lastScannedStudent && (
-                      <div className="absolute bottom-6 left-6 right-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white animate-fade-in-up shadow-xl">
-                          <div className="flex items-start gap-3">
-                              <div className="bg-emerald-500 rounded-full p-2 shadow-lg shadow-emerald-500/40">
-                                  <CheckCircle size={24} className="text-white"/>
-                              </div>
-                              <div>
-                                  <p className="text-xs text-emerald-300 font-bold uppercase mb-0.5">Berhasil Scan</p>
-                                  <h4 className="text-lg font-bold leading-tight">{lastScannedStudent.name}</h4>
-                                  <span className="text-xs font-mono opacity-80 bg-black/20 px-2 py-0.5 rounded mt-1 inline-block">{lastScannedStudent.time}</span>
-                              </div>
-                          </div>
-                      </div>
-                  )}
               </div>
           </div>
        )}

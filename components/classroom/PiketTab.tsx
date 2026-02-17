@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, PenTool, Check, X, Save, Search, UserCircle, GripVertical, Users, Loader2 } from 'lucide-react';
 import { WEEKDAYS } from '../../constants';
@@ -158,65 +157,53 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) =>
                     const group = localPiketGroups.find(g => g.day === day);
                     const members = group ? group.studentIds : [];
                     
-                    // Theme Based Colors (Ocean, Sky, Cream, Baby Blue)
-                    const colors = ['bg-[#5AB2FF]','bg-[#A0DEFF]','bg-[#FFF9D0]','bg-[#CAF4FF]'];
-                    const textColors = ['text-white','text-white','text-amber-900','text-blue-900'];
-                    const borderColors = ['border-blue-200', 'border-sky-200', 'border-amber-200', 'border-blue-100'];
-                    
-                    const i = idx % colors.length;
-                    const colorClass = colors[i];
-                    const textColorClass = textColors[i];
-                    const borderColor = borderColors[i];
-                    
+                    // Theme Based Colors
+                    const themeColors = ['#5AB2FF', '#A0DEFF', '#FFF9D0'];
+                    const textColors = ['text-white', 'text-white', 'text-amber-900'];
+                    const themeIndex = idx % themeColors.length;
+                    const bgColor = themeColors[themeIndex];
+                    const textColor = textColors[themeIndex];
+
                     return (
                         <div 
                             key={day} 
-                            className={`bg-white rounded-xl border ${borderColor} shadow-sm overflow-hidden print:border-black flex flex-col h-full hover:shadow-md transition-shadow`}
+                            className={`rounded-2xl shadow-sm border flex flex-col print:border-black print:break-inside-avoid relative transition-all ${dragOverDay === day ? 'border-indigo-400 border-dashed ring-2 ring-indigo-200' : 'border-gray-200'}`}
+                            onDragOver={(e) => handleDragOver(e, day)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, day)}
                         >
-                            <div className={`${colorClass} ${textColorClass} p-3 flex items-center justify-between print:bg-white print:text-black print:border-b print:border-black`}>
-                                <h3 className="font-bold text-lg">{day}</h3>
-                                <span className="bg-white/20 px-2 py-0.5 rounded-lg text-xs font-mono print:border print:border-black">{members.length}</span>
+                            <div className="p-3 rounded-t-2xl font-bold uppercase text-center" style={{ backgroundColor: bgColor, color: textColor }}>
+                                {day}
                             </div>
-                            <div 
-                                className={`p-4 flex-1 bg-gradient-to-b from-white to-gray-50/50 space-y-3 transition-all ${dragOverDay === day ? 'bg-indigo-50 border-2 border-dashed border-indigo-400' : ''}`}
-                                onDragOver={(e) => handleDragOver(e, day)}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDrop(e, day)}
-                            >
-                                {members.length > 0 ? members.map(studentId => {
+                            <div className="p-3 space-y-2 flex-1 bg-white rounded-b-2xl">
+                                {members.map(studentId => {
                                     const student = studentMap.get(studentId);
+                                    // FIX: Changed implicit `undefined` return to explicit `null` to satisfy ReactNode type.
                                     if (!student) return null;
+
                                     return (
                                         <div 
-                                            key={studentId}
+                                            key={student.id}
                                             draggable
-                                            onDragStart={(e) => handleDragStart(e, studentId, day)}
-                                            className="relative group flex items-center text-sm text-gray-700 bg-white p-2 rounded-lg border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing print:border-none print:shadow-none print:p-0"
+                                            onDragStart={(e) => handleDragStart(e, student.id, day)}
+                                            className="bg-white border border-gray-200 p-2 rounded-lg shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-400 hover:shadow-md transition-all flex items-center justify-between group"
                                         >
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 mr-3 overflow-hidden shrink-0 border border-gray-300 print:hidden">
-                                                {student.photo && !student.photo.startsWith('ERROR') ? (
-                                                    <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-gray-500"><User size={14}/></div>
-                                                )}
+                                            <div className="flex items-center space-x-2 overflow-hidden">
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold shrink-0 ${student.gender === 'L' ? 'bg-blue-500' : 'bg-pink-500'}`}>
+                                                    {student.gender}
+                                                </div>
+                                                <span className="text-xs font-medium text-gray-700 truncate">{student.name}</span>
                                             </div>
-                                            <span className="font-medium truncate">{student.name}</span>
-                                            <button 
-                                                onClick={() => removeStudentFromDay(day, student.id)}
-                                                className="absolute top-1 right-1 w-4 h-4 bg-black/10 text-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity no-print"
-                                            >
-                                                <X size={10}/>
+                                            <button onClick={() => removeStudentFromDay(day, student.id)} className="p-1 rounded-full text-gray-300 group-hover:text-red-500 group-hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity no-print">
+                                                <X size={14}/>
                                             </button>
                                         </div>
-                                    );
-                                }) : (
-                                    <div className="text-xs text-gray-400 italic text-center py-6 border-2 border-dashed border-gray-200 rounded-lg h-full flex items-center justify-center">
-                                        Area Lepas
-                                    </div>
-                                )}
+                                    )
+                                })}
+                                {members.length === 0 && <p className="text-xs text-gray-400 text-center italic py-10">Kosong</p>}
                             </div>
                         </div>
-                    );
+                    )
                 })}
             </div>
         </div>
