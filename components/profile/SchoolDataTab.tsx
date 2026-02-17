@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { SchoolProfileData } from '../../types';
 import { compressImage } from '../../utils/imageHelper';
-import { Loader2, AlertCircle, Save, Lock, Upload, Trash2 } from 'lucide-react';
+import { Loader2, AlertCircle, Save, Lock, Upload, Trash2, Megaphone } from 'lucide-react';
 
 interface SchoolDataTabProps {
   school: SchoolProfileData;
@@ -229,6 +229,46 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
                 )}
             </div>
         </div>
+
+        {/* --- NEW: Running Text Settings --- */}
+        <div className="md:col-span-2 bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
+            <h4 className="text-sm font-bold text-indigo-800 uppercase mb-4 flex items-center">
+                <Megaphone size={16} className="mr-2"/> Pengaturan Teks Berjalan (Dashboard)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Isi Teks</label>
+                    <textarea 
+                        disabled={isReadOnly}
+                        rows={2} 
+                        value={school.runningText || ''} 
+                        onChange={(e) => setSchool({...school, runningText: e.target.value})} 
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none disabled:bg-gray-50"
+                        placeholder="Contoh: Selamat Datang di Aplikasi SAGARA..."
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Kecepatan (Durasi: {school.runningTextSpeed || 20} detik)
+                    </label>
+                    <input 
+                        disabled={isReadOnly}
+                        type="range" 
+                        min="10" 
+                        max="60" 
+                        step="5"
+                        value={school.runningTextSpeed || 20} 
+                        onChange={(e) => setSchool({...school, runningTextSpeed: Number(e.target.value)})} 
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                        <span>Cepat (10s)</span>
+                        <span>Lambat (60s)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         </div>
         <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end">
             {!isReadOnly ? (

@@ -269,7 +269,74 @@ function response(d) { return ContentService.createTextOutput(JSON.stringify(d))
 // ... (code unchanged)
 
 // --- PROFILES ---
-// ... (code unchanged)
+function getProfiles(){
+  const sheet = getSheet(SHEETS.PROFILES);
+  const rows = sheet.getDataRange().getValues();
+  if(rows.length < 2) return response({status: "success", data: {}});
+  const r = rows[1];
+  
+  // Running Text logic: parse JSON if possible, else treat as string
+  let runningText = '';
+  let runningTextSpeed = 25; // Default 25s
+  try {
+    const parsedRT = JSON.parse(r[9]);
+    runningText = parsedRT.text || '';
+    runningTextSpeed = parsedRT.speed || 25;
+  } catch(e) {
+    runningText = String(r[9] || '');
+  }
+
+  return response({
+    status: "success",
+    data: {
+      school: {
+        name: String(r[0]),
+        npsn: String(r[1]),
+        address: String(r[2]),
+        headmaster: String(r[3]),
+        headmasterNip: String(r[4]),
+        year: String(r[5]),
+        semester: String(r[6]),
+        regencyLogo: String(r[7]),
+        schoolLogo: String(r[8]),
+        runningText: runningText,
+        runningTextSpeed: runningTextSpeed,
+        developerInfo: parseJSON(r[10]) || {name:'', moto:'', photo:''}
+      }
+    }
+  });
+}
+
+function saveProfile(p){
+  const sheet = getSheet(SHEETS.PROFILES);
+  if(p.key === 'school'){
+    const v = p.value;
+    
+    // Combine running text and speed into JSON
+    const rtData = {
+      text: v.runningText || '',
+      speed: v.runningTextSpeed || 25
+    };
+    
+    const row = [
+      v.name,
+      v.npsn,
+      v.address,
+      v.headmaster,
+      v.headmasterNip,
+      v.year,
+      v.semester,
+      v.regencyLogo || '',
+      v.schoolLogo || '',
+      JSON.stringify(rtData), // Save as JSON in column 9
+      JSON.stringify(v.developerInfo || {})
+    ];
+    
+    if(sheet.getLastRow() < 2) sheet.appendRow(row);
+    else sheet.getRange(2, 1, 1, row.length).setValues([row]);
+  }
+  return response({status: "success"});
+}
 
 // --- INVENTORY ---
 // ... (code unchanged)
@@ -409,9 +476,6 @@ function updateExtracurricular(e){const sheet=getSheet(SHEETS.EXTRACURRICULARS);
 return response({status:"error"})}
 function deleteExtracurricular(id){const sheet=getSheet(SHEETS.EXTRACURRICULARS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
-function getProfiles(){const sheet=getSheet(SHEETS.PROFILES);const rows=sheet.getDataRange().getValues();if(rows.length<2)return response({status:"success",data:{}});const r=rows[1];return response({status:"success",data:{school:{name:String(r[0]),npsn:String(r[1]),address:String(r[2]),headmaster:String(r[3]),headmasterNip:String(r[4]),year:String(r[5]),semester:String(r[6]),regencyLogo:String(r[7]),schoolLogo:String(r[8]),runningText:String(r[9]||''),developerInfo:parseJSON(r[10])||{name:'',moto:'',photo:''}}}})}
-function saveProfile(p){const sheet=getSheet(SHEETS.PROFILES);if(p.key==='school'){const v=p.value;const row=[v.name,v.npsn,v.address,v.headmaster,v.headmasterNip,v.year,v.semester,v.regencyLogo||'',v.schoolLogo||'',v.runningText||'',JSON.stringify(v.developerInfo||{})];if(sheet.getLastRow()<2)sheet.appendRow(row);else sheet.getRange(2,1,1,row.length).setValues([row])}
-return response({status:"success"})}
 function getInventory(classId){const rows=getData(SHEETS.INVENTORY);const data=rows.filter(r=>String(r[1])===classId).map(r=>({id:String(r[0]),classId:String(r[1]),name:String(r[2]),condition:String(r[3]),qty:Number(r[4])}));return response({status:"success",data})}
 function saveInventory(item){const sheet=getSheet(SHEETS.INVENTORY);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(item.id));const row=[item.id||Utilities.getUuid(),item.classId,item.name,item.condition,item.qty];if(idx>0)sheet.getRange(idx+1,1,1,row.length).setValues([row]);else sheet.appendRow(row);return response({status:"success",id:row[0]})}
 function deleteInventory(id,classId){const sheet=getSheet(SHEETS.INVENTORY);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
