@@ -169,13 +169,17 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ initialTeacher, initial
               <User size={20} />
               <span>Identitas Guru</span>
             </button>
-            <button 
-              onClick={() => setActiveTab('school')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'school' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <Building size={20} />
-              <span>Data Sekolah</span>
-            </button>
+            
+            {canEditSchool && (
+                <button 
+                  onClick={() => setActiveTab('school')}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'school' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <Building size={20} />
+                  <span>Data Sekolah</span>
+                </button>
+            )}
+
             {canEditSchool && (
               <button 
                 onClick={() => setActiveTab('developer')}
@@ -205,7 +209,7 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ initialTeacher, initial
              
              {activeTab === 'profile' && <TeacherIdentityTab profile={profile} setProfile={setProfile} onSave={handleSaveProfile} isSaving={isSaving} />}
              
-             {activeTab === 'school' && <SchoolDataTab school={school} setSchool={setSchool} onSave={handleSaveProfile} isSaving={isSaving} isReadOnly={!canEditSchool} />}
+             {activeTab === 'school' && canEditSchool && <SchoolDataTab school={school} setSchool={setSchool} onSave={handleSaveProfile} isSaving={isSaving} isReadOnly={!canEditSchool} />}
              
              {activeTab === 'developer' && canEditSchool && (
                 <DeveloperInfoTab 
@@ -216,7 +220,7 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ initialTeacher, initial
              )}
 
              {/* General Save Button for Developer Tab */}
-             {activeTab === 'developer' && (
+             {activeTab === 'developer' && canEditSchool && (
                 <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end">
                     <button 
                         onClick={handleSaveProfile}

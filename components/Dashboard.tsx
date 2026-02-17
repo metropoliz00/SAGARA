@@ -41,10 +41,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   useEffect(() => {
     const timer = setInterval(() => setCurrentDate(new Date()), 1000);
     
-    // Delay running text appearance by 2 seconds
+    // Delay running text appearance by 300ms
     const textTimer = setTimeout(() => {
         setShowRunningText(true);
-    }, 2000);
+    }, 300);
 
     return () => {
         clearInterval(timer);
