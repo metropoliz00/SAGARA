@@ -36,10 +36,20 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [showRunningText, setShowRunningText] = useState(false); // State for delayed running text
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentDate(new Date()), 1000);
-    return () => clearInterval(timer);
+    
+    // Delay running text appearance by 2 seconds
+    const textTimer = setTimeout(() => {
+        setShowRunningText(true);
+    }, 2000);
+
+    return () => {
+        clearInterval(timer);
+        clearTimeout(textTimer);
+    };
   }, []);
 
   const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(currentDate);
@@ -187,12 +197,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Info size={16} className="text-white"/>
          </div>
          <div className="overflow-hidden w-full relative h-6">
-            <div 
-                className="animate-marquee font-bold text-sm tracking-wide whitespace-nowrap absolute top-0 left-0"
-                style={{ animationDuration: `${runningTextSpeed}s` }}
-            >
-                {runningTextContent}
-            </div>
+            {showRunningText && (
+                <div 
+                    className="animate-marquee font-bold text-sm tracking-wide whitespace-nowrap absolute top-0 left-0 animate-fade-in"
+                    style={{ animationDuration: `${runningTextSpeed}s` }}
+                >
+                    {runningTextContent}
+                </div>
+            )}
          </div>
       </div>
 
