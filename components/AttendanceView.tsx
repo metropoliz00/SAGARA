@@ -192,7 +192,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
     const records = Object.entries(dailyAttendance).map(([id, data]: [string, any]) => ({
       studentId: id,
       classId: getRealClassId(id), 
-      status: data.status,
+      status: data.status, 
       notes: data.notes
     }));
     try {
@@ -324,6 +324,15 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
       };
   }, [students, daysArray, effectiveDaysCount, attendanceMap, getHolidayForDay, getDateKeyForDay]);
 
+  // NEW: Filter holidays for the selected month for print display
+  const currentMonthHolidays = useMemo(() => {
+      return holidays.filter(h => {
+          if (!h.date) return false;
+          const [yStr, mStr] = h.date.split('-');
+          return Number(yStr) === selectedYear && Number(mStr) === selectedMonth;
+      }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [holidays, selectedMonth, selectedYear]);
+
 
   const handleRecapCellClick = (student: Student, date: string, currentStatus?: string, currentNotes?: string) => {
       if (isReadOnly) return;
@@ -425,7 +434,93 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
   const tanggalAkhirBulan = getLastDayOfMonth(selectedYear, selectedMonth);
   const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('id-ID', { month: 'long' });
 
-  const handlePrint = () => window.print();
+  // UPDATED PRINT FUNCTION
+  const handlePrint = () => {
+    const printContent = document.getElementById('print-area');
+    if (printContent) {
+      const printWindow = window.open('', '', 'width=1000,height=800');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Cetak Rekap Absensi</title>
+              <script src="https://cdn.tailwindcss.com"></script>
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+                
+                body {
+                  font-family: 'Inter', sans-serif;
+                  background-color: white;
+                  margin: 0;
+                  padding: 20px;
+                }
+
+                @media print {
+                  @page {
+                    size: A4 landscape;
+                    margin: 1cm;
+                  }
+                  body {
+                    margin: 0;
+                    padding: 0;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                  }
+                  
+                  /* Force visibility of print-specific elements */
+                  .print-header { display: block !important; }
+                  .print-footer { display: block !important; }
+                  .hidden { display: block !important; }
+                  
+                  /* Hide elements marked as no-print */
+                  .no-print { display: none !important; }
+                  
+                  table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 10px;
+                  }
+                  
+                  th, td {
+                    border: 1px solid #000;
+                    padding: 4px;
+                    text-align: center;
+                  }
+                  
+                  /* Adjust header colors for print */
+                  thead th {
+                    background-color: #f3f4f6 !important;
+                    color: #000 !important;
+                  }
+                }
+
+                /* Screen styles for the popup window */
+                .print-header { text-align: center; margin-bottom: 20px; }
+                .print-footer { margin-top: 30px; padding: 0 40px; font-size: 14px; }
+                
+                table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                th, td { border: 1px solid #e5e7eb; padding: 4px; text-align: center; }
+                .hidden { display: block; } /* Show hidden elements in the new window */
+                .no-print { display: none; }
+              </style>
+            </head>
+            <body>
+              ${printContent.innerHTML}
+              <script>
+                // Auto print when loaded
+                setTimeout(() => {
+                  window.print();
+                  window.close();
+                }, 1500); 
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+    }
+  };
 
   // --- BARCODE SCANNER LOGIC ---
   const handleScanSuccess = async (decodedText: string, decodedResult: any) => {
@@ -594,7 +689,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {students.map(s => {
+                                {rekapStudents.map(s => {
                                     let h=0, sk=0, i=0, a=0;
                                     for (const d of daysArray) {
                                         const {isRed} = getHolidayForDay(d);
@@ -648,7 +743,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                         </table>
                     </div>
 
-                    {/* Recap Summary Section */}
+                    {/* Recap Summary Section - SCREEN ONLY (keep no-print) */}
                     <div className="mt-8 flex flex-col sm:flex-row justify-end gap-4 break-inside-avoid px-4 pb-6 border-t pt-4 no-print">
                         {/* Hari Efektif Table */}
                         <div className="border border-gray-300 rounded-lg overflow-hidden text-sm w-full sm:w-auto">
@@ -679,26 +774,63 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                     </div>
                 </div>
 
-                {/* Print Footer */}
-                <div className="print-footer hidden print:flex justify-between mt-10 font-serif text-black">
-                    <div className="w-[40%] text-center">
-                        <p>Mengetahui,</p>
-                        <p>Kepala {schoolProfile?.name || 'Sekolah'}</p>
-                        <div className="h-24 flex items-center justify-center">
-                            {schoolProfile?.headmasterSignature && <img src={schoolProfile.headmasterSignature} alt="TTD" className="h-20 object-contain"/>}
-                        </div>
-                        <p className="font-bold underline">{schoolProfile?.headmaster || '................'}</p>
-                        <p>NIP. {schoolProfile?.headmasterNip || '................'}</p>
+                {/* PRINT FOOTER */}
+                <div className="print-footer hidden print:block mt-10 text-black font-serif text-sm px-10">
+
+                  <div className="flex justify-between items-start">
+
+                    {/* ===== KIRI : HARI EFEKTIF & ABSENSI ===== */}
+                    <div className="w-[30%]">
+                      <p className="mb-2 font-bold">Hari Efektif : {effectiveDaysCount} Hari</p>
+
+                      <p className="font-bold text-xs mb-1">Absensi</p>
+                      <table className="w-full border-collapse border border-black text-xs">
+                        <tbody>
+                          <tr>
+                            <td className="border border-black px-2 py-1 font-bold bg-blue-100 print:bg-blue-100">Izin</td>
+                            <td className="border border-black text-center px-2">{rekapStats.izin.toFixed(1).replace('.', ',')}%</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-2 py-1 font-bold bg-amber-100 print:bg-amber-100">Sakit</td>
+                            <td className="border border-black text-center px-2">{rekapStats.sakit.toFixed(1).replace('.', ',')}%</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-2 py-1 font-bold bg-rose-100 print:bg-rose-100">Alpha</td>
+                            <td className="border border-black text-center px-2">{rekapStats.alpha.toFixed(1).replace('.', ',')}%</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="w-[40%] text-center">
-                        <p>Remen, {tanggalAkhirBulan}</p>
-                        <p>Guru Kelas {classId}</p>
-                        <div className="h-24 flex items-center justify-center">
-                             {teacherProfile?.signature && <img src={teacherProfile.signature} alt="TTD" className="h-20 object-contain"/>}
-                        </div>
-                        <p className="font-bold underline">{teacherProfile?.name || '................'}</p>
-                        <p>NIP. {teacherProfile?.nip || '................'}</p>
+
+
+                    {/* ===== TENGAH : KEPALA SEKOLAH ===== */}
+                    <div className="w-[35%] text-center">
+                      <p>Mengetahui</p>
+                      <p>Kepala {schoolProfile?.name || 'Sekolah'}</p>
+
+                      <div className="h-20 flex items-end justify-center">
+                         {schoolProfile?.headmasterSignature && <img src={schoolProfile.headmasterSignature} alt="TTD" className="h-full object-contain"/>}
+                      </div>
+
+                      <p className="font-bold underline">{schoolProfile?.headmaster || '.........................'}</p>
+                      <p>NIP. {schoolProfile?.headmasterNip || '.........................'}</p>
                     </div>
+
+
+                    {/* ===== KANAN : WALI KELAS ===== */}
+                    <div className="w-[30%] text-center">
+                      <p>Remen, {tanggalAkhirBulan}</p>
+                      <p>Wali Kelas {classId}</p>
+
+                      <div className="h-20 flex items-end justify-center">
+                         {teacherProfile?.signature && <img src={teacherProfile.signature} alt="TTD" className="h-full object-contain"/>}
+                      </div>
+
+                      <p className="font-bold underline">{teacherProfile?.name || '.........................'}</p>
+                      <p>NIP. {teacherProfile?.nip || '.........................'}</p>
+                    </div>
+
+                  </div>
                 </div>
              </div>
 
@@ -985,73 +1117,6 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                           ))
                       )}
                   </div>
-              </div>
-          </div>
-       )}
-
-       {!isReadOnly && (
-           <div className="fixed bottom-8 right-8 z-40 no-print">
-               <button 
-                   onClick={() => setIsScannerOpen(true)}
-                   className="p-4 rounded-full shadow-xl bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white transition-transform transform hover:scale-110 flex items-center justify-center"
-                   title="Scan QR Siswa"
-               >
-                   <Scan size={28} />
-               </button>
-           </div>
-       )}
-
-       {isScannerOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in">
-              <div className="relative w-full max-w-md bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
-                  <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-center text-white">
-                      <h3 className="font-bold text-lg drop-shadow-md flex items-center"><Scan size={20} className="mr-2"/> Scan QR Siswa</h3>
-                      <div className="flex items-center gap-2">
-                          <button 
-                              onClick={() => setCameraFacingMode(prev => prev === "user" ? "environment" : "user")}
-                              className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition-colors"
-                              title="Ganti Kamera"
-                          >
-                              <RotateCcw size={20} />
-                          </button>
-                          <button onClick={() => setIsScannerOpen(false)} className="bg-black/40 hover:bg-black/60 p-2 rounded-full backdrop-blur-md transition-colors"><X size={20}/></button>
-                      </div>
-                  </div>
-                  
-                  <div id="reader" className="w-full h-[500px] bg-black relative"></div>
-
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <div className="w-72 h-72 border-2 border-white/30 rounded-3xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.75)]">
-                          
-                          <div className="absolute top-0 left-0 w-10 h-10 border-t-[5px] border-l-[5px] border-white rounded-tl-2xl -mt-1 -ml-1 shadow-sm filter drop-shadow-lg"></div>
-                          <div className="absolute top-0 right-0 w-10 h-10 border-t-[5px] border-r-[5px] border-white rounded-tr-2xl -mt-1 -mr-1 shadow-sm filter drop-shadow-lg"></div>
-                          <div className="absolute bottom-0 left-0 w-10 h-10 border-b-[5px] border-l-[5px] border-white rounded-bl-2xl -mb-1 -ml-1 shadow-sm filter drop-shadow-lg"></div>
-                          <div className="absolute bottom-0 right-0 w-10 h-10 border-b-[5px] border-r-[5px] border-white rounded-br-2xl -mb-1 -mr-1 shadow-sm filter drop-shadow-lg"></div>
-                          
-                          <div className="absolute w-[90%] left-[5%] h-0.5 bg-red-500 shadow-[0_0_20px_rgba(239,68,68,1)] animate-scan rounded-full"></div>
-                          
-                          <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-red-500/50 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-                      </div>
-                      
-                      <div className="absolute bottom-32 text-white/90 text-sm font-semibold drop-shadow-md bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                          Posisikan QR Code di dalam kotak
-                      </div>
-                  </div>
-
-                  {lastScannedStudent && (
-                      <div className="absolute bottom-6 left-6 right-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white animate-fade-in-up shadow-xl">
-                          <div className="flex items-start gap-3">
-                              <div className="bg-emerald-500 rounded-full p-2 shadow-lg shadow-emerald-500/40">
-                                  <CheckCircle size={24} className="text-white"/>
-                              </div>
-                              <div>
-                                  <p className="text-xs text-emerald-300 font-bold uppercase mb-0.5">Berhasil Scan</p>
-                                  <h4 className="text-lg font-bold leading-tight">{lastScannedStudent.name}</h4>
-                                  <span className="text-xs font-mono opacity-80 bg-black/20 px-2 py-0.5 rounded mt-1 inline-block">{lastScannedStudent.time}</span>
-                              </div>
-                          </div>
-                      </div>
-                  )}
               </div>
           </div>
        )}
