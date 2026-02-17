@@ -224,6 +224,7 @@ export interface LiaisonLog {
   category?: string; // New: Kesiswaan, Pelayanan, Fasilitas, Lain-lain
   message: string; // Deskripsi Permasalahan
   status?: 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai'; // Expanded status
+  response?: string; // NEW: Balasan Guru
 }
 
 // NEW: Permission Request (Ijin Siswa)

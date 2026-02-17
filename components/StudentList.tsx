@@ -7,9 +7,9 @@ import QRCode from 'react-qr-code';
 import { 
   Search, Plus, ArrowLeft, Save, User, Heart, Activity, DollarSign, 
   AlertTriangle, UserCircle, Trash2, X, FileSpreadsheet, Printer, Upload, Download,
-  LayoutGrid, List as ListIcon, MapPin, Users as UsersIcon,
-  Image as ImageIcon, Table as TableIcon, AlertCircle, PieChart as PieChartIcon,
-  IdCard as IdCardIcon, ChevronLeft, ChevronRight, ZoomIn, ZoomOut
+  LayoutGrid, List as ListIcon,
+  Image as ImageIcon, PieChart as PieChartIcon,
+  QrCode as QrCodeIcon
 } from 'lucide-react';
 
 import BiodataTab from './student/BiodataTab';
@@ -18,7 +18,7 @@ import TalentsTab from './student/TalentsTab';
 import EconomyTab from './student/EconomyTab';
 import RecordsTab from './student/RecordsTab';
 import StudentDashboard from './student/StudentDashboard';
-import CustomModal from './CustomModal'; // Use reusable modal
+import CustomModal from './CustomModal';
 
 interface StudentListProps {
   students: Student[];
@@ -34,7 +34,7 @@ interface StudentListProps {
 }
 
 type TabType = 'biodata' | 'health' | 'talents' | 'economy' | 'records';
-type ViewType = 'grid' | 'list' | 'dashboard' | 'id-cards';
+type ViewType = 'grid' | 'list' | 'dashboard' | 'qr-codes';
 
 const StudentList: React.FC<StudentListProps> = ({ 
   students, teacherProfile, schoolProfile, classId,
@@ -47,12 +47,6 @@ const StudentList: React.FC<StudentListProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalTab, setAddModalTab] = useState<TabType>('biodata');
   
-  // ID Card Pagination & Zoom State
-  const [idCardPage, setIdCardPage] = useState(1);
-  const [zoomScale, setZoomScale] = useState(0.8);
-  const CARDS_PER_PAGE = 8; // 4 cols x 2 rows
-  
-  // Custom Modal for Delete Confirmation
   const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, studentId: string | null}>({isOpen: false, studentId: null});
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,15 +86,7 @@ const StudentList: React.FC<StudentListProps> = ({
   const isPhotoError = (url?: string) => url && (url.startsWith('ERROR') || url.startsWith('error'));
 
   const handlePrint = () => {
-    if (viewType === 'id-cards') {
-      document.body.classList.add('printing-id-cards');
-      window.print();
-      setTimeout(() => {
-        document.body.classList.remove('printing-id-cards');
-      }, 1000);
-    } else {
-      window.print();
-    }
+    window.print();
   };
 
   const confirmDelete = () => {
@@ -111,7 +97,6 @@ const StudentList: React.FC<StudentListProps> = ({
       }
   };
 
-  // ... (Handlers unchanged for brevity) ...
   const handleDownloadTemplate = () => {
     const headers = ["Class ID", "NIS", "NISN", "Nama Lengkap", "Gender (L/P)", "Tempat Lahir", "Tanggal Lahir (YYYY-MM-DD)", "Agama", "Alamat", "Nama Ayah", "Pekerjaan Ayah", "Pendidikan Ayah", "Nama Ibu", "Pekerjaan Ibu", "Pendidikan Ibu", "Nama Wali", "No HP Wali", "Pekerjaan Wali", "Status Ekonomi", "Tinggi (cm)", "Berat (kg)", "Gol Darah", "Riwayat Penyakit", "Hobi", "Cita-cita", "Prestasi", "Pelanggaran"];
     const example = ["1A", "2024001", "0012345678", "Ahmad Santoso", "L", "Surabaya", "2015-05-20", "Islam", "Jl. Merpati No. 10", "Budi Santoso", "Wiraswasta", "SMA", "Siti Aminah", "Ibu Rumah Tangga", "SMP", "Budi Santoso", "081234567890", "Wiraswasta", "Mampu", "145", "38", "O", "Tidak ada", "Sepak Bola", "Polisi", "Juara 1 Lari", "-"];
@@ -243,34 +228,96 @@ const StudentList: React.FC<StudentListProps> = ({
     );
   }, [students, searchTerm]);
 
-  // --- ID Card Pagination Logic ---
-  const totalIdCardPages = Math.ceil(filteredStudents.length / CARDS_PER_PAGE);
-  const currentIdCardStudents = useMemo(() => {
-      const startIndex = (idCardPage - 1) * CARDS_PER_PAGE;
-      return filteredStudents.slice(startIndex, startIndex + CARDS_PER_PAGE);
-  }, [filteredStudents, idCardPage]);
+  // --- QR Code Downloader Logic ---
+  const handleDownloadQR = (student: Student) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      // Set to 300 DPI for high quality print
+      const dpi = 300;
+      // Target: 65mm x 102mm
+      const width = Math.round((65 / 25.4) * dpi);  // ~768 px
+      const height = Math.round((102 / 25.4) * dpi); // ~1205 px
 
-  // Chunk all students for printing (to ensure all pages are printed)
-  const allIdCardChunks = useMemo(() => {
-      const chunks = [];
-      for (let i = 0; i < filteredStudents.length; i += CARDS_PER_PAGE) {
-          chunks.push(filteredStudents.slice(i, i + CARDS_PER_PAGE));
+      canvas.width = width;
+      canvas.height = height;
+
+      if (ctx) {
+          // 1. Background
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+
+          // 2. Decorative Border/Frame
+          ctx.strokeStyle = '#5AB2FF'; // Ocean Blue
+          ctx.lineWidth = 30;
+          ctx.strokeRect(0, 0, width, height);
+          
+          // Inner thin border
+          ctx.strokeStyle = '#A0DEFF';
+          ctx.lineWidth = 5;
+          ctx.strokeRect(30, 30, width - 60, height - 60);
+
+          const centerX = width / 2;
+
+          // 3. Header Text (School Name)
+          ctx.fillStyle = '#1e3a8a'; // Dark Blue
+          ctx.font = 'bold 45px Arial, sans-serif';
+          ctx.textAlign = 'center';
+          const schoolName = (schoolProfile?.name || 'SEKOLAH').toUpperCase();
+          ctx.fillText(schoolName, centerX, 120);
+
+          // 4. Sub Header
+          ctx.fillStyle = '#64748b'; // Slate 500
+          ctx.font = '35px Arial, sans-serif';
+          ctx.fillText('KARTU IDENTITAS DIGITAL', centerX, 180);
+
+          // 5. Draw QR Code Image from SVG
+          const svgElement = document.getElementById(`qr-code-${student.id}`);
+          if (svgElement) {
+              const svgData = new XMLSerializer().serializeToString(svgElement);
+              const img = new Image();
+              // Encode SVG to base64
+              img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+              
+              img.onload = () => {
+                  // Center the QR code
+                  const qrSize = 500; // Large QR for clarity
+                  const qrY = 250;
+                  ctx.drawImage(img, centerX - (qrSize / 2), qrY, qrSize, qrSize);
+
+                  // 6. Student Name
+                  ctx.fillStyle = '#000000';
+                  ctx.font = 'bold 50px Arial, sans-serif';
+                  // Simple text wrap handling for long names could go here, but taking simple approach
+                  ctx.fillText(student.name, centerX, height - 280);
+
+                  // 7. NIS & NISN Box
+                  const boxY = height - 220;
+                  const boxHeight = 150;
+                  const boxWidth = width - 100;
+                  
+                  ctx.fillStyle = '#f0f9ff'; // Very light blue bg
+                  ctx.fillRect((width - boxWidth)/2, boxY, boxWidth, boxHeight);
+                  
+                  ctx.fillStyle = '#0369a1'; // Sky 700
+                  ctx.font = 'bold 40px monospace';
+                  ctx.fillText(`NIS : ${student.nis}`, centerX, boxY + 60);
+                  
+                  if (student.nisn) {
+                      ctx.fillText(`NISN: ${student.nisn}`, centerX, boxY + 110);
+                  } else {
+                      ctx.fillText(`KELAS: ${student.classId}`, centerX, boxY + 110);
+                  }
+
+                  // 8. Trigger Download
+                  const link = document.createElement('a');
+                  const safeName = student.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                  link.download = `${safeName}_QR.jpg`;
+                  link.href = canvas.toDataURL('image/jpeg', 0.9);
+                  link.click();
+              };
+          }
       }
-      return chunks;
-  }, [filteredStudents]);
-
-  const goToNextPage = () => {
-      if (idCardPage < totalIdCardPages) setIdCardPage(p => p + 1);
   };
-
-  const goToPrevPage = () => {
-      if (idCardPage > 1) setIdCardPage(p => p - 1);
-  };
-
-  // Reset page when filter changes
-  useEffect(() => {
-      setIdCardPage(1);
-  }, [searchTerm, viewType]);
 
 
   // -- RENDER --
@@ -284,7 +331,7 @@ const StudentList: React.FC<StudentListProps> = ({
                         <button onClick={() => setViewType('dashboard')} className="p-2 rounded-md transition-all bg-[#5AB2FF] text-white shadow-sm" title="Dashboard"><PieChartIcon size={18} /></button>
                         <button onClick={() => setViewType('grid')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Tampilan Grid"><LayoutGrid size={18} /></button>
                         <button onClick={() => setViewType('list')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Tampilan Tabel"><ListIcon size={18} /></button>
-                        <button onClick={() => setViewType('id-cards')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Kartu Absensi"><IdCardIcon size={18} /></button>
+                        <button onClick={() => setViewType('qr-codes')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="QR Code Siswa"><QrCodeIcon size={18} /></button>
                     </div>
                 </div>
             </div>
@@ -392,7 +439,7 @@ const StudentList: React.FC<StudentListProps> = ({
 
   // --- Main List View (Grid) ---
   return (
-    <div className={`space-y-6 animate-fade-in relative ${viewType === 'id-cards' ? '' : 'page-portrait'}`}>
+    <div className={`space-y-6 animate-fade-in relative ${viewType === 'qr-codes' ? '' : 'page-portrait'}`}>
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4 no-print">
         <div><h2 className="text-2xl font-bold text-gray-800">Manajemen Siswa</h2><p className="text-gray-500">Database lengkap profil siswa.</p></div>
         <div className="flex flex-wrap gap-2 justify-end">
@@ -400,7 +447,7 @@ const StudentList: React.FC<StudentListProps> = ({
               <button onClick={() => setViewType('dashboard')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Dashboard"><PieChartIcon size={18} /></button>
               <button onClick={() => setViewType('grid')} className={`p-2 rounded-md transition-all ${viewType === 'grid' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="Tampilan Grid"><LayoutGrid size={18} /></button>
               <button onClick={() => setViewType('list')} className={`p-2 rounded-md transition-all ${viewType === 'list' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="Tampilan Tabel"><ListIcon size={18} /></button>
-              <button onClick={() => setViewType('id-cards')} className={`p-2 rounded-md transition-all ${viewType === 'id-cards' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="Kartu Absensi"><IdCardIcon size={18} /></button>
+              <button onClick={() => setViewType('qr-codes')} className={`p-2 rounded-md transition-all ${viewType === 'qr-codes' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="QR Code Siswa"><QrCodeIcon size={18} /></button>
            </div>
            
            {!isReadOnly && <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx, .xls, .csv" />}
@@ -412,15 +459,13 @@ const StudentList: React.FC<StudentListProps> = ({
         </div>
       </div>
 
-      <div className={`bg-white rounded-xl shadow-sm border border-[#CAF4FF] overflow-hidden ${viewType === 'id-cards' ? 'print-container border-none shadow-none' : 'print-container'}`}>
-        {viewType !== 'id-cards' && (
-            <div className="p-4 border-b border-gray-100 flex items-center bg-[#CAF4FF]/20 no-print">
-              <div className="relative w-full max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="text" placeholder="Cari nama, NIS, NISN, atau Kelas..." className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5AB2FF]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-              </div>
+      <div className={`bg-white rounded-xl shadow-sm border border-[#CAF4FF] overflow-hidden ${viewType === 'qr-codes' ? 'print-container border-none shadow-none' : 'print-container'}`}>
+        <div className="p-4 border-b border-gray-100 flex items-center bg-[#CAF4FF]/20 no-print">
+            <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input type="text" placeholder="Cari nama, NIS, NISN, atau Kelas..." className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5AB2FF]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
-        )}
+        </div>
 
         {viewType === 'grid' ? (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-gray-50/30">
@@ -468,86 +513,33 @@ const StudentList: React.FC<StudentListProps> = ({
                 </div>
              )})}
           </div>
-        ) : viewType === 'id-cards' ? (
-            /* ID CARD LAYOUT WRAPPER (A4 SIMULATION + PAGINATION) */
-            <div id="printable-id-section" className="p-0 bg-gray-200 min-h-screen flex flex-col items-center pt-8 print:p-0 print:bg-white print:block">
-                <div className="no-print mb-4 text-center text-gray-500 text-sm">
-                    <p className="font-bold text-gray-700">Tampilan Kartu Presensi (Lanskap)</p>
-                    <div className="flex items-center justify-center gap-4 mt-2">
-                        <button onClick={() => setZoomScale(s => Math.max(0.3, s - 0.1))} className="p-1 rounded bg-white shadow border hover:bg-gray-50"><ZoomOut size={16}/></button>
-                        <span className="text-xs font-mono w-12">{Math.round(zoomScale * 100)}%</span>
-                        <button onClick={() => setZoomScale(s => Math.min(1.5, s + 0.1))} className="p-1 rounded bg-white shadow border hover:bg-gray-50"><ZoomIn size={16}/></button>
-                    </div>
-                    <p className="text-xs mt-2">Gunakan tombol di bawah untuk melihat halaman lain. Klik Cetak untuk mencetak semua halaman.</p>
-                </div>
-                
-                <div className="scale-container w-full flex flex-col items-center print:block print:transform-none">
-                    {/* SCREEN PREVIEW: Single Page */}
-                    <div className="sheet-wrapper print:hidden mb-4">
-                        <div className="sheet-a4" style={{ transform: `scale(${zoomScale})`, transformOrigin: 'top center', marginBottom: `-${(1 - zoomScale) * 20}%` }}>
-                            {currentIdCardStudents.map((student) => (
-                                <div key={student.id} className="id-card-container w-[65mm] h-[90mm] relative overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col rounded-xl">
-                                    <div className="h-[10mm] w-full bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] flex items-center px-3 justify-between text-white shadow-sm">
-                                        <div className="flex flex-col"><h3 className="text-[9px] font-extrabold uppercase tracking-wide">KARTU ABSENSI</h3><p className="text-[6px] font-medium uppercase opacity-90">{schoolProfile?.name}</p></div>
-                                        <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center"><div className="w-2 h-2 bg-white rounded-full"></div></div>
-                                    </div>
-                                    <div className="flex-1 flex flex-col items-center p-2 gap-2 bg-white relative z-10">
-                                        <div className="w-[40mm] h-[50mm] bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                                            {student.photo && !isPhotoError(student.photo) ? <img src={student.photo} alt="Foto" className="w-full h-full object-cover"/> : <User size={32} className="text-gray-300"/>}
-                                        </div>
-                                        <div className="text-center">
-                                            <span className="font-bold text-[#1e3a8a] text-[11px] line-clamp-2 leading-tight">{student.name}</span>
-                                            <span className="block font-mono font-bold text-gray-500 text-[9px] mt-1">NIS: {student.nis}</span>
-                                        </div>
-                                        <div className="mt-auto pb-1">
-                                            <div className="p-1 bg-white border border-gray-100 rounded-lg shadow-sm">
-                                                <QRCode value={student.id} size={70} style={{ height: "auto", maxWidth: "100%", width: "20mm" }} viewBox={`0 0 256 256`} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="h-[3mm] w-full bg-[#FFF9D0] absolute bottom-0 left-0 z-0"></div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Pagination Controls */}
-                    <div className="no-print flex items-center justify-center gap-4 py-4 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-200 fixed bottom-8 z-30 px-6">
-                        <button onClick={goToPrevPage} disabled={idCardPage === 1} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronLeft size={24} className="text-gray-700"/></button>
-                        <span className="font-bold text-gray-700 text-sm">Halaman {idCardPage} / {totalIdCardPages || 1}</span>
-                        <button onClick={goToNextPage} disabled={idCardPage === totalIdCardPages} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronRight size={24} className="text-gray-700"/></button>
-                    </div>
-                    
-                    {/* PRINT VERSION: Loop ALL Pages (Hidden on Screen) */}
-                    <div className="hidden print:block">
-                        {allIdCardChunks.map((chunk, pageIndex) => (
-                            <div key={pageIndex} className="sheet-a4">
-                                {chunk.map((student) => (
-                                    <div key={student.id} className="id-card-container w-[65mm] h-[90mm] relative overflow-hidden bg-white border border-gray-300 flex flex-col rounded-xl break-inside-avoid">
-                                        <div className="h-[10mm] w-full bg-[#5AB2FF] flex items-center px-3 justify-between text-white" style={{background: '#5AB2FF', WebkitPrintColorAdjust: 'exact'}}>
-                                            <div className="flex flex-col"><h3 className="text-[9px] font-extrabold uppercase">KARTU ABSENSI</h3><p className="text-[6px] font-medium uppercase opacity-90">{schoolProfile?.name}</p></div>
-                                            <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center border border-white/30"><div className="w-2 h-2 bg-white rounded-full"></div></div>
-                                        </div>
-                                        <div className="flex-1 flex flex-col items-center p-2 gap-2 bg-white relative z-10">
-                                            <div className="w-[40mm] h-[50mm] bg-gray-100 border border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
-                                                {student.photo && !isPhotoError(student.photo) ? <img src={student.photo} alt="Foto" className="w-full h-full object-cover"/> : <div className="text-gray-400 text-[8px]">FOTO</div>}
-                                            </div>
-                                            <div className="text-center">
-                                                <span className="font-bold text-black text-[11px] line-clamp-2 leading-tight">{student.name}</span>
-                                                <span className="block font-mono font-bold text-gray-700 text-[9px] mt-1">NIS: {student.nis}</span>
-                                            </div>
-                                            <div className="mt-auto pb-1">
-                                                <div className="p-1 bg-white border border-gray-300 rounded-lg">
-                                                    <QRCode value={student.id} size={70} style={{ height: "auto", maxWidth: "100%", width: "20mm" }} viewBox={`0 0 256 256`} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="h-[3mm] w-full bg-[#FFF9D0] absolute bottom-0 left-0 z-0" style={{background: '#FFF9D0', WebkitPrintColorAdjust: 'exact'}}></div>
-                                    </div>
-                                ))}
+        ) : viewType === 'qr-codes' ? (
+            /* QR CODE CARD LAYOUT */
+            <div className="p-6 bg-gray-50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {filteredStudents.map((student) => (
+                        <div key={student.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 flex flex-col items-center text-center">
+                            <h3 className="font-bold text-gray-800 text-sm mb-1 truncate w-full">{student.name}</h3>
+                            <span className="text-xs font-mono text-gray-500 mb-3 bg-gray-100 px-2 py-0.5 rounded">NIS: {student.nis}</span>
+                            
+                            <div className="bg-white p-2 rounded-lg border border-gray-100 shadow-inner mb-3">
+                                <QRCode 
+                                    id={`qr-code-${student.id}`} // Unique ID for finding SVG
+                                    value={student.id} 
+                                    size={120} 
+                                    viewBox={`0 0 256 256`} 
+                                    style={{ height: "auto", maxWidth: "100%", width: "120px" }}
+                                />
                             </div>
-                        ))}
-                    </div>
+
+                            <button 
+                                onClick={() => handleDownloadQR(student)}
+                                className="w-full py-2 bg-indigo-50 text-indigo-600 font-bold text-xs rounded-lg hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Download size={14}/> Download JPG
+                            </button>
+                        </div>
+                    ))}
                 </div>
             </div>
         ) : (

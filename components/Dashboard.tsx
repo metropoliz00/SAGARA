@@ -9,7 +9,7 @@ import {
   Users, UserCheck, Calendar, FileText, TrendingUp, 
   Plus, Bell, ChevronRight, CheckCircle, AlertCircle, 
   GraduationCap, BookOpen, Clock, CalendarRange,
-  Activity, XCircle, ExternalLink, Link as LinkIcon, Mail
+  Activity, XCircle, ExternalLink, Link as LinkIcon, Mail, Info
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -177,6 +177,18 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6 pb-20 animate-fade-in relative min-h-screen">
+      {/* Running Text Banner */}
+      <div className="w-full bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white py-2.5 px-4 rounded-xl shadow-md overflow-hidden flex items-center mb-2">
+         <div className="flex items-center justify-center bg-white/20 p-1.5 rounded-full mr-3 shrink-0">
+            <Info size={16} className="text-white"/>
+         </div>
+         <div className="overflow-hidden w-full relative h-6">
+            <div className="animate-marquee font-bold text-sm tracking-wide whitespace-nowrap absolute top-0 left-0">
+                Selamat datang di UPT SD Negeri Remen 2 &nbsp;&nbsp;✦&nbsp;&nbsp; Sistem Administrasi Guru & Akademik (SAGARA) &nbsp;&nbsp;✦&nbsp;&nbsp; Mewujudkan Pendidikan Berkualitas & Berkarakter
+            </div>
+         </div>
+      </div>
+
       <div className="relative z-10 space-y-6">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

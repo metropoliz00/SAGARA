@@ -4,10 +4,11 @@ import { Student, GradeRecord, LiaisonLog, AgendaItem, BehaviorLog, PermissionRe
 import { MOCK_SUBJECTS } from '../constants';
 import { 
   User, Calendar, Send, FileText, CheckCircle, XCircle, 
-  BookOpen, Award, LayoutDashboard, Clock, Activity,
-  Star, AlertTriangle, HeartHandshake, ListTodo, TrendingUp,
+  BookOpen, LayoutDashboard, Clock,
+  Star, HeartHandshake, ListTodo,
   MapPin, CheckSquare, X, Medal, Heart, MessageCircle, Trophy,
-  Sun, Moon, BookHeart, Dumbbell, Apple, UsersRound, BookOpenCheck, Sparkles, Quote, Edit, Save, Loader2
+  Edit, Save, Loader2, PlusCircle, History, MessageSquare,
+  ClipboardList, Bell, Activity, Sparkles, GraduationCap, ChevronDown
 } from 'lucide-react';
 
 interface StudentPortalProps {
@@ -22,10 +23,10 @@ interface StudentPortalProps {
   onSaveLiaison: (log: Omit<LiaisonLog, 'id'>) => Promise<void>;
   onSavePermission: (date: string, records: any[]) => Promise<void>;
   onSaveKarakter: (studentId: string, assessment: Omit<KarakterAssessment, 'studentId' | 'classId'>) => Promise<void>;
-  onUpdateStudent: (student: Student) => Promise<void>; // New prop
+  onUpdateStudent: (student: Student) => Promise<void>;
 }
 
-type PortalTab = 'dashboard' | 'profile';
+type PortalTab = 'dashboard' | 'attendance' | 'liaison' | 'profile' | 'character';
 
 const StudentPortal: React.FC<StudentPortalProps> = ({
   student, allAttendance, grades, liaisonLogs, agendas, behaviorLogs, permissionRequests, karakterAssessments,
@@ -33,14 +34,48 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<PortalTab>('dashboard');
   
+  // -- STATES FOR DASHBOARD GRADES --
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(MOCK_SUBJECTS[0]?.id || 'pai');
+
+  // -- STATES FOR FORMS --
+  const [permissionForm, setPermissionForm] = useState({
+      date: new Date().toISOString().split('T')[0],
+      type: 'sick',
+      reason: ''
+  });
+  const [isSubmittingPermission, setIsSubmittingPermission] = useState(false);
+
+  const [liaisonForm, setLiaisonForm] = useState({
+      category: 'Informasi',
+      message: ''
+  });
+  const [isSubmittingLiaison, setIsSubmittingLiaison] = useState(false);
+
+  // Character Assessment State
+  const [karakterForm, setKarakterForm] = useState<Partial<KarakterAssessment>>({});
+  const [isSavingKarakter, setIsSavingKarakter] = useState(false);
+
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileData, setProfileData] = useState<Partial<Student>>(student);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // -- EFFECTS --
   useEffect(() => {
     setProfileData(student);
   }, [student]);
+
+  useEffect(() => {
+      // Load existing character assessment if available
+      if (karakterAssessments && karakterAssessments.length > 0) {
+          const myAssessment = karakterAssessments.find(k => k.studentId === student.id);
+          if (myAssessment) {
+              setKarakterForm(myAssessment);
+          }
+      }
+  }, [karakterAssessments, student.id]);
+
+  // -- HANDLERS --
 
   const handleProfileChange = (field: keyof Student, value: any) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
@@ -50,7 +85,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
     setIsSavingProfile(true);
     try {
         await onUpdateStudent(profileData as Student);
-        alert('Profil berhasil diperbarui!');
+        alert('Data berhasil diperbarui!');
         setIsEditingProfile(false);
     } catch (e) {
         alert('Gagal menyimpan profil.');
@@ -59,20 +94,110 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
     }
   };
 
+  const handleSubmitPermission = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!permissionForm.reason) {
+          alert("Mohon isi alasan.");
+          return;
+      }
+      setIsSubmittingPermission(true);
+      try {
+          const records = [{
+              studentId: student.id,
+              classId: student.classId,
+              status: permissionForm.type,
+              notes: permissionForm.reason
+          }];
+          await onSavePermission(permissionForm.date, records);
+          setPermissionForm({ ...permissionForm, reason: '' });
+      } catch (e) {
+          alert("Gagal mengirim pengajuan.");
+      } finally {
+          setIsSubmittingPermission(false);
+      }
+  };
+
+  const handleSubmitLiaison = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!liaisonForm.message) {
+          alert("Pesan tidak boleh kosong.");
+          return;
+      }
+      setIsSubmittingLiaison(true);
+      try {
+          await onSaveLiaison({
+              classId: student.classId,
+              studentId: student.id,
+              date: new Date().toISOString().split('T')[0],
+              sender: 'Wali Murid',
+              category: liaisonForm.category,
+              message: liaisonForm.message,
+              status: 'Pending'
+          });
+          setLiaisonForm({ ...liaisonForm, message: '' });
+      } catch (e) {
+          alert("Gagal mengirim pesan.");
+      } finally {
+          setIsSubmittingLiaison(false);
+      }
+  };
+
+  const handleSaveKarakterLocal = async () => {
+      setIsSavingKarakter(true);
+      try {
+          const assessmentToSave: Omit<KarakterAssessment, 'studentId' | 'classId'> = {
+              bangunPagi: karakterForm.bangunPagi || '',
+              beribadah: karakterForm.beribadah || '',
+              berolahraga: karakterForm.berolahraga || '',
+              makanSehat: karakterForm.makanSehat || '',
+              gemarBelajar: karakterForm.gemarBelajar || '',
+              bermasyarakat: karakterForm.bermasyarakat || '',
+              tidurAwal: karakterForm.tidurAwal || '',
+              catatan: karakterForm.catatan,
+              afirmasi: karakterForm.afirmasi
+          };
+          await onSaveKarakter(student.id, assessmentToSave);
+          alert("Self-assessment 7 Kebiasaan berhasil disimpan.");
+      } catch (e) {
+          alert("Gagal menyimpan.");
+      } finally {
+          setIsSavingKarakter(false);
+      }
+  };
+
+  const handleKarakterChange = (key: KarakterIndicatorKey, value: string) => {
+      setKarakterForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  // -- COMPUTED DATA --
+
   const attendanceStats = useMemo(() => {
-    const allRecords = allAttendance.filter((r: any) => String(r.studentId) === String(student.id));
-    const allCounts = { present: 0, sick: 0, permit: 0, alpha: 0, dispensation: 0 };
+    // Filter for current month only
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const allRecords = allAttendance.filter((r: any) => {
+        const recordDate = new Date(r.date);
+        return String(r.studentId) === String(student.id) && 
+               recordDate.getMonth() === currentMonth && 
+               recordDate.getFullYear() === currentYear;
+    });
+
+    const counts = { present: 0, sick: 0, permit: 0, alpha: 0, dispensation: 0 };
     allRecords.forEach((r: any) => {
-        if (allCounts[r.status as keyof typeof allCounts] !== undefined) {
-            allCounts[r.status as keyof typeof allCounts]++;
+        if (counts[r.status as keyof typeof counts] !== undefined) {
+            counts[r.status as keyof typeof counts]++;
         }
     });
     
-    const totalAll = Object.values(allCounts).reduce((a, b) => a + b, 0) || 1;
-    const positiveAttendance = allCounts.present + allCounts.dispensation;
-    const percentage = Math.round((positiveAttendance / totalAll) * 100);
+    // Total Presence Percentage (Global) for the Header Badge
+    const globalRecords = allAttendance.filter((r: any) => String(r.studentId) === String(student.id));
+    const globalPresent = globalRecords.filter((r: any) => r.status === 'present' || r.status === 'dispensation').length;
+    const globalTotal = globalRecords.length || 1;
+    const percentage = Math.round((globalPresent / globalTotal) * 100);
 
-    return { percentage };
+    return { percentage, counts, monthName: now.toLocaleString('id-ID', { month: 'long' }) };
   }, [student, allAttendance]);
 
   const upcomingAgendas = useMemo(() => {
@@ -81,33 +206,65 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
         .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [agendas]);
 
+  const myLiaisonLogs = useMemo(() => {
+      return liaisonLogs
+        .filter(l => l.studentId === student.id)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [liaisonLogs, student.id]);
+
+  const myPermissions = useMemo(() => {
+      return permissionRequests
+        .filter(p => p.studentId === student.id)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [permissionRequests, student.id]);
+
+  // -- GRADES CALCULATION FOR DASHBOARD --
+  const selectedGradeData = useMemo(() => {
+      const studentGrades = grades.find(g => g.studentId === student.id);
+      const subjectData = studentGrades?.subjects[selectedSubjectId] || { sum1: 0, sum2: 0, sum3: 0, sum4: 0, sas: 0 };
+      
+      const scores = [subjectData.sum1, subjectData.sum2, subjectData.sum3, subjectData.sum4, subjectData.sas];
+      const filledScores = scores.filter(s => s > 0);
+      const average = filledScores.length > 0 
+          ? Math.round(filledScores.reduce((a, b) => a + b, 0) / filledScores.length) 
+          : 0;
+
+      return { ...subjectData, average };
+  }, [grades, student.id, selectedSubjectId]);
 
   const TABS = [
     { id: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard },
-    { id: 'profile', label: 'Data Diri', icon: User },
+    { id: 'attendance', label: 'Izin & Absensi', icon: Calendar },
+    { id: 'liaison', label: 'Buku Penghubung', icon: MessageSquare },
+    { id: 'profile', label: 'Profil Siswa', icon: User },
+    { id: 'character', label: 'Karakter', icon: HeartHandshake },
   ];
 
   return (
-    <div className="animate-fade-in pb-20 space-y-4">
+    <div className="animate-fade-in pb-24 space-y-4 font-sans text-slate-800 max-w-[1280px] mx-auto">
       
       {/* 1. HEADER PROFILE */}
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-indigo-50 to-purple-50 z-0 border-b border-indigo-100"></div>
+          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] z-0"></div>
           
-          <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end mt-12 gap-6">
-              <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 shrink-0">
+          <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end mt-8 gap-6">
+              <div className="w-28 h-28 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white shrink-0">
                   {student.photo && !student.photo.startsWith('ERROR') ? (
                       <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
                   ) : (
-                      <div className="w-full h-full flex items-center justify-center text-indigo-300 bg-indigo-50"><User size={64}/></div>
+                      <div className="w-full h-full flex items-center justify-center text-indigo-300 bg-indigo-50"><User size={48}/></div>
                   )}
               </div>
 
               <div className="flex-1 text-center md:text-left mb-1">
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 mb-3 drop-shadow-sm">{student.name}</h1>
+                  <h1 className="text-2xl font-extrabold text-slate-800 mb-2">{student.name}</h1>
                   <div className="inline-flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm text-gray-600">
-                      <span className="bg-white px-3 py-1 rounded-full font-bold border border-gray-200 shadow-sm flex items-center text-indigo-700">
+                      <span className="bg-gray-100 px-3 py-1 rounded-full font-bold border border-gray-200 shadow-sm flex items-center text-slate-700">
                           NIS: {student.nis}
+                      </span>
+                      {/* ADDED NISN */}
+                      <span className="bg-[#CAF4FF] text-[#5AB2FF] px-3 py-1 rounded-full font-bold border border-blue-100 shadow-sm flex items-center">
+                          NISN: {student.nisn || '-'}
                       </span>
                       <span className="flex items-center font-medium bg-white/50 px-2 py-1 rounded-lg">
                           <BookOpen size={16} className="mr-1.5 text-gray-400"/> Kelas {student.classId}
@@ -117,11 +274,11 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
               <div className="flex gap-3 mb-2 shrink-0 md:self-end">
                   <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl text-center min-w-[80px] shadow-sm">
-                      <span className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Hadir</span>
+                      <span className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Hadir (Total)</span>
                       <span className="text-xl font-black text-emerald-700">{attendanceStats.percentage}%</span>
                   </div>
                   <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl text-center min-w-[80px] shadow-sm">
-                      <span className="block text-[10px] font-bold text-amber-600 uppercase mb-1">Poin</span>
+                      <span className="block text-[10px] font-bold text-amber-600 uppercase mb-1">Poin Sikap</span>
                       <span className="text-xl font-black text-amber-700">{student.behaviorScore}</span>
                   </div>
               </div>
@@ -129,8 +286,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
       </div>
 
       {/* 2. STICKY NAVIGATION */}
-      <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-md py-2 -mx-4 px-4 border-b border-gray-200 shadow-sm">
-        <div className="flex overflow-x-auto gap-2 no-scrollbar pb-1">
+      <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-md py-2 -mx-4 px-4 border-b border-gray-200 shadow-sm overflow-x-auto no-scrollbar">
+        <div className="flex gap-2 min-w-max pb-1">
             {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -138,10 +295,10 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                     <button 
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as PortalTab)} 
-                        className={`flex items-center flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap border ${
+                        className={`flex items-center px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap border ${
                             isActive 
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' 
-                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                            ? 'bg-[#5AB2FF] text-white border-[#5AB2FF] shadow-md' 
+                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'
                         }`}
                     >
                         <Icon size={16} className="mr-2"/> {tab.label}
@@ -153,22 +310,93 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
       {/* 3. MAIN CONTENT */}
       <div className="min-h-[500px]">
+          
+          {/* --- DASHBOARD TAB --- */}
           {activeTab === 'dashboard' && (
               <div className="space-y-6">
+                  {/* 1. Catatan Guru - HIGHLIGHTED */}
                   {student.teacherNotes && (
-                      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-lg text-white animate-fade-in">
-                          <h4 className="font-bold text-lg mb-2 flex items-center">
-                              <MessageCircle size={20} className="mr-2 opacity-80"/> Pesan dari Wali Kelas
+                      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-lg text-white animate-fade-in relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16"></div>
+                          <h4 className="font-bold text-lg mb-3 flex items-center relative z-10">
+                              <MessageCircle size={22} className="mr-2"/> Catatan Wali Kelas
                           </h4>
-                          <p className="text-sm text-white/90 italic bg-white/10 p-4 rounded-xl border border-white/20">
-                              "{student.teacherNotes}"
-                          </p>
+                          <div className="relative z-10 bg-white/10 p-4 rounded-xl border border-white/20 backdrop-blur-sm">
+                              <p className="text-sm text-white leading-relaxed italic">
+                                  "{student.teacherNotes}"
+                              </p>
+                          </div>
                       </div>
                   )}
-                  {/* Other dashboard widgets can go here */}
+
+                  {/* 2. Monthly Attendance Stats */}
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                          <Activity className="mr-2 text-[#5AB2FF]" size={18}/> Laporan Absensi Bulan {attendanceStats.monthName}
+                      </h3>
+                      <div className="grid grid-cols-3 gap-4">
+                          <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl text-center">
+                              <span className="text-2xl font-black text-amber-600 block mb-1">{attendanceStats.counts.sick}</span>
+                              <span className="text-xs font-bold text-amber-700 uppercase">Sakit</span>
+                          </div>
+                          <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-center">
+                              <span className="text-2xl font-black text-blue-600 block mb-1">{attendanceStats.counts.permit}</span>
+                              <span className="text-xs font-bold text-blue-700 uppercase">Izin</span>
+                          </div>
+                          <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-center">
+                              <span className="text-2xl font-black text-red-600 block mb-1">{attendanceStats.counts.alpha}</span>
+                              <span className="text-xs font-bold text-red-700 uppercase">Alpha</span>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* 3. Academic Summary (Nilai Sumatif) - NEW */}
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                          <h3 className="font-bold text-gray-800 flex items-center">
+                              <GraduationCap className="mr-2 text-indigo-500" size={20}/> Hasil Belajar (Sumatif)
+                          </h3>
+                          <div className="relative w-full sm:w-auto">
+                              <select 
+                                value={selectedSubjectId} 
+                                onChange={(e) => setSelectedSubjectId(e.target.value)}
+                                className="w-full sm:w-48 appearance-none bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold py-2 pl-4 pr-10 rounded-xl outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer text-sm"
+                              >
+                                  {MOCK_SUBJECTS.map(s => (
+                                      <option key={s.id} value={s.id}>{s.name}</option>
+                                  ))}
+                              </select>
+                              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none"/>
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                          {['sum1', 'sum2', 'sum3', 'sum4'].map((key, idx) => (
+                              <div key={key} className="bg-gray-50 border border-gray-100 p-3 rounded-xl text-center flex flex-col justify-center">
+                                  <span className="text-[10px] text-gray-400 font-bold uppercase mb-1">Sumatif {idx + 1}</span>
+                                  <span className={`text-xl font-bold ${selectedGradeData[key as keyof typeof selectedGradeData] > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+                                      {selectedGradeData[key as keyof typeof selectedGradeData] || '-'}
+                                  </span>
+                              </div>
+                          ))}
+                          <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center flex flex-col justify-center col-span-2 md:col-span-1">
+                              <span className="text-[10px] text-blue-400 font-bold uppercase mb-1">SAS</span>
+                              <span className={`text-xl font-bold ${selectedGradeData.sas > 0 ? 'text-blue-700' : 'text-gray-300'}`}>
+                                  {selectedGradeData.sas || '-'}
+                              </span>
+                          </div>
+                      </div>
+                      
+                      <div className="mt-4 bg-indigo-600 text-white p-4 rounded-xl flex justify-between items-center shadow-md">
+                          <span className="font-medium text-sm text-indigo-100">Nilai Rata-rata Akhir</span>
+                          <span className="text-2xl font-black">{selectedGradeData.average || '-'}</span>
+                      </div>
+                  </div>
+                  
+                  {/* 4. Agenda */}
                   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
                       <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                          <ListTodo className="mr-2 text-purple-500" size={18}/> Agenda Kegiatan
+                          <ListTodo className="mr-2 text-[#5AB2FF]" size={18}/> Agenda Kegiatan
                       </h3>
                       <div className="space-y-3 flex-1">
                           {upcomingAgendas.length === 0 ? (
@@ -191,48 +419,346 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
               </div>
           )}
 
-          {activeTab === 'profile' && (
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-bold text-gray-800 text-lg">Data Diri Siswa</h3>
-                      {!isEditingProfile ? (
-                          <button onClick={() => setIsEditingProfile(true)} className="flex items-center gap-2 bg-white text-indigo-600 font-bold px-4 py-2 rounded-lg border border-indigo-200 hover:bg-indigo-50 shadow-sm">
-                              <Edit size={16}/> Edit Data
-                          </button>
-                      ) : (
-                          <div className="flex gap-2">
-                              <button onClick={() => { setIsEditingProfile(false); setProfileData(student); }} className="px-4 py-2 text-gray-600 font-medium rounded-lg hover:bg-gray-100">Batal</button>
-                              <button onClick={handleSaveProfile} disabled={isSavingProfile} className="flex items-center gap-2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 disabled:opacity-50">
-                                  {isSavingProfile ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Simpan
+          {/* --- ATTENDANCE & PERMISSION TAB --- */}
+          {activeTab === 'attendance' && (
+              <div className="space-y-6">
+                  {/* Form Pengajuan */}
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                          <PlusCircle size={18} className="mr-2 text-[#5AB2FF]"/> Ajukan Izin / Sakit
+                      </h3>
+                      <form onSubmit={handleSubmitPermission} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 mb-1">Tanggal</label>
+                                  <input 
+                                    type="date" 
+                                    className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none"
+                                    value={permissionForm.date}
+                                    onChange={e => setPermissionForm({...permissionForm, date: e.target.value})}
+                                    required
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 mb-1">Jenis Izin</label>
+                                  <select 
+                                    className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none bg-white"
+                                    value={permissionForm.type}
+                                    onChange={e => setPermissionForm({...permissionForm, type: e.target.value})}
+                                  >
+                                      <option value="sick">Sakit</option>
+                                      <option value="permit">Izin</option>
+                                      <option value="dispensation">Dispensasi</option>
+                                  </select>
+                              </div>
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Alasan / Keterangan</label>
+                              <textarea 
+                                rows={2}
+                                className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none resize-none"
+                                placeholder="Jelaskan alasan ketidakhadiran..."
+                                value={permissionForm.reason}
+                                onChange={e => setPermissionForm({...permissionForm, reason: e.target.value})}
+                                required
+                              />
+                          </div>
+                          <div className="flex justify-end">
+                              <button 
+                                type="submit" 
+                                disabled={isSubmittingPermission}
+                                className="bg-[#5AB2FF] text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-[#A0DEFF] transition-all flex items-center disabled:opacity-70"
+                              >
+                                  {isSubmittingPermission ? <Loader2 size={16} className="animate-spin"/> : <Send size={16} className="mr-2"/>}
+                                  Kirim Pengajuan
                               </button>
                           </div>
-                      )}
+                      </form>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                      {/* Non-Editable */}
-                      <div className="bg-gray-50 p-3 rounded-lg"><strong className="block text-xs text-gray-500">Nama Lengkap</strong> <span className="font-medium text-gray-800">{profileData.name}</span></div>
-                      <div className="bg-gray-50 p-3 rounded-lg"><strong className="block text-xs text-gray-500">NIS</strong> <span className="font-medium text-gray-800">{profileData.nis}</span></div>
-                      <div className="bg-gray-50 p-3 rounded-lg"><strong className="block text-xs text-gray-500">NISN</strong> <span className="font-medium text-gray-800">{profileData.nisn}</span></div>
-                      <div className="bg-gray-50 p-3 rounded-lg"><strong className="block text-xs text-gray-500">Tempat, Tgl Lahir</strong> <span className="font-medium text-gray-800">{profileData.birthPlace}, {profileData.birthDate}</span></div>
+                  {/* Riwayat Pengajuan */}
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                          <History size={18} className="mr-2 text-gray-500"/> Riwayat Pengajuan
+                      </h3>
+                      <div className="space-y-3">
+                          {myPermissions.length === 0 ? (
+                              <p className="text-center text-gray-400 text-sm py-4 italic">Belum ada riwayat pengajuan.</p>
+                          ) : (
+                              myPermissions.map(req => (
+                                  <div key={req.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                      <div>
+                                          <div className="flex items-center gap-2 mb-1">
+                                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                                                  req.type==='sick'?'bg-amber-100 text-amber-700':
+                                                  req.type==='dispensation'?'bg-teal-100 text-teal-700':
+                                                  'bg-blue-100 text-blue-700'
+                                              }`}>
+                                                  {req.type === 'sick' ? 'Sakit' : req.type === 'dispensation' ? 'Dispen' : 'Izin'}
+                                              </span>
+                                              <span className="text-xs text-gray-500 font-medium">
+                                                  {new Date(req.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long'})}
+                                              </span>
+                                          </div>
+                                          <p className="text-sm text-gray-700 font-medium line-clamp-1">{req.reason}</p>
+                                      </div>
+                                      <div className="text-right">
+                                          <span className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                                              req.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                              req.status === 'Rejected' ? 'bg-red-50 text-red-600 border-red-200' :
+                                              'bg-gray-100 text-gray-500 border-gray-200'
+                                          }`}>
+                                              {req.status === 'Approved' ? 'Diterima' : req.status === 'Rejected' ? 'Ditolak' : 'Menunggu'}
+                                          </span>
+                                      </div>
+                                  </div>
+                              ))
+                          )}
+                      </div>
+                  </div>
+              </div>
+          )}
 
-                      {/* Editable Fields */}
-                      <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Alamat</label>
-                          <input type="text" value={profileData.address || ''} onChange={e => handleProfileChange('address', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+          {/* --- LIAISON BOOK TAB --- */}
+          {activeTab === 'liaison' && (
+              <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                          <MessageSquare size={18} className="mr-2 text-[#5AB2FF]"/> Tulis Pesan ke Wali Kelas
+                      </h3>
+                      <form onSubmit={handleSubmitLiaison} className="space-y-4">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Kategori</label>
+                              <select 
+                                className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none bg-white"
+                                value={liaisonForm.category}
+                                onChange={e => setLiaisonForm({...liaisonForm, category: e.target.value})}
+                              >
+                                  <option value="Informasi">Informasi</option>
+                                  <option value="Keluhan">Keluhan / Masalah</option>
+                                  <option value="Konsultasi">Konsultasi</option>
+                                  <option value="Lainnya">Lainnya</option>
+                              </select>
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Pesan</label>
+                              <textarea 
+                                rows={3}
+                                className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none resize-none"
+                                placeholder="Tulis pesan Anda di sini..."
+                                value={liaisonForm.message}
+                                onChange={e => setLiaisonForm({...liaisonForm, message: e.target.value})}
+                                required
+                              />
+                          </div>
+                          <div className="flex justify-end">
+                              <button 
+                                type="submit" 
+                                disabled={isSubmittingLiaison}
+                                className="bg-[#5AB2FF] text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-[#A0DEFF] transition-all flex items-center disabled:opacity-70"
+                              >
+                                  {isSubmittingLiaison ? <Loader2 size={16} className="animate-spin"/> : <Send size={16} className="mr-2"/>}
+                                  Kirim Pesan
+                              </button>
+                          </div>
+                      </form>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                          <History size={18} className="mr-2 text-gray-500"/> Riwayat Pesan
+                      </h3>
+                      <div className="space-y-4">
+                          {myLiaisonLogs.length === 0 ? (
+                              <p className="text-center text-gray-400 text-sm py-4 italic">Belum ada pesan.</p>
+                          ) : (
+                              myLiaisonLogs.map(log => (
+                                  <div key={log.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                      <div className="flex justify-between items-start mb-2">
+                                          <div className="flex items-center gap-2">
+                                              <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 uppercase">
+                                                  {log.category || 'Umum'}
+                                              </span>
+                                              <span className="text-xs text-gray-400">
+                                                  {new Date(log.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}
+                                              </span>
+                                          </div>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                              log.status === 'Selesai' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                              log.status === 'Ditolak' ? 'bg-red-50 text-red-700 border-red-200' :
+                                              log.status === 'Diterima' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                              'bg-amber-50 text-amber-700 border-amber-200'
+                                          }`}>
+                                              {log.status || 'Terkirim'}
+                                          </span>
+                                      </div>
+                                      <p className="text-sm text-gray-700 leading-relaxed mb-1">{log.message}</p>
+                                      
+                                      {/* Teacher Response */}
+                                      {log.response && (
+                                          <div className="mt-3 bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-sm text-gray-800 relative">
+                                              <div className="flex items-center gap-1 mb-1">
+                                                  <MessageCircle size={12} className="text-emerald-600"/>
+                                                  <span className="text-xs font-bold text-emerald-700">Respon Guru:</span>
+                                              </div>
+                                              {log.response}
+                                          </div>
+                                      )}
+
+                                      <p className="text-xs text-gray-400 italic text-right mt-2">Pengirim: {log.sender}</p>
+                                  </div>
+                              ))
+                          )}
                       </div>
-                       <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">No. HP Wali</label>
-                          <input type="text" value={profileData.parentPhone || ''} onChange={e => handleProfileChange('parentPhone', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                  </div>
+              </div>
+          )}
+
+          {/* --- PROFILE TAB (Separate from Character) --- */}
+          {activeTab === 'profile' && (
+              <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-bold text-gray-800 text-lg flex items-center">
+                              <User size={18} className="mr-2 text-indigo-500"/> Data Diri & Kesehatan
+                          </h3>
+                          {!isEditingProfile ? (
+                              <button onClick={() => setIsEditingProfile(true)} className="flex items-center gap-2 bg-white text-indigo-600 font-bold px-4 py-2 rounded-lg border border-indigo-200 hover:bg-indigo-50 shadow-sm text-xs">
+                                  <Edit size={14}/> Ubah Data
+                              </button>
+                          ) : (
+                              <div className="flex gap-2">
+                                  <button onClick={() => { setIsEditingProfile(false); setProfileData(student); }} className="px-3 py-1.5 text-gray-600 font-medium rounded-lg hover:bg-gray-100 text-xs">Batal</button>
+                                  <button onClick={handleSaveProfile} disabled={isSavingProfile} className="flex items-center gap-2 bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-lg shadow-md hover:bg-indigo-700 disabled:opacity-50 text-xs">
+                                      {isSavingProfile ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>} Simpan
+                                  </button>
+                              </div>
+                          )}
                       </div>
-                       <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Hobi</label>
-                          <input type="text" value={profileData.hobbies || ''} onChange={e => handleProfileChange('hobbies', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+
+                      {/* Read Only Main Info */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
+                          <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 border-b pb-2">Data Pokok (Tidak Dapat Diubah)</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              <div><strong className="block text-xs text-gray-500">Nama Lengkap</strong> <span className="font-semibold text-gray-800">{student.name}</span></div>
+                              <div><strong className="block text-xs text-gray-500">NIS / NISN</strong> <span className="font-semibold text-gray-800">{student.nis} / {student.nisn || '-'}</span></div>
+                              <div><strong className="block text-xs text-gray-500">Alamat</strong> <span className="font-semibold text-gray-800">{student.address}</span></div>
+                              <div><strong className="block text-xs text-gray-500">No. HP Wali</strong> <span className="font-semibold text-gray-800">{student.parentPhone}</span></div>
+                          </div>
                       </div>
-                      <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Cita-cita</label>
-                          <input type="text" value={profileData.ambition || ''} onChange={e => handleProfileChange('ambition', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                          <div className="md:col-span-2"><h4 className="text-xs font-bold text-indigo-600 uppercase mb-2 border-b border-indigo-100 pb-1">Data Fisik & Kesehatan (Dapat Diedit)</h4></div>
+                          
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Tinggi Badan (cm)</label>
+                              <input type="number" value={profileData.height || 0} onChange={e => handleProfileChange('height', Number(e.target.value))} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Berat Badan (kg)</label>
+                              <input type="number" value={profileData.weight || 0} onChange={e => handleProfileChange('weight', Number(e.target.value))} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Golongan Darah</label>
+                              <input type="text" value={profileData.bloodType || ''} onChange={e => handleProfileChange('bloodType', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                          </div>
+                          <div className="md:col-span-2">
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Riwayat Penyakit / Catatan Kesehatan</label>
+                              <textarea rows={2} value={profileData.healthNotes || ''} onChange={e => handleProfileChange('healthNotes', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"/>
+                          </div>
+
+                          <div className="md:col-span-2 mt-2"><h4 className="text-xs font-bold text-indigo-600 uppercase mb-2 border-b border-indigo-100 pb-1">Minat & Impian (Dapat Diedit)</h4></div>
+                          
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Hobi</label>
+                              <input type="text" value={profileData.hobbies || ''} onChange={e => handleProfileChange('hobbies', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Cita-cita</label>
+                              <input type="text" value={profileData.ambition || ''} onChange={e => handleProfileChange('ambition', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                          </div>
                       </div>
+                  </div>
+              </div>
+          )}
+
+          {/* --- CHARACTER TAB (Separated with Toggle Buttons) --- */}
+          {activeTab === 'character' && (
+              <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-bold text-gray-800 flex items-center text-lg">
+                              <HeartHandshake size={20} className="mr-2 text-pink-500"/> 7 Kebiasaan Anak Indonesia Hebat
+                          </h3>
+                          <button 
+                            onClick={handleSaveKarakterLocal}
+                            disabled={isSavingKarakter}
+                            className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow hover:bg-emerald-600 transition-colors flex items-center disabled:opacity-70"
+                          >
+                              {isSavingKarakter ? <Loader2 size={16} className="animate-spin mr-1"/> : <Save size={16} className="mr-2"/>}
+                              Simpan Penilaian
+                          </button>
+                      </div>
+                      
+                      {/* NEW: Attractive Toggle List Layout */}
+                      <div className="grid grid-cols-1 gap-4">
+                          {(Object.keys(KARAKTER_INDICATORS) as KarakterIndicatorKey[]).map((key) => {
+                              const value = karakterForm[key];
+                              return (
+                                  <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 transition-all hover:border-blue-200 hover:shadow-sm">
+                                      <span className="font-bold text-gray-700 text-sm mb-3 sm:mb-0 flex items-center">
+                                          <div className="w-2 h-2 rounded-full bg-blue-400 mr-3"></div>
+                                          {KARAKTER_INDICATORS[key]}
+                                      </span>
+                                      
+                                      <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm w-full sm:w-auto">
+                                          <button
+                                              onClick={() => handleKarakterChange(key, 'Terbiasa')}
+                                              className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-xs font-bold transition-all ${
+                                                  value === 'Terbiasa'
+                                                  ? 'bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-600'
+                                                  : 'text-gray-500 hover:bg-gray-50'
+                                              }`}
+                                          >
+                                              <CheckCircle size={14} className={`mr-1.5 ${value === 'Terbiasa' ? 'text-white' : 'text-emerald-500'}`}/> 
+                                              Terbiasa
+                                          </button>
+                                          <button
+                                              onClick={() => handleKarakterChange(key, 'Belum Terbiasa')}
+                                              className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-xs font-bold transition-all ml-1 ${
+                                                  value === 'Belum Terbiasa'
+                                                  ? 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-600'
+                                                  : 'text-gray-500 hover:bg-gray-50'
+                                              }`}
+                                          >
+                                              <XCircle size={14} className={`mr-1.5 ${value === 'Belum Terbiasa' ? 'text-white' : 'text-amber-500'}`}/> 
+                                              Belum
+                                          </button>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                      
+                      <div className="mt-6">
+                          <label className="text-xs font-bold text-gray-500 uppercase mb-2 block ml-1">Catatan Tambahan (Opsional)</label>
+                          <textarea
+                              rows={2}
+                              value={karakterForm.catatan || ''}
+                              onChange={(e) => setKarakterForm({...karakterForm, catatan: e.target.value})}
+                              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-gray-50 focus:bg-white transition-colors"
+                              placeholder="Tulis catatan refleksi..."
+                          />
+                      </div>
+
+                      {karakterForm.catatan && (
+                          <div className="mt-4 p-3 bg-yellow-50 rounded-xl border border-yellow-100 text-sm text-yellow-800 flex items-start">
+                              <Sparkles size={16} className="mr-2 mt-0.5 text-yellow-600"/>
+                              <div>
+                                  <strong>Catatan Guru:</strong> {karakterForm.catatan}
+                              </div>
+                          </div>
+                      )}
                   </div>
               </div>
           )}

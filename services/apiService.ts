@@ -26,7 +26,7 @@ const getCategoryColor = (category: string = ''): string => {
   if (cat.includes('bela') || cat.includes('karate') || cat.includes('silat')) return 'bg-rose-600';
   if (cat.includes('agama') || cat.includes('jus')) return 'bg-teal-600';
   if (cat.includes('tekno') || cat.includes('tik')) return 'bg-cyan-600';
-  if (cat.includes('tongklek')) return 'bg-orange-600';
+  if (cat.includes('tekno') || cat.includes('tongklek')) return 'bg-orange-600';
   return 'bg-indigo-600'; 
 };
 
@@ -336,7 +336,11 @@ export const apiService = {
   saveLiaisonLog: async (log: Omit<LiaisonLog, 'id'>) => {
     return await fetchApi('POST', { action: 'saveLiaisonLog', payload: log });
   },
-  // NEW: Update Liaison Status
+  // NEW: Reply to Liaison Log
+  replyLiaisonLog: async (id: string, response: string) => {
+    return await fetchApi('POST', { action: 'replyLiaisonLog', payload: { id, response } });
+  },
+  // Update Liaison Status
   updateLiaisonStatus: async (ids: string[], status: 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai') => {
     return await fetchApi('POST', { action: 'updateLiaisonStatus', payload: { ids, status } });
   },

@@ -715,6 +715,15 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                                 const hasNote = notes && notes.trim() !== '';
                                                 const {bg} = getHolidayColorStyle(type);
 
+                                                // Determine holiday code
+                                                let holidayCode = '-';
+                                                if (isRed) {
+                                                    if (holidayDesc === 'Minggu') holidayCode = 'LU';
+                                                    else if (type === 'cuti') holidayCode = 'CB';
+                                                    else if (type === 'semester') holidayCode = 'LS';
+                                                    else holidayCode = 'LHB';
+                                                }
+
                                                 return (
                                                     <td 
                                                         key={d} 
@@ -722,7 +731,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                                         title={holidayDesc || (status ? `${STATUS_TEXT[status as AttendanceStatus]}${hasNote ? `: ${notes}` : ''}` : '')}
                                                         onClick={() => !isRed && !isReadOnly && handleRecapCellClick(s, dateStr, status, notes)}
                                                     >
-                                                        {isRed ? <span className="text-gray-300">-</span> : 
+                                                        {isRed ? <span className="text-[9px] font-bold text-gray-500/80">{holidayCode}</span> : 
                                                         (status === 'present' ? <span className="text-emerald-600 font-bold">H{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
                                                         status === 'sick' ? <span className="text-amber-600 font-bold">S{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
                                                         status === 'permit' ? <span className="text-blue-600 font-bold">I{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
