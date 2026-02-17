@@ -4,7 +4,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, RadialBarChart, RadialBar, Legend 
 } from 'recharts';
-import { Student, AgendaItem, Holiday, ViewState, GradeRecord, Subject, EmploymentLink, PermissionRequest } from '../types';
+import { Student, AgendaItem, Holiday, ViewState, GradeRecord, Subject, EmploymentLink, PermissionRequest, SchoolProfileData } from '../types';
 import { 
   Users, UserCheck, Calendar, FileText, TrendingUp, 
   Plus, Bell, ChevronRight, CheckCircle, AlertCircle, 
@@ -26,12 +26,13 @@ interface DashboardProps {
   employmentLinks?: EmploymentLink[];
   pendingPermissions?: PermissionRequest[];
   onOpenPermissionModal?: () => void;
+  schoolProfile?: SchoolProfileData; // Added schoolProfile prop
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   students, agendas, holidays, allAttendanceRecords, 
   teacherName, teachingClass, onChangeView, grades, subjects, adminCompleteness = 0,
-  employmentLinks = [], pendingPermissions = [], onOpenPermissionModal
+  employmentLinks = [], pendingPermissions = [], onOpenPermissionModal, schoolProfile
 }) => {
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -175,6 +176,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
   };
 
+  const runningTextContent = schoolProfile?.runningText || "Selamat datang di UPT SD Negeri Remen 2 ✦ Sistem Administrasi Guru & Akademik (SAGARA) ✦ Mewujudkan Pendidikan Berkualitas & Berkarakter";
+  const runningTextSpeed = schoolProfile?.runningTextSpeed || 20;
+
   return (
     <div className="space-y-6 pb-20 animate-fade-in relative min-h-screen">
       {/* Running Text Banner */}
@@ -183,8 +187,11 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Info size={16} className="text-white"/>
          </div>
          <div className="overflow-hidden w-full relative h-6">
-            <div className="animate-marquee font-bold text-sm tracking-wide whitespace-nowrap absolute top-0 left-0">
-                Selamat datang di UPT SD Negeri Remen 2 &nbsp;&nbsp;✦&nbsp;&nbsp; Sistem Administrasi Guru & Akademik (SAGARA) &nbsp;&nbsp;✦&nbsp;&nbsp; Mewujudkan Pendidikan Berkualitas & Berkarakter
+            <div 
+                className="animate-marquee font-bold text-sm tracking-wide whitespace-nowrap absolute top-0 left-0"
+                style={{ animationDuration: `${runningTextSpeed}s` }}
+            >
+                {runningTextContent}
             </div>
          </div>
       </div>

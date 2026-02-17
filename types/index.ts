@@ -268,6 +268,7 @@ export interface SchoolProfileData {
   regencyLogo?: string; // Base64
   schoolLogo?: string; // Base64
   runningText?: string; // NEW: Teks Berjalan
+  runningTextSpeed?: number; // NEW: Kecepatan Teks Berjalan (detik)
   headmasterSignature?: string;
   developerInfo?: {
     name: string;

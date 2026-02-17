@@ -920,6 +920,7 @@ const App: React.FC = () => {
                   employmentLinks={employmentLinks}
                   pendingPermissions={pendingPermissions} // Passed Pending Permissions
                   onOpenPermissionModal={() => setIsPermissionModalOpen(true)} // Modal Trigger
+                  schoolProfile={schoolProfile} // Passed School Profile for Running Text
                />;
       // ... (other cases using updated colors implicitly)
       case 'student-monitor':
@@ -1139,7 +1140,8 @@ const App: React.FC = () => {
                   adminCompleteness={adminPercentage}
                   employmentLinks={employmentLinks}
                   pendingPermissions={pendingPermissions} 
-                  onOpenPermissionModal={() => setIsPermissionModalOpen(true)} 
+                  onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
+                  schoolProfile={schoolProfile} // Added prop
                />;
     }
   };
