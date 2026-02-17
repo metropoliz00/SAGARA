@@ -104,6 +104,10 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
 
   const rekapStudents = useMemo(() => {
+      // If printing (detected via check or just logic), we might want all students.
+      // However, for screen we paginate. 
+      // The print logic in CSS hides everything else, but we need to ensure the TABLE inside #print-area renders ALL students if needed.
+      // For now, we keep pagination for screen. Users should ideally select "Show All" or 100 before printing for full list.
       const startIndex = (currentPage - 1) * rowsPerPage;
       return students.slice(startIndex, startIndex + rowsPerPage);
   }, [students, currentPage, rowsPerPage]);
@@ -260,9 +264,12 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const getDateKeyForDay = (day: number) => `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  
+  const getDateKeyForDay = useCallback((day: number) => 
+      `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+  [selectedYear, selectedMonth]);
 
-  const getHolidayForDay = (day: number) => {
+  const getHolidayForDay = useCallback((day: number) => {
       const dateString = getDateKeyForDay(day);
       const date = new Date(dateString + 'T00:00:00');
       const isSunday = date.getDay() === 0;
@@ -270,12 +277,53 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
       if (isSunday && !holiday) return { isRed: true, holidayDesc: 'Minggu' };
       if (holiday) return { isRed: true, holidayDesc: holiday.description, type: holiday.type };
       return { isRed: false };
-  };
+  }, [getDateKeyForDay, holidays]);
 
   const getAttendanceForDay = (studentId: string, day: number) => {
       const key = `${String(studentId).trim()}_${getDateKeyForDay(day)}`;
       return attendanceMap[key];
   };
+
+  // --- REKAP STATS CALCULATION ---
+  const effectiveDaysCount = useMemo(() => {
+      let count = 0;
+      daysArray.forEach(d => {
+          const { isRed } = getHolidayForDay(d);
+          if (!isRed) count++;
+      });
+      return count;
+  }, [daysArray, getHolidayForDay]);
+
+  const rekapStats = useMemo(() => {
+      let sakit = 0, izin = 0, alpha = 0;
+      const studentCount = students.length;
+      
+      students.forEach(s => {
+          daysArray.forEach(d => {
+              const { isRed } = getHolidayForDay(d);
+              if (!isRed) {
+                  const dateStr = getDateKeyForDay(d);
+                  const key = `${s.id}_${dateStr}`;
+                  const record = attendanceMap[key];
+                  if (record) {
+                      if (record.status === 'sick') sakit++;
+                      else if (record.status === 'permit') izin++;
+                      else if (record.status === 'alpha') alpha++;
+                  }
+              }
+          });
+      });
+
+      const totalEffectiveStudentDays = studentCount * effectiveDaysCount;
+      const getPct = (val: number) => totalEffectiveStudentDays === 0 ? 0 : (val / totalEffectiveStudentDays) * 100;
+
+      return {
+          sakit: getPct(sakit),
+          izin: getPct(izin),
+          alpha: getPct(alpha)
+      };
+  }, [students, daysArray, effectiveDaysCount, attendanceMap, getHolidayForDay, getDateKeyForDay]);
+
 
   const handleRecapCellClick = (student: Student, date: string, currentStatus?: string, currentNotes?: string) => {
       if (isReadOnly) return;
@@ -364,6 +412,19 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const getHolidayColorStyle = (type?: string) => { return (type && HOLIDAY_TYPE_LEGEND[type]?.style) || SUNDAY_STYLE; };
   const getHolidayPillColor = (type: string) => { return HOLIDAY_TYPE_LEGEND[type]?.color || 'bg-gray-500'; };
+  
+  // Date helpers for footer
+  const getLastDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month, 0).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  };
+  
+  const tanggalAkhirBulan = getLastDayOfMonth(selectedYear, selectedMonth);
+  const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('id-ID', { month: 'long' });
+
   const handlePrint = () => window.print();
 
   // --- BARCODE SCANNER LOGIC ---
@@ -505,75 +566,140 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                  </div>
              </div>
              
-             <div className="bg-white rounded-xl shadow-sm border overflow-auto print-container">
-                <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-[#CAF4FF]/50 font-bold uppercase text-[10px]">
-                        <tr>
-                            <th className="p-2 border sticky left-0 bg-[#CAF4FF]/50 z-10 w-48">Nama Siswa</th>
-                            {daysArray.map(d => {
-                                const {isRed, type} = getHolidayForDay(d);
-                                const {bg, text} = getHolidayColorStyle(type);
-                                return <th key={d} className={`p-1 border text-center w-8 ${isRed ? `${bg} ${text}` : ''}`}>{d}</th>;
-                            })}
-                            <th className="p-1 border text-center w-8 bg-emerald-100">H</th>
-                            <th className="p-1 border text-center w-8 bg-amber-100">S</th>
-                            <th className="p-1 border text-center w-8 bg-blue-100">I</th>
-                            <th className="p-1 border text-center w-8 bg-rose-200">A</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rekapStudents.map(s => {
-                            let h=0, sk=0, i=0, a=0;
-                            for (const d of daysArray) {
-                                 const {isRed} = getHolidayForDay(d);
-                                 const record = getAttendanceForDay(s.id, d);
-                                 const status = record?.status;
-                                 if(!isRed) {
-                                     if(status === 'present' || status === 'dispensation') h++;
-                                 }
-                                 if(status === 'sick') sk++;
-                                 if(status === 'permit') i++;
-                                 if(status === 'alpha') a++;
-                            }
+             {/* Print Area Wrapper */}
+             <div id="print-area">
+                
+                {/* Print Header */}
+                <div className="print-header hidden print:block mb-8 text-center font-serif text-black">
+                    <h2 className="text-2xl font-bold uppercase mb-1">REKAP ABSENSI</h2>
+                    <p className="text-lg">Kelas {classId}</p>
+                    <p className="text-lg">Bulan {monthName} {selectedYear}</p>
+                </div>
 
-                            return (
-                                <tr key={s.id} className="hover:bg-gray-50 group">
-                                    <td className="p-2 border font-medium sticky left-0 bg-white z-10 whitespace-nowrap group-hover:bg-gray-50">{s.name}</td>
+                <div className="bg-white rounded-xl shadow-sm border overflow-visible print-container">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left border-collapse">
+                            <thead className="bg-[#CAF4FF]/50 font-bold uppercase text-[10px]">
+                                <tr>
+                                    <th className="p-2 border sticky left-0 bg-[#CAF4FF]/50 z-10 w-48">Nama Siswa</th>
                                     {daysArray.map(d => {
-                                        const dateStr = getDateKeyForDay(d);
-                                        const {isRed, holidayDesc, type} = getHolidayForDay(d);
-                                        const attendanceRecord = getAttendanceForDay(s.id, d);
-                                        const status = attendanceRecord?.status;
-                                        const notes = attendanceRecord?.notes;
-                                        const hasNote = notes && notes.trim() !== '';
-                                        const {bg} = getHolidayColorStyle(type);
-
-                                        return (
-                                            <td 
-                                                key={d} 
-                                                className={`p-1 border text-center ${!isReadOnly ? 'cursor-pointer hover:bg-gray-200' : ''} transition-colors ${isRed ? bg : ''}`} 
-                                                title={holidayDesc || (status ? `${STATUS_TEXT[status as AttendanceStatus]}${hasNote ? `: ${notes}` : ''}` : '')}
-                                                onClick={() => !isRed && !isReadOnly && handleRecapCellClick(s, dateStr, status, notes)}
-                                            >
-                                                {isRed ? <span className="text-gray-300">-</span> : 
-                                                 (status === 'present' ? <span className="text-emerald-600 font-bold">H{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  status === 'sick' ? <span className="text-amber-600 font-bold">S{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  status === 'permit' ? <span className="text-blue-600 font-bold">I{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  status === 'alpha' ? <span className="text-rose-600 font-bold">A{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> : 
-                                                  status === 'dispensation' ? <span className="text-purple-600 font-bold">D{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
-                                                  <span className="opacity-0 group-hover:opacity-30 text-gray-400">.</span>)}
-                                            </td>
-                                        );
+                                        const {isRed, type} = getHolidayForDay(d);
+                                        const {bg, text} = getHolidayColorStyle(type);
+                                        return <th key={d} className={`p-1 border text-center w-8 ${isRed ? `${bg} ${text}` : ''}`}>{d}</th>;
                                     })}
-                                    <td className="p-1 border text-center font-bold bg-emerald-50">{h}</td>
-                                    <td className="p-1 border text-center font-bold bg-amber-50">{sk}</td>
-                                    <td className="p-1 border text-center font-bold bg-blue-50">{i}</td>
-                                    <td className="p-1 border text-center font-bold bg-rose-50">{a}</td>
+                                    <th className="p-1 border text-center w-8 bg-emerald-100">H</th>
+                                    <th className="p-1 border text-center w-8 bg-amber-100">S</th>
+                                    <th className="p-1 border text-center w-8 bg-blue-100">I</th>
+                                    <th className="p-1 border text-center w-8 bg-rose-200">A</th>
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody>
+                                {students.map(s => {
+                                    let h=0, sk=0, i=0, a=0;
+                                    for (const d of daysArray) {
+                                        const {isRed} = getHolidayForDay(d);
+                                        const record = getAttendanceForDay(s.id, d);
+                                        const status = record?.status;
+                                        if(!isRed) {
+                                            if(status === 'present' || status === 'dispensation') h++;
+                                        }
+                                        if(status === 'sick') sk++;
+                                        if(status === 'permit') i++;
+                                        if(status === 'alpha') a++;
+                                    }
+
+                                    return (
+                                        <tr key={s.id} className="hover:bg-gray-50 group">
+                                            <td className="p-2 border font-medium sticky left-0 bg-white z-10 whitespace-nowrap group-hover:bg-gray-50">{s.name}</td>
+                                            {daysArray.map(d => {
+                                                const dateStr = getDateKeyForDay(d);
+                                                const {isRed, holidayDesc, type} = getHolidayForDay(d);
+                                                const attendanceRecord = getAttendanceForDay(s.id, d);
+                                                const status = attendanceRecord?.status;
+                                                const notes = attendanceRecord?.notes;
+                                                const hasNote = notes && notes.trim() !== '';
+                                                const {bg} = getHolidayColorStyle(type);
+
+                                                return (
+                                                    <td 
+                                                        key={d} 
+                                                        className={`p-1 border text-center ${!isReadOnly ? 'cursor-pointer hover:bg-gray-200' : ''} transition-colors ${isRed ? bg : ''}`} 
+                                                        title={holidayDesc || (status ? `${STATUS_TEXT[status as AttendanceStatus]}${hasNote ? `: ${notes}` : ''}` : '')}
+                                                        onClick={() => !isRed && !isReadOnly && handleRecapCellClick(s, dateStr, status, notes)}
+                                                    >
+                                                        {isRed ? <span className="text-gray-300">-</span> : 
+                                                        (status === 'present' ? <span className="text-emerald-600 font-bold">H{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        status === 'sick' ? <span className="text-amber-600 font-bold">S{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        status === 'permit' ? <span className="text-blue-600 font-bold">I{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        status === 'alpha' ? <span className="text-rose-600 font-bold">A{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> : 
+                                                        status === 'dispensation' ? <span className="text-purple-600 font-bold">D{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        <span className="opacity-0 group-hover:opacity-30 text-gray-400">.</span>)}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="p-1 border text-center font-bold bg-emerald-50">{h}</td>
+                                            <td className="p-1 border text-center font-bold bg-amber-50">{sk}</td>
+                                            <td className="p-1 border text-center font-bold bg-blue-50">{i}</td>
+                                            <td className="p-1 border text-center font-bold bg-rose-50">{a}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Recap Summary Section */}
+                    <div className="mt-8 flex flex-col sm:flex-row justify-end gap-4 break-inside-avoid px-4 pb-6 border-t pt-4 no-print">
+                        {/* Hari Efektif Table */}
+                        <div className="border border-gray-300 rounded-lg overflow-hidden text-sm w-full sm:w-auto">
+                            <div className="bg-gray-100 p-2 font-bold text-center border-b border-gray-300">Hari Efektif</div>
+                            <div className="p-4 text-center font-bold text-xl bg-white text-gray-800">
+                                {effectiveDaysCount} <span className="text-xs font-normal text-gray-500">Hari</span>
+                            </div>
+                        </div>
+
+                        {/* Absensi Table */}
+                        <div className="border border-gray-300 rounded-lg overflow-hidden text-sm w-full sm:w-64">
+                            <div className="bg-gray-100 p-2 font-bold text-left border-b border-gray-300 px-4">Absensi</div>
+                            <div className="bg-white">
+                                <div className="flex justify-between px-4 py-2 border-b border-gray-100">
+                                    <span className="text-gray-600">Izin</span>
+                                    <span className="font-bold text-blue-600">{rekapStats.izin.toFixed(1).replace('.', ',')}%</span>
+                                </div>
+                                <div className="flex justify-between px-4 py-2 border-b border-gray-100">
+                                    <span className="text-gray-600">Sakit</span>
+                                    <span className="font-bold text-amber-600">{rekapStats.sakit.toFixed(1).replace('.', ',')}%</span>
+                                </div>
+                                <div className="flex justify-between px-4 py-2">
+                                    <span className="text-gray-600">Alpha</span>
+                                    <span className="font-bold text-rose-600">{rekapStats.alpha.toFixed(1).replace('.', ',')}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Print Footer */}
+                <div className="print-footer hidden print:flex justify-between mt-10 font-serif text-black">
+                    <div className="w-[40%] text-center">
+                        <p>Mengetahui,</p>
+                        <p>Kepala {schoolProfile?.name || 'Sekolah'}</p>
+                        <div className="h-24 flex items-center justify-center">
+                            {schoolProfile?.headmasterSignature && <img src={schoolProfile.headmasterSignature} alt="TTD" className="h-20 object-contain"/>}
+                        </div>
+                        <p className="font-bold underline">{schoolProfile?.headmaster || '................'}</p>
+                        <p>NIP. {schoolProfile?.headmasterNip || '................'}</p>
+                    </div>
+                    <div className="w-[40%] text-center">
+                        <p>Remen, {tanggalAkhirBulan}</p>
+                        <p>Guru Kelas {classId}</p>
+                        <div className="h-24 flex items-center justify-center">
+                             {teacherProfile?.signature && <img src={teacherProfile.signature} alt="TTD" className="h-20 object-contain"/>}
+                        </div>
+                        <p className="font-bold underline">{teacherProfile?.name || '................'}</p>
+                        <p>NIP. {teacherProfile?.nip || '................'}</p>
+                    </div>
+                </div>
              </div>
 
              <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200 no-print">

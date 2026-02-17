@@ -1,4 +1,5 @@
 
+
       :root {
         /* New Palette */
         --color-cream: #FFF9D0;
@@ -81,16 +82,6 @@
         animation: slide-right-left 3s ease-in-out infinite 1s; /* Start after 1s delay */
       }
 
-      /* NEW: Running Text Animation */
-      @keyframes marquee {
-        from { transform: translateX(100%); }
-        to { transform: translateX(-100%); }
-      }
-      .animate-marquee {
-        animation: marquee 15s linear infinite;
-      }
-
-
       /* PRINT STYLES GLOBAL */
       @media print {
         @page {
@@ -158,6 +149,26 @@
         /* Hide scrollbars in print */
         * {
           overflow: visible !important;
+        }
+
+        /* --- NEW PRINT AREA LOGIC --- */
+        body * {
+          visibility: hidden;
+        }
+
+        #print-area,
+        #print-area * {
+          visibility: visible;
+        }
+
+        #print-area {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          padding: 20px;
+          /* Optional: Set a specific font for printed documents if desired */
+          /* font-family: "Times New Roman", serif; */
         }
       }
 
@@ -260,4 +271,3 @@
             padding: 0;
         }
       }
-    

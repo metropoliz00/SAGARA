@@ -202,17 +202,6 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
             <input disabled={isReadOnly} type="text" value={school.headmasterNip} onChange={(e) => setSchool({...school, headmasterNip: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" />
         </div>
         <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Teks Berjalan (Loading Screen)</label>
-            <input 
-                disabled={isReadOnly} 
-                type="text" 
-                value={school.runningText || ''} 
-                onChange={(e) => setSchool({...school, runningText: e.target.value})} 
-                className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500" 
-                placeholder="Teks yang tampil saat loading..."
-            />
-        </div>
-        <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Tanda Tangan Kepala Sekolah</label>
             <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-gray-100 transition-colors">
                 {!school.headmasterSignature ? (
