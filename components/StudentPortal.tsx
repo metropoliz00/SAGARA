@@ -1,4 +1,5 @@
 
+// ... (imports remain the same)
 import React, { useState, useMemo, useEffect } from 'react';
 import { Student, GradeRecord, LiaisonLog, AgendaItem, BehaviorLog, PermissionRequest, KarakterAssessment, KARAKTER_INDICATORS, KarakterIndicatorKey } from '../types';
 import { MOCK_SUBJECTS } from '../constants';
@@ -10,6 +11,7 @@ import {
   Edit, Save, Loader2, PlusCircle, History, MessageSquare,
   ClipboardList, Bell, Activity, Sparkles, GraduationCap, ChevronDown
 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface StudentPortalProps {
   student: Student;
@@ -36,6 +38,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   
   // -- STATES FOR DASHBOARD GRADES --
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(MOCK_SUBJECTS[0]?.id || 'pai');
+  const [showRecapReport, setShowRecapReport] = useState(false);
 
   // -- STATES FOR FORMS --
   const [permissionForm, setPermissionForm] = useState({
@@ -74,6 +77,25 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
           }
       }
   }, [karakterAssessments, student.id]);
+
+  // NEW: Check if Recap Report is enabled for this class
+  useEffect(() => {
+      const checkConfig = async () => {
+          if (student.classId) {
+              try {
+                  const config = await apiService.getClassConfig(student.classId);
+                  if (config && config.settings?.showStudentRecap) {
+                      setShowRecapReport(true);
+                  } else {
+                      setShowRecapReport(false);
+                  }
+              } catch (e) {
+                  console.error("Failed to load class config for student");
+              }
+          }
+      };
+      checkConfig();
+  }, [student.classId]);
 
   // -- HANDLERS --
 
@@ -231,6 +253,50 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
       return { ...subjectData, average };
   }, [grades, student.id, selectedSubjectId]);
+
+  // -- RECAP DATA CALCULATION (If Enabled) --
+  const myRecapData = useMemo(() => {
+      if (!showRecapReport) return null;
+
+      // 1. Calculate scores for all students in class to determine rank
+      const classScores = grades
+          .filter(g => g.classId === student.classId)
+          .map(record => {
+              let total = 0;
+              MOCK_SUBJECTS.forEach(subj => {
+                  const sData = record.subjects[subj.id];
+                  if (sData) {
+                      const vals = [sData.sum1, sData.sum2, sData.sum3, sData.sum4, sData.sas].filter(v => v > 0);
+                      if (vals.length > 0) {
+                          total += Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+                      }
+                  }
+              });
+              return { studentId: record.studentId, total };
+          })
+          .sort((a, b) => b.total - a.total);
+
+      const myRankIndex = classScores.findIndex(s => s.studentId === student.id);
+      const rank = myRankIndex !== -1 ? myRankIndex + 1 : '-';
+      
+      // 2. Prepare My Detailed Data
+      const myRecord = grades.find(g => g.studentId === student.id);
+      const subjectsData = MOCK_SUBJECTS.map(subj => {
+          const sData = myRecord?.subjects[subj.id] || { sum1: 0, sum2: 0, sum3: 0, sum4: 0, sas: 0 };
+          const vals = [sData.sum1, sData.sum2, sData.sum3, sData.sum4, sData.sas].filter(v => v > 0);
+          const final = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+          return {
+              name: subj.name,
+              ...sData,
+              final
+          };
+      });
+
+      const myTotal = classScores.find(s => s.studentId === student.id)?.total || 0;
+
+      return { subjects: subjectsData, rank, total: myTotal };
+  }, [showRecapReport, grades, student.id, student.classId]);
+
 
   const TABS = [
     { id: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard },
@@ -392,8 +458,56 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                           <span className="text-2xl font-black">{selectedGradeData.average || '-'}</span>
                       </div>
                   </div>
+
+                  {/* 4. REKAP RAPOR TABLE (CONDITIONAL) */}
+                  {showRecapReport && myRecapData && (
+                      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm animate-fade-in-up">
+                          <div className="flex justify-between items-center mb-4">
+                              <h3 className="font-bold text-gray-800 flex items-center">
+                                  <Trophy className="mr-2 text-amber-500" size={20}/> Rekapitulasi Nilai Rapor
+                              </h3>
+                              <div className="flex items-center gap-2">
+                                  <span className="text-xs bg-amber-50 text-amber-700 px-3 py-1 rounded-full font-bold border border-amber-100">
+                                      Ranking: {myRecapData.rank}
+                                  </span>
+                                  <span className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full font-bold border border-emerald-100">
+                                      Total: {myRecapData.total}
+                                  </span>
+                              </div>
+                          </div>
+                          
+                          <div className="overflow-x-auto">
+                              <table className="w-full text-sm text-left border-collapse rounded-lg overflow-hidden">
+                                  <thead className="bg-slate-50 text-slate-600 font-bold text-xs uppercase">
+                                      <tr>
+                                          <th className="p-3">Mata Pelajaran</th>
+                                          <th className="p-3 text-center">Sum 1</th>
+                                          <th className="p-3 text-center">Sum 2</th>
+                                          <th className="p-3 text-center">Sum 3</th>
+                                          <th className="p-3 text-center">Sum 4</th>
+                                          <th className="p-3 text-center bg-blue-50/50">SAS</th>
+                                          <th className="p-3 text-center bg-emerald-50 text-emerald-700">Akhir</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                      {myRecapData.subjects.map((subj, idx) => (
+                                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                              <td className="p-3 font-medium text-gray-700">{subj.name}</td>
+                                              <td className="p-3 text-center text-gray-500">{subj.sum1 || '-'}</td>
+                                              <td className="p-3 text-center text-gray-500">{subj.sum2 || '-'}</td>
+                                              <td className="p-3 text-center text-gray-500">{subj.sum3 || '-'}</td>
+                                              <td className="p-3 text-center text-gray-500">{subj.sum4 || '-'}</td>
+                                              <td className="p-3 text-center font-semibold bg-blue-50/30 text-blue-700">{subj.sas || '-'}</td>
+                                              <td className="p-3 text-center font-bold bg-emerald-50/50 text-emerald-700">{subj.final || '-'}</td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
+                      </div>
+                  )}
                   
-                  {/* 4. Agenda */}
+                  {/* 5. Agenda */}
                   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
                       <h3 className="font-bold text-gray-800 mb-4 flex items-center">
                           <ListTodo className="mr-2 text-[#5AB2FF]" size={18}/> Agenda Kegiatan
@@ -419,6 +533,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
               </div>
           )}
 
+          {/* ... (Rest of the tabs: 'attendance', 'liaison', 'profile', 'character' remain identical) ... */}
           {/* --- ATTENDANCE & PERMISSION TAB --- */}
           {activeTab === 'attendance' && (
               <div className="space-y-6">

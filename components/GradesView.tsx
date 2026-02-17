@@ -1,10 +1,11 @@
 
+// ... (imports remain the same)
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Student, GradeRecord, GradeData, Subject } from '../types';
 import { MOCK_SUBJECTS } from '../constants';
 import { apiService } from '../services/apiService';
 import * as XLSX from 'xlsx';
-import { Save, FileSpreadsheet, Printer, Upload, Download, Calculator, CheckCircle, AlertCircle, Settings2, Lock, ChevronDown } from 'lucide-react';
+import { Save, FileSpreadsheet, Printer, Upload, Download, Calculator, CheckCircle, AlertCircle, Settings2, Lock, ChevronDown, Trophy, List, Grid, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 interface GradesViewProps {
   students: Student[];
@@ -20,33 +21,61 @@ const GradesView: React.FC<GradesViewProps> = ({
   students, initialGrades, onSave, onShowNotification, classId, 
   isReadOnly = false, allowedSubjects = ['all'] 
 }) => {
+  const [viewMode, setViewMode] = useState<'input' | 'recap'>('input');
   const [selectedSubject, setSelectedSubject] = useState<string>(MOCK_SUBJECTS[0].id);
   const [grades, setGrades] = useState<GradeRecord[]>(initialGrades);
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [kktpMap, setKktpMap] = useState<Record<string, number>>({});
   const [isSavingKktp, setIsSavingKktp] = useState(false);
+  
+  // New State for Student Recap Visibility
+  const [showRecapToStudents, setShowRecapToStudents] = useState(false);
+  const [isTogglingRecap, setIsTogglingRecap] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setGrades(initialGrades); }, [initialGrades]);
 
   useEffect(() => {
-    const loadKktp = async () => {
+    const loadConfig = async () => {
       try {
         const config = await apiService.getClassConfig(classId);
-        if (config && config.kktp) {
-           setKktpMap(config.kktp);
-        } else {
+        if (config) {
+           if (config.kktp) setKktpMap(config.kktp);
+           if (config.settings?.showStudentRecap !== undefined) {
+               setShowRecapToStudents(config.settings.showStudentRecap);
+           }
+        }
+        
+        // Fill defaults if empty
+        if (!config || !config.kktp || Object.keys(config.kktp).length === 0) {
            const defaults: Record<string, number> = {};
            MOCK_SUBJECTS.forEach((s: Subject) => { defaults[s.id] = s.kkm; });
            setKktpMap(defaults);
         }
       } catch (e) {
-        console.error("Gagal memuat KKTP", e);
+        console.error("Gagal memuat konfigurasi", e);
       }
     };
-    if (classId) loadKktp();
+    if (classId) loadConfig();
   }, [classId]);
 
+  const toggleStudentRecapVisibility = async () => {
+      if (isReadOnly) return;
+      const newValue = !showRecapToStudents;
+      setIsTogglingRecap(true);
+      try {
+          await apiService.saveClassConfig('RECAP_SETTINGS', { showStudentRecap: newValue }, classId);
+          setShowRecapToStudents(newValue);
+          onShowNotification(newValue ? "Rekap rapor sekarang muncul di portal siswa." : "Rekap rapor disembunyikan dari portal siswa.", 'success');
+      } catch (e) {
+          onShowNotification("Gagal mengubah pengaturan.", 'error');
+      } finally {
+          setIsTogglingRecap(false);
+      }
+  };
+
+  // ... (Rest of existing methods: isSubjectEditable, activeSubject, currentKktp, recapData, handleKktpChange, saveKktp, getStudentGrade, updateLocalGrade, calculateFinalAverage, handleSaveRow, handleSaveAll, handlePrint, handleDownloadTemplate, handleExport, handleImportClick, handleFileChange, getSubjectInitials)
   // --- ACCESS CHECK HELPER ---
   const isSubjectEditable = useMemo(() => {
       if (isReadOnly) return false; 
@@ -57,6 +86,46 @@ const GradesView: React.FC<GradesViewProps> = ({
 
   const activeSubject = useMemo(() => MOCK_SUBJECTS.find((s: Subject) => s.id === selectedSubject), [selectedSubject]);
   const currentKktp = kktpMap[selectedSubject] || activeSubject?.kkm || 75;
+
+  // --- RECAP & RANKING CALCULATION ---
+  const recapData = useMemo(() => {
+      const computed = students.map(student => {
+          const studentRecord = grades.find(g => g.studentId === student.id);
+          const scores: Record<string, number> = {};
+          let totalScore = 0;
+          let subjectsCount = 0;
+
+          MOCK_SUBJECTS.forEach(subj => {
+              const gData = studentRecord?.subjects[subj.id];
+              let finalScore = 0;
+              if (gData) {
+                  const vals = [gData.sum1, gData.sum2, gData.sum3, gData.sum4, gData.sas].filter(v => v > 0);
+                  if (vals.length > 0) {
+                      finalScore = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+                  }
+              }
+              scores[subj.id] = finalScore;
+              if (finalScore > 0) {
+                  totalScore += finalScore;
+                  subjectsCount++;
+              }
+          });
+
+          return {
+              ...student,
+              scores,
+              totalScore,
+              subjectsCount
+          };
+      });
+
+      computed.sort((a, b) => b.totalScore - a.totalScore);
+
+      return computed.map((item, index) => ({
+          ...item,
+          rank: item.totalScore > 0 ? index + 1 : '-' 
+      }));
+  }, [students, grades]);
 
   const handleKktpChange = (newVal: number) => {
     if (!isSubjectEditable) return;
@@ -142,18 +211,34 @@ const GradesView: React.FC<GradesViewProps> = ({
   };
   
   const handleExport = () => { 
-      const subjectName = activeSubject?.name || selectedSubject;
-      const headers = ["NIS", "Nama Siswa", "Mata Pelajaran", "SUM 1", "SUM 2", "SUM 3", "SUM 4", "SAS", "Nilai Akhir", "Status"];
-      const rows = students.map(s => {
-         const g = getStudentGrade(s.id);
-         const avg = calculateFinalAverage(g);
-         const status = avg >= currentKktp ? 'Tuntas' : 'Belum Tuntas';
-         return [s.nis, s.name, subjectName, g.sum1, g.sum2, g.sum3, g.sum4, g.sas, avg, status];
-      });
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, `Nilai ${selectedSubject}`);
-      XLSX.writeFile(workbook, `nilai_${selectedSubject}.xlsx`);
+      if (viewMode === 'recap') {
+          const headers = ["Rank", "NIS", "NISN", "Nama Siswa", ...MOCK_SUBJECTS.map(s => s.name), "Total Nilai"];
+          const rows = recapData.map(s => [
+              s.rank, 
+              s.nis, 
+              s.nisn || '-',
+              s.name, 
+              ...MOCK_SUBJECTS.map(subj => s.scores[subj.id] || 0),
+              s.totalScore
+          ]);
+          const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Rapor");
+          XLSX.writeFile(workbook, `rekap_nilai_rapor_kelas_${classId}.xlsx`);
+      } else {
+          const subjectName = activeSubject?.name || selectedSubject;
+          const headers = ["NIS", "Nama Siswa", "Mata Pelajaran", "SUM 1", "SUM 2", "SUM 3", "SUM 4", "SAS", "Nilai Akhir", "Status"];
+          const rows = students.map(s => {
+             const g = getStudentGrade(s.id);
+             const avg = calculateFinalAverage(g);
+             const status = avg >= currentKktp ? 'Tuntas' : 'Belum Tuntas';
+             return [s.nis, s.name, subjectName, g.sum1, g.sum2, g.sum3, g.sum4, g.sas, avg, status];
+          });
+          const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, `Nilai ${selectedSubject}`);
+          XLSX.writeFile(workbook, `nilai_${selectedSubject}.xlsx`);
+      }
   };
   
   const handleImportClick = () => fileInputRef.current?.click();
@@ -190,138 +275,255 @@ const GradesView: React.FC<GradesViewProps> = ({
       reader.readAsBinaryString(file);
   };
 
+  const getSubjectInitials = (name: string) => {
+      const ignore = ['pendidikan', 'dan', 'bahasa'];
+      const parts = name.split(' ').filter(p => !ignore.includes(p.toLowerCase()));
+      if (parts.length === 1) return parts[0].substring(0, 3).toUpperCase();
+      return parts.map(p => p[0]).join('').toUpperCase();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in page-landscape">
        <div className="flex flex-col xl:flex-row justify-between gap-4 no-print">
           <div>
              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-                {isReadOnly ? 'Lihat Nilai Saya' : `Input Nilai ${activeSubject?.name}`}
-                {!isSubjectEditable && !isReadOnly && <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded border border-gray-200 flex items-center"><Lock size={12} className="mr-1"/> Read Only</span>}
+                {viewMode === 'input' 
+                    ? (isReadOnly ? 'Lihat Nilai Saya' : `Input Nilai ${activeSubject?.name}`) 
+                    : 'Rekap Nilai Rapor & Peringkat'
+                }
+                {!isSubjectEditable && !isReadOnly && viewMode === 'input' && <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded border border-gray-200 flex items-center"><Lock size={12} className="mr-1"/> Read Only</span>}
              </h2>
              <p className="text-gray-500 text-sm">
-                {isReadOnly ? 'Pantau perkembangan nilai akademik Anda.' : `Kelola nilai sumatif & formatif. Ambang batas (KKTP): ${currentKktp}.`}
+                {viewMode === 'input' 
+                    ? `Kelola nilai sumatif & formatif. Ambang batas (KKTP): ${currentKktp}.` 
+                    : 'Ringkasan nilai akhir semua mapel dan kalkulasi peringkat siswa.'
+                }
              </p>
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
-              {/* KKTP Section */}
-              <div className="flex items-center bg-white border border-indigo-100 p-1 rounded-xl shadow-sm">
-                  <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600 mr-2"> <Settings2 size={16} /> </div>
-                  <div className="flex flex-col mr-3">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">KKTP</span>
-                      {!isSubjectEditable ? (
-                          <span className="font-bold text-indigo-700">{currentKktp}</span>
-                      ) : (
-                          <input type="number" min="0" max="100" value={currentKktp} onChange={(e) => handleKktpChange(Number(e.target.value))} className="w-16 font-bold text-indigo-700 outline-none bg-transparent"/>
-                      )}
-                  </div>
-                  {isSubjectEditable && (
-                    <button onClick={saveKktp} disabled={isSavingKktp} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50">
-                        {isSavingKktp ? '...' : 'Simpan'}
-                    </button>
-                  )}
+              
+              {/* NEW TOGGLE FOR STUDENT VISIBILITY */}
+              {viewMode === 'recap' && !isReadOnly && (
+                  <button 
+                    onClick={toggleStudentRecapVisibility}
+                    disabled={isTogglingRecap}
+                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                        showRecapToStudents 
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                    }`}
+                    title={showRecapToStudents ? "Sembunyikan dari siswa" : "Tampilkan ke siswa"}
+                  >
+                      {isTogglingRecap ? <Loader2 size={14} className="animate-spin mr-1.5"/> : showRecapToStudents ? <Eye size={14} className="mr-1.5"/> : <EyeOff size={14} className="mr-1.5"/>}
+                      <span>Portal Siswa: {showRecapToStudents ? 'ON' : 'OFF'}</span>
+                  </button>
+              )}
+
+              {/* View Toggle */}
+              <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+                  <button 
+                    onClick={() => setViewMode('input')}
+                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'input' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                      <Grid size={14} className="mr-1.5"/> Per Mapel
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('recap')}
+                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'recap' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                      <List size={14} className="mr-1.5"/> Rekap Rapor
+                  </button>
               </div>
 
-              {isSubjectEditable && <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx, .xls, .csv" />}
-              
-              {/* Subject Selection - Dropdown */}
-              <div className="relative">
-                  <select
-                      value={selectedSubject}
-                      onChange={(e) => setSelectedSubject(e.target.value)}
-                      className="appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm cursor-pointer min-w-[200px]"
-                  >
-                      {MOCK_SUBJECTS.map((s: Subject) => (
-                          <option key={s.id} value={s.id}>
-                              {s.name}
-                          </option>
-                      ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                      <ChevronDown size={16} />
-                  </div>
-              </div>
+              {viewMode === 'input' && (
+                  <>
+                    {/* KKTP Section */}
+                    <div className="flex items-center bg-white border border-indigo-100 p-1 rounded-xl shadow-sm">
+                        <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600 mr-2"> <Settings2 size={16} /> </div>
+                        <div className="flex flex-col mr-3">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">KKTP</span>
+                            {!isSubjectEditable ? (
+                                <span className="font-bold text-indigo-700">{currentKktp}</span>
+                            ) : (
+                                <input type="number" min="0" max="100" value={currentKktp} onChange={(e) => handleKktpChange(Number(e.target.value))} className="w-16 font-bold text-indigo-700 outline-none bg-transparent"/>
+                            )}
+                        </div>
+                        {isSubjectEditable && (
+                            <button onClick={saveKktp} disabled={isSavingKktp} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                                {isSavingKktp ? '...' : 'Simpan'}
+                            </button>
+                        )}
+                    </div>
+
+                    {isSubjectEditable && <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx, .xls, .csv" />}
+                    
+                    {/* Subject Selection */}
+                    <div className="relative">
+                        <select
+                            value={selectedSubject}
+                            onChange={(e) => setSelectedSubject(e.target.value)}
+                            className="appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm cursor-pointer min-w-[200px]"
+                        >
+                            {MOCK_SUBJECTS.map((s: Subject) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.name}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                            <ChevronDown size={16} />
+                        </div>
+                    </div>
+
+                    {isSubjectEditable && (
+                        <button onClick={handleSaveAll} disabled={isSavingAll} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 shadow-md font-bold disabled:opacity-50">
+                            <Save size={18}/> <span className="hidden sm:inline">{isSavingAll ? 'Proses...' : 'Simpan Semua'}</span>
+                        </button>
+                    )}
+                    {isSubjectEditable && <button onClick={handleImportClick} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Import Excel"><Upload size={18}/></button>}
+                  </>
+              )}
 
               <div className="flex gap-1">
-                {isSubjectEditable && (
-                    <button onClick={handleSaveAll} disabled={isSavingAll} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 shadow-md font-bold disabled:opacity-50">
-                        <Save size={18}/> <span className="hidden sm:inline">{isSavingAll ? 'Proses...' : 'Simpan Semua'}</span>
-                    </button>
-                )}
-                {isSubjectEditable && <button onClick={handleImportClick} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Import Excel"><Upload size={18}/></button>}
                 <button onClick={handleExport} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Export Excel"><FileSpreadsheet size={18}/></button>
                 <button onClick={handlePrint} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Cetak"><Printer size={18}/></button>
               </div>
           </div>
        </div>
 
-       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto print-container">
-          <table className="w-full text-sm text-left border-collapse">
-             <thead className="bg-slate-50 text-slate-700 font-bold print:bg-white print:border-b print:text-black">
-                <tr className="border-b">
-                   <th className="p-4 sticky left-0 bg-slate-50 print:bg-white min-w-[220px] border-r">Nama Siswa</th>
-                   <th className="p-2 w-20 text-center border-r">SUM 1</th>
-                   <th className="p-2 w-20 text-center border-r">SUM 2</th>
-                   <th className="p-2 w-20 text-center border-r">SUM 3</th>
-                   <th className="p-2 w-20 text-center border-r">SUM 4</th>
-                   <th className="p-2 w-24 text-center border-r bg-blue-50/50 print:bg-white">SAS</th>
-                   <th className="p-2 w-28 text-center bg-indigo-600 text-white print:bg-white print:text-black border-l">Nilai Akhir</th>
-                   {isSubjectEditable && <th className="p-2 w-16 text-center no-print">Aksi</th>}
-                </tr>
-             </thead>
-             <tbody className="divide-y divide-gray-100 print:divide-gray-300">
-                {students.map(s => {
-                   const g = getStudentGrade(s.id);
-                   const finalAvg = calculateFinalAverage(g);
-                   const isBelowKkpt = finalAvg > 0 && finalAvg < currentKktp;
-                   
-                   return (
-                      <tr key={s.id} className="hover:bg-indigo-50/30 transition-colors print:hover:bg-transparent border-b">
-                         <td className="p-4 sticky left-0 bg-white font-medium print:text-black border-r whitespace-nowrap">
-                            <div className="flex flex-col">
-                                <span>{s.name}</span>
-                                <div className="flex gap-2 text-[10px] text-gray-400 no-print">
-                                    <span>NIS: {s.nis}</span>
-                                    {s.nisn && <span>• NISN: {s.nisn}</span>}
+       {viewMode === 'input' ? (
+           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto print-container">
+              <table className="w-full text-sm text-left border-collapse">
+                 <thead className="bg-slate-50 text-slate-700 font-bold print:bg-white print:border-b print:text-black">
+                    <tr className="border-b">
+                       <th className="p-4 sticky left-0 bg-slate-50 print:bg-white min-w-[220px] border-r">Nama Siswa</th>
+                       <th className="p-2 w-20 text-center border-r">SUM 1</th>
+                       <th className="p-2 w-20 text-center border-r">SUM 2</th>
+                       <th className="p-2 w-20 text-center border-r">SUM 3</th>
+                       <th className="p-2 w-20 text-center border-r">SUM 4</th>
+                       <th className="p-2 w-24 text-center border-r bg-blue-50/50 print:bg-white">SAS</th>
+                       <th className="p-2 w-28 text-center bg-indigo-600 text-white print:bg-white print:text-black border-l">Nilai Akhir</th>
+                       {isSubjectEditable && <th className="p-2 w-16 text-center no-print">Aksi</th>}
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y divide-gray-100 print:divide-gray-300">
+                    {students.map(s => {
+                       const g = getStudentGrade(s.id);
+                       const finalAvg = calculateFinalAverage(g);
+                       const isBelowKkpt = finalAvg > 0 && finalAvg < currentKktp;
+                       
+                       return (
+                          <tr key={s.id} className="hover:bg-indigo-50/30 transition-colors print:hover:bg-transparent border-b">
+                             <td className="p-4 sticky left-0 bg-white font-medium print:text-black border-r whitespace-nowrap">
+                                <div className="flex flex-col">
+                                    <span>{s.name}</span>
+                                    <div className="flex gap-2 text-[10px] text-gray-400 no-print">
+                                        <span>NIS: {s.nis}</span>
+                                        {s.nisn && <span>• NISN: {s.nisn}</span>}
+                                    </div>
                                 </div>
-                            </div>
-                         </td>
-                         {(['sum1','sum2','sum3','sum4','sas'] as (keyof GradeData)[]).map(f => (
-                            <td key={String(f)} className={`p-2 border-r ${f === 'sas' ? 'bg-blue-50/30 print:bg-white' : ''}`}>
-                                {!isSubjectEditable ? (
-                                    <div className="w-full text-center py-1.5 font-bold text-gray-700">{g[f] || '-'}</div>
-                                ) : (
-                                    <input type="number" min="0" max="100" value={g[f]||0} onChange={e=>updateLocalGrade(s.id, f, Number(e.target.value))} className={`w-full text-center py-1.5 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none rounded bg-transparent print:border-none print:p-0 ${f === 'sas' ? 'font-bold' : ''}`}/>
-                                )}
-                            </td>
-                         ))}
-                         <td className={`p-2 text-center border-l font-black text-lg ${isBelowKkpt ? 'bg-rose-50 text-rose-600' : finalAvg >= currentKktp ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'} print:bg-white print:text-black`}>
-                            <div className="flex flex-col items-center">
-                                <span>{finalAvg > 0 ? finalAvg : '-'}</span>
-                                {isBelowKkpt && <span className="text-[9px] font-bold uppercase no-print">Remedial</span>}
-                            </div>
-                         </td>
-                         {isSubjectEditable && (
-                            <td className="p-2 text-center no-print">
-                                <button onClick={()=>handleSaveRow(s.id)} className="text-gray-400 hover:text-emerald-600 transition-colors" title="Simpan Baris"><Save size={18}/></button>
-                            </td>
-                         )}
-                      </tr>
-                   );
-                })}
-             </tbody>
-          </table>
-       </div>
-       <div className="flex flex-wrap items-center gap-4 text-xs no-print">
-          <div className="flex items-center text-gray-400 italic"> <Calculator size={12} className="mr-1" /> Nilai Akhir = Rata-rata dari kolom yang terisi. </div>
-          <div className="flex items-center text-rose-500 font-bold"> <AlertCircle size={12} className="mr-1" /> Merah = Di bawah KKTP ({currentKktp}). </div>
-          <div className="flex items-center text-emerald-500 font-bold"> <CheckCircle size={12} className="mr-1" /> Hijau = Tuntas. </div>
-          {!isSubjectEditable && !isReadOnly && (
-              <div className="flex items-center text-indigo-600 font-bold ml-auto bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
-                  <Lock size={12} className="mr-1" /> Akses Terbatas (Hanya Guru Mapel Terkait)
-              </div>
-          )}
-       </div>
+                             </td>
+                             {(['sum1','sum2','sum3','sum4','sas'] as (keyof GradeData)[]).map(f => (
+                                <td key={String(f)} className={`p-2 border-r ${f === 'sas' ? 'bg-blue-50/30 print:bg-white' : ''}`}>
+                                    {!isSubjectEditable ? (
+                                        <div className="w-full text-center py-1.5 font-bold text-gray-700">{g[f] || '-'}</div>
+                                    ) : (
+                                        <input type="number" min="0" max="100" value={g[f]||0} onChange={e=>updateLocalGrade(s.id, f, Number(e.target.value))} className={`w-full text-center py-1.5 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none rounded bg-transparent print:border-none print:p-0 ${f === 'sas' ? 'font-bold' : ''}`}/>
+                                    )}
+                                </td>
+                             ))}
+                             <td className={`p-2 text-center border-l font-black text-lg ${isBelowKkpt ? 'bg-rose-50 text-rose-600' : finalAvg >= currentKktp ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'} print:bg-white print:text-black`}>
+                                <div className="flex flex-col items-center">
+                                    <span>{finalAvg > 0 ? finalAvg : '-'}</span>
+                                    {isBelowKkpt && <span className="text-[9px] font-bold uppercase no-print">Remedial</span>}
+                                </div>
+                             </td>
+                             {isSubjectEditable && (
+                                <td className="p-2 text-center no-print">
+                                    <button onClick={()=>handleSaveRow(s.id)} className="text-gray-400 hover:text-emerald-600 transition-colors" title="Simpan Baris"><Save size={18}/></button>
+                                </td>
+                             )}
+                          </tr>
+                       );
+                    })}
+                 </tbody>
+              </table>
+           </div>
+       ) : (
+           /* RECAP TABLE VIEW */
+           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto print-container">
+               <div className="hidden print-only text-center py-4 border-b">
+                   <h2 className="text-xl font-bold uppercase">REKAP NILAI RAPOR</h2>
+                   <p className="text-sm">Kelas {classId} • Tahun Pelajaran {new Date().getFullYear()}</p>
+               </div>
+               <table className="w-full text-xs text-left border-collapse min-w-[1000px]">
+                   <thead className="bg-indigo-50 text-indigo-900 font-bold uppercase print:bg-gray-100 print:text-black">
+                       <tr className="border-b border-indigo-100">
+                           <th className="p-3 w-10 text-center border-r border-indigo-100 sticky left-0 bg-indigo-50 z-20">No</th>
+                           <th className="p-3 min-w-[200px] border-r border-indigo-100 sticky left-10 bg-indigo-50 z-20">Nama Siswa</th>
+                           {MOCK_SUBJECTS.map(subj => (
+                               <th key={subj.id} className="p-2 w-16 text-center border-r border-indigo-100" title={subj.name}>
+                                   {getSubjectInitials(subj.name)}
+                               </th>
+                           ))}
+                           <th className="p-3 w-20 text-center border-r border-indigo-100 bg-emerald-50 text-emerald-800">Jumlah</th>
+                           <th className="p-3 w-20 text-center bg-amber-50 text-amber-800">Peringkat</th>
+                       </tr>
+                   </thead>
+                   <tbody className="divide-y divide-gray-100">
+                       {recapData.map((s, idx) => {
+                           const rank = Number(s.rank);
+                           const isTop3 = rank > 0 && rank <= 3;
+                           
+                           return (
+                               <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                                   <td className="p-3 text-center text-gray-500 border-r sticky left-0 bg-white group-hover:bg-gray-50 z-10">{idx + 1}</td>
+                                   <td className="p-3 font-medium text-gray-800 border-r sticky left-10 bg-white group-hover:bg-gray-50 z-10 truncate max-w-[200px]">
+                                       <div className="flex flex-col">
+                                           <span>{s.name}</span>
+                                           <div className="flex items-center gap-1 text-[9px] text-gray-500 no-print">
+                                               <span>{s.nis}</span>
+                                               {s.nisn && <span className="text-indigo-600 font-mono">• {s.nisn}</span>}
+                                           </div>
+                                       </div>
+                                   </td>
+                                   {MOCK_SUBJECTS.map(subj => (
+                                       <td key={subj.id} className="p-2 text-center border-r font-medium text-gray-600">
+                                           {s.scores[subj.id] || '-'}
+                                       </td>
+                                   ))}
+                                   <td className="p-3 text-center font-bold text-emerald-600 bg-emerald-50/30 border-r border-emerald-100">
+                                       {s.totalScore > 0 ? s.totalScore : '-'}
+                                   </td>
+                                   <td className={`p-3 text-center font-black ${isTop3 ? 'bg-amber-50 text-amber-600' : 'text-gray-500'}`}>
+                                       <div className="flex items-center justify-center gap-1">
+                                           {rank === 1 && <Trophy size={14} className="text-yellow-500 fill-yellow-500"/>}
+                                           {rank === 2 && <Trophy size={14} className="text-gray-400 fill-gray-400"/>}
+                                           {rank === 3 && <Trophy size={14} className="text-amber-700 fill-amber-700"/>}
+                                           {s.rank}
+                                       </div>
+                                   </td>
+                               </tr>
+                           );
+                       })}
+                   </tbody>
+               </table>
+           </div>
+       )}
+
+       {viewMode === 'input' && (
+           <div className="flex flex-wrap items-center gap-4 text-xs no-print">
+              <div className="flex items-center text-gray-400 italic"> <Calculator size={12} className="mr-1" /> Nilai Akhir = Rata-rata dari kolom yang terisi. </div>
+              <div className="flex items-center text-rose-500 font-bold"> <AlertCircle size={12} className="mr-1" /> Merah = Di bawah KKTP ({currentKktp}). </div>
+              <div className="flex items-center text-emerald-500 font-bold"> <CheckCircle size={12} className="mr-1" /> Hijau = Tuntas. </div>
+              {!isSubjectEditable && !isReadOnly && (
+                  <div className="flex items-center text-indigo-600 font-bold ml-auto bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
+                      <Lock size={12} className="mr-1" /> Akses Terbatas (Hanya Guru Mapel Terkait)
+                  </div>
+              )}
+           </div>
+       )}
     </div>
   );
 };

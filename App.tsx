@@ -1,4 +1,5 @@
 
+// ... imports
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -22,8 +23,10 @@ import LiaisonBookView from './components/LiaisonBookView';
 import StudentPortal from './components/StudentPortal'; 
 import BackupRestore from './components/BackupRestore';
 import SupportDocumentsView from './components/SupportDocumentsView';
+import SupervisorOverview from './components/SupervisorOverview'; 
+import SchoolAssetsAdmin from './components/SchoolAssetsAdmin'; // NEW IMPORT
 import CustomModal from './components/CustomModal'; 
-import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument } from './types';
+import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, InventoryItem, SchoolAsset } from './types';
 import { MOCK_SUBJECTS, MOCK_STUDENTS, MOCK_EXTRACURRICULARS } from './constants';
 import { apiService } from './services/apiService';
 import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X } from 'lucide-react';
@@ -66,6 +69,8 @@ const App: React.FC = () => {
   const [liaisonLogs, setLiaisonLogs] = useState<LiaisonLog[]>([]);
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]); 
   const [supportDocuments, setSupportDocuments] = useState<SupportDocument[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]); 
+  const [schoolAssets, setSchoolAssets] = useState<SchoolAsset[]>([]); // New Global School Assets State
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'warning'} | null>(null);
   
   // -- NEW STATE: Navigation Target for Journal --
@@ -150,6 +155,13 @@ const App: React.FC = () => {
           localStorage.setItem('sagara_classId', selectedClassId);
       }
   }, [selectedClassId, canSelectClass]);
+
+  // -- SUPERVISOR REDIRECT EFFECT --
+  useEffect(() => {
+      if (currentUser?.role === 'supervisor' && currentView === 'dashboard') {
+          setCurrentView('supervisor-overview');
+      }
+  }, [currentUser, currentView]);
 
   const handleLogout = () => {
       setCurrentUser(null);
@@ -738,6 +750,33 @@ const App: React.FC = () => {
       await fetchData();
     });
   };
+
+  // --- SCHOOL ASSETS HANDLERS ---
+  const handleSaveSchoolAsset = async (asset: SchoolAsset) => {
+    if (isDemoMode) {
+        setSchoolAssets(prev => {
+            const exists = prev.find(a => a.id === asset.id);
+            if (exists) return prev.map(a => a.id === asset.id ? asset : a);
+            return [...prev, { ...asset, id: asset.id || `asset-${Date.now()}` }];
+        });
+        handleShowNotification('Data aset disimpan (Demo).', 'success');
+        return;
+    }
+    await apiService.saveSchoolAsset(asset);
+    handleShowNotification('Data sarana prasarana berhasil disimpan.', 'success');
+    await fetchData();
+  };
+
+  const handleDeleteSchoolAsset = async (id: string) => {
+      if (isDemoMode) {
+          setSchoolAssets(prev => prev.filter(a => a.id !== id));
+          handleShowNotification('Data aset dihapus (Demo).', 'success');
+          return;
+      }
+      await apiService.deleteSchoolAsset(id);
+      handleShowNotification('Data sarana prasarana berhasil dihapus.', 'success');
+      await fetchData();
+  };
   
   const fetchData = async () => {
     // ... (fetchData implementation unchanged)
@@ -757,8 +796,9 @@ const App: React.FC = () => {
     }
 
     try {
-      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions, fSupportDocs] = await Promise.all([
-        currentUser?.role === 'admin' ? apiService.getUsers(currentUser) : Promise.resolve([]),
+      // ADDED: getInventory('ALL') for admin/supervisor
+      const promises = [
+        currentUser?.role === 'admin' || currentUser?.role === 'supervisor' ? apiService.getUsers(currentUser) : Promise.resolve([]),
         apiService.getStudents(currentUser),
         apiService.getAgendas(currentUser),
         apiService.getGrades(currentUser),
@@ -774,34 +814,62 @@ const App: React.FC = () => {
         apiService.getLiaisonLogs(currentUser), 
         apiService.getPermissionRequests(currentUser),
         apiService.getSupportDocuments(currentUser),
-      ]);
+      ];
+
+      // Add inventory fetch if admin/supervisor
+      if (currentUser?.role === 'admin' || currentUser?.role === 'supervisor') {
+          promises.push(apiService.getInventory('ALL'));
+      } else {
+          promises.push(Promise.resolve([]));
+      }
+
+      // Add School Assets Fetch
+      if (currentUser?.role === 'admin' || currentUser?.role === 'supervisor') {
+          promises.push(apiService.getSchoolAssets());
+      } else {
+          promises.push(Promise.resolve([]));
+      }
+
+      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions, fSupportDocs, fInventory, fSchoolAssets] = await Promise.all(promises);
       
-      setUsers(fUsers);
-      setStudents(fStudents);
-      setAgendas(fAgendas.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setGrades(fGrades);
-      setCounselingLogs(fCounseling.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setHolidays(fHolidays.sort((a,b) => a.date.localeCompare(b.date)));
-      setAllAttendanceRecords(fAttendance);
-      setSikapAssessments(fSikap);
-      setKarakterAssessments(fKarakter);
-      setEmploymentLinks(fLinks);
-      setLearningReports(fReports);
-      setLiaisonLogs(fLiaison);
-      setSupportDocuments(fSupportDocs);
+      setUsers(fUsers as User[]);
+      setStudents(fStudents as Student[]);
+      setAgendas((fAgendas as AgendaItem[]).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setGrades(fGrades as GradeRecord[]);
+      setCounselingLogs((fCounseling as BehaviorLog[]).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setHolidays((fHolidays as Holiday[]).sort((a,b) => a.date.localeCompare(b.date)));
+      setAllAttendanceRecords(fAttendance as any[]);
+      setSikapAssessments(fSikap as SikapAssessment[]);
+      setKarakterAssessments(fKarakter as KarakterAssessment[]);
+      setEmploymentLinks(fLinks as EmploymentLink[]);
+      setLearningReports(fReports as LearningReport[]);
+      setLiaisonLogs(fLiaison as LiaisonLog[]);
+      setSupportDocuments(fSupportDocs as SupportDocument[]);
       
-      const hydratedPermissions = fPermissions.map((p: any) => ({
+      // Set global inventory state
+      if (Array.isArray(fInventory)) {
+          setInventory(fInventory as InventoryItem[]);
+      }
+
+      // Set global school assets state
+      if (Array.isArray(fSchoolAssets)) {
+          setSchoolAssets(fSchoolAssets as SchoolAsset[]);
+      }
+      
+      const hydratedPermissions = (fPermissions as PermissionRequest[]).map((p: any) => ({
           ...p,
-          studentName: fStudents.find((s: Student) => s.id === p.studentId)?.name || 'Siswa Tidak Dikenal'
+          studentName: (fStudents as Student[]).find((s: Student) => s.id === p.studentId)?.name || 'Siswa Tidak Dikenal'
       }));
       setPermissionRequests(hydratedPermissions);
       
       if (fExtracurriculars) {
-          setExtracurriculars(fExtracurriculars);
+          setExtracurriculars(fExtracurriculars as Extracurricular[]);
       } else {
           setExtracurriculars([]);
       }
       
+      const profilesTyped = fProfiles as { teacher?: TeacherProfileData, school?: SchoolProfileData };
+
       if (currentUser) {
           setTeacherProfile(prev => ({
               ...prev,
@@ -821,7 +889,7 @@ const App: React.FC = () => {
           }));
       }
 
-      if(fProfiles.school) setSchoolProfile(fProfiles.school);
+      if(profilesTyped.school) setSchoolProfile(profilesTyped.school);
 
     } catch (err: any) {
       console.warn("Gagal memuat data:", err);
@@ -905,6 +973,23 @@ const App: React.FC = () => {
                       onUpdateStudent={handleUpdateStudent} // NEW: Pass student updater
                    />;
         }
+        
+        // --- NEW LOGIC: Redirect supervisor from Dashboard to Overview ---
+        if (isSupervisor) {
+            return <SupervisorOverview
+                  students={students} 
+                  users={users}       
+                  attendanceRecords={allAttendanceRecords}
+                  grades={grades}
+                  liaisonLogs={liaisonLogs}
+                  permissionRequests={permissionRequests}
+                  counselingLogs={counselingLogs}
+                  extracurriculars={extracurriculars}
+                  inventory={inventory}
+                  schoolAssets={schoolAssets} // Pass School Assets
+               />;
+        }
+
         const teachers = users.filter(u => u.role === 'guru');
         return <Dashboard 
                   students={filteredStudents} 
@@ -923,6 +1008,27 @@ const App: React.FC = () => {
                   schoolProfile={schoolProfile} // Passed School Profile for Running Text
                />;
       // ... (other cases using updated colors implicitly)
+      case 'supervisor-overview':
+        if (!isSupervisor) { setCurrentView('dashboard'); return null; }
+        return <SupervisorOverview
+                  students={students} // Pass ALL students
+                  users={users}       // Pass ALL users
+                  attendanceRecords={allAttendanceRecords} // Pass ALL attendance
+                  grades={grades}
+                  liaisonLogs={liaisonLogs}
+                  permissionRequests={permissionRequests}
+                  counselingLogs={counselingLogs}
+                  extracurriculars={extracurriculars} // Pass Extracurriculars
+                  inventory={inventory} 
+                  schoolAssets={schoolAssets} // Pass School Assets
+               />;
+      case 'school-assets':
+        if (!isAdminRole) { setCurrentView('dashboard'); return null; }
+        return <SchoolAssetsAdmin 
+                  assets={schoolAssets}
+                  onSave={handleSaveSchoolAsset}
+                  onDelete={handleDeleteSchoolAsset}
+               />;
       case 'student-monitor':
         if (!isAdminRole && !isSupervisor && currentUser.role !== 'guru') { setCurrentView('dashboard'); return null; }
         return <StudentMonitor 
@@ -1067,6 +1173,7 @@ const App: React.FC = () => {
                   onAddHoliday={handleAddHoliday}
                   classId={activeClassId}
                   userRole={currentUser.role} // NEW: Pass user role
+                  users={users} // NEW: Pass all users to look up class teachers
                 />;
       case 'support-docs':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
@@ -1122,6 +1229,7 @@ const App: React.FC = () => {
             liaisonLogs,
             permissionRequests,
             schoolProfile,
+            schoolAssets, // Include school assets in backup
         };
         return <BackupRestore 
                   data={fullBackupData} 
@@ -1187,7 +1295,7 @@ const App: React.FC = () => {
             {canSelectClass && (
                 <div className="hidden lg:flex items-center bg-[#CAF4FF]/30 border border-[#A0DEFF]/50 rounded-lg px-3 py-1.5 shadow-sm">
                     <Filter size={14} className="text-[#5AB2FF] mr-2" />
-                    <span className="text-xs font-bold text-gray-500 uppercase mr-2">Pilih Kelas:</span>
+                    <span className="text-xs font-bold text-gray-50 uppercase mr-2">Pilih Kelas:</span>
                     <select 
                         value={selectedClassId} 
                         onChange={(e) => setSelectedClassId(e.target.value)}

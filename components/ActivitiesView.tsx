@@ -3,10 +3,10 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Student, AgendaItem, Extracurricular } from '../types';
 import * as XLSX from 'xlsx';
 import { 
-  Tent, Trophy, Music, Palette, Bus, Calendar, Users, 
+  Tent, Trophy, Music, Palette, Calendar, Users, 
   ListTodo, Plus, CheckSquare, X, CheckCircle, Trash2,
   Printer, FileSpreadsheet, Upload, Download, PenTool, User, Clock,
-  Search, RefreshCw, UserPlus, BookOpen, Monitor
+  Search, UserPlus, BookOpen, Monitor, AlertCircle
 } from 'lucide-react';
 import CustomModal from './CustomModal';
 
@@ -25,17 +25,17 @@ interface ActivitiesViewProps {
 
 type ActivityType = 'ekskul' | 'agenda';
 
-// Update Default Categories to match the new Dropdown options
+// 9 Default Activities Configuration
 const DEFAULT_ACTIVITIES = [
     { name: 'PRAMUKA', category: 'Wajib', icon: Tent },
     { name: 'TONGKLEK', category: 'Seni', icon: Music },
-    { name: 'HADROH', category: 'Seni', icon: Music }, // Or Keagamaan
+    { name: 'HADROH', category: 'Seni', icon: Music }, 
     { name: 'MENGGAMBAR', category: 'Seni', icon: Palette },
     { name: 'TARI', category: 'Seni', icon: Users },
     { name: 'KARATE', category: 'Olahraga', icon: Trophy },
     { name: 'PENCAK SILAT', category: 'Olahraga', icon: Trophy },
     { name: 'TAHFIDZ JUZ 30', category: 'Keagamaan', icon: Calendar },
-    { name: 'TIK', category: 'Teknologi', icon: Bus },
+    { name: 'TIK', category: 'Teknologi', icon: Monitor }, // Changed Bus to Monitor for TIK
 ];
 
 const CATEGORY_OPTIONS = ['Wajib', 'Seni', 'Keagamaan', 'Olahraga', 'Teknologi'];
@@ -58,6 +58,39 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
   const [newAgenda, setNewAgenda] = useState<{title: string; date: string; type: 'urgent'|'warning'|'info'}>({
     title: '', date: '', type: 'info'
   });
+
+  // --- MERGE LOGIC: Combine DB Data with Defaults ---
+  const displayActivities = useMemo(() => {
+      // 1. Map Defaults: Check if they exist in DB (match by name)
+      const mappedDefaults = DEFAULT_ACTIVITIES.map((def, index) => {
+          // Normalize check
+          const existing = extracurriculars.find(e => e.name.trim().toUpperCase() === def.name.toUpperCase());
+          
+          if (existing) {
+              return { ...existing, isVirtual: false }; // It exists in DB
+          }
+
+          // Return a "Virtual" item (Placeholder)
+          return {
+              id: `virtual-${index}`, // Temp ID
+              classId,
+              name: def.name,
+              category: def.category,
+              schedule: '-',
+              coach: '-',
+              members: [],
+              color: '', 
+              isVirtual: true // Flag to indicate it's not saved yet
+          } as Extracurricular & { isVirtual: boolean };
+      });
+
+      // 2. Find Custom Items (In DB but not in Defaults)
+      const customItems = extracurriculars.filter(e => 
+          !DEFAULT_ACTIVITIES.some(def => def.name.trim().toUpperCase() === e.name.trim().toUpperCase())
+      ).map(e => ({ ...e, isVirtual: false }));
+
+      return [...mappedDefaults, ...customItems];
+  }, [extracurriculars, classId]);
 
   const getCategoryIcon = (category: string) => {
       switch (category) {
@@ -97,32 +130,6 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
     }
   };
 
-  const handleInitDefaults = () => {
-      if (!onAddExtracurricular) return;
-      
-      setConfirmModal({
-          isOpen: true,
-          message: "Apakah Anda yakin ingin membuat 9 data Ekskul default? (Pramuka akan otomatis berisi semua siswa)",
-          action: () => {
-              DEFAULT_ACTIVITIES.forEach((template, index) => {
-                  const initialMembers = template.name === 'PRAMUKA' ? students.map(s => s.id) : [];
-                  onAddExtracurricular({
-                      id: `init-${Date.now()}-${index}`,
-                      classId: classId, 
-                      name: template.name,
-                      category: template.category,
-                      schedule: 'Belum diatur',
-                      coach: 'Belum diatur',
-                      members: initialMembers,
-                      color: '' // Deprecated, now dynamic in render
-                  });
-              });
-              onShowNotification("Inisialisasi ekskul default selesai.", 'success');
-              setConfirmModal(prev => ({...prev, isOpen: false}));
-          }
-      });
-  };
-
   const handleAddNewActivity = () => {
       setEditingActivity({
           id: '', 
@@ -140,7 +147,8 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
     e.preventDefault();
     if (!editingActivity) return;
 
-    const isNew = !editingActivity.id;
+    // Check if it's a new item OR a virtual item being saved for the first time
+    const isNew = !editingActivity.id || String(editingActivity.id).startsWith('virtual-');
     
     const activityToSave = { ...editingActivity };
 
@@ -149,13 +157,17 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
             onShowNotification("Nama Ekskul wajib diisi.", 'error');
             return;
         }
+        // If it was virtual, remove the flag and give it a real ID
         const newActivity = {
             ...activityToSave,
             id: Date.now().toString(),
             classId: classId 
         };
+        // Remove temp props if any
+        if ('isVirtual' in newActivity) delete (newActivity as any).isVirtual;
+
         onAddExtracurricular(newActivity);
-        onShowNotification("Ekskul baru berhasil ditambahkan!", 'success');
+        onShowNotification(String(editingActivity.id).startsWith('virtual-') ? "Ekskul berhasil diaktifkan!" : "Ekskul baru berhasil ditambahkan!", 'success');
     } else if (!isNew && onUpdateExtracurricular) {
         onUpdateExtracurricular({ ...activityToSave, classId: editingActivity.classId || classId });
         onShowNotification("Perubahan berhasil disimpan!", 'success');
@@ -256,9 +268,9 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
                 <button 
                     onClick={handleAddNewActivity} 
                     className="p-2 bg-[#5AB2FF] text-white rounded-lg hover:bg-[#A0DEFF] shadow-md flex items-center gap-2"
-                    title="Tambah Ekskul Baru"
+                    title="Tambah Ekskul Manual"
                 >
-                    <Plus size={18} /> <span className="hidden sm:inline font-bold">Tambah Ekskul</span>
+                    <Plus size={18} /> <span className="hidden sm:inline font-bold">Tambah Lainnya</span>
                 </button>
             )}
 
@@ -268,40 +280,42 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
 
       <div className="print-container">
         {activeTab === 'ekskul' && (
-            <>
-            {extracurriculars.length === 0 && (
-                <div className="bg-[#CAF4FF]/30 border border-[#A0DEFF] rounded-2xl p-8 text-center mb-6 no-print">
-                    <Tent size={48} className="mx-auto text-[#5AB2FF] mb-4"/>
-                    <h3 className="text-lg font-bold text-indigo-900">Belum ada data Ekskul</h3>
-                    <button onClick={handleInitDefaults} className="bg-[#5AB2FF] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#A0DEFF] shadow-lg mx-auto flex items-center mt-4"><RefreshCw size={20} className="mr-2"/> Inisialisasi Ekskul Default</button>
-                </div>
-            )}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 print:grid-cols-2">
-            {extracurriculars.map((ekskul, index) => {
+            {displayActivities.map((ekskul: any, index) => {
                 const CategoryIcon = getCategoryIcon(ekskul.category);
                 const { bg, text } = getThemeHeaderColor(index);
+                const isVirtual = ekskul.isVirtual;
                 
                 return (
                 <div 
                     key={ekskul.id} 
-                    className="bg-white rounded-2xl shadow-sm border border-[#CAF4FF] overflow-hidden hover:shadow-lg transition-all print:border-black print:break-inside-avoid flex flex-col relative"
+                    className={`bg-white rounded-2xl shadow-sm border ${isVirtual ? 'border-dashed border-gray-300' : 'border-[#CAF4FF]'} overflow-hidden hover:shadow-lg transition-all print:border-black print:break-inside-avoid flex flex-col relative`}
                 >
-                    <div className={`${bg} p-4 ${text} print:bg-gray-200 print:text-black flex justify-between items-start`}>
+                    <div className={`${isVirtual ? 'bg-gray-100 text-gray-500' : bg + ' ' + text} p-4 print:bg-gray-200 print:text-black flex justify-between items-start`}>
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-white/20 rounded-lg">
                                 <CategoryIcon size={20} />
                             </div>
                             <div>
                                 <h3 className="font-bold text-lg leading-tight">{ekskul.name}</h3>
-                                <span className="text-xs font-semibold opacity-90 bg-black/10 px-2 py-0.5 rounded mt-1 inline-block">{ekskul.category}</span>
+                                <span className={`text-xs font-semibold opacity-90 px-2 py-0.5 rounded mt-1 inline-block ${isVirtual ? 'bg-gray-200' : 'bg-black/10'}`}>{ekskul.category}</span>
                             </div>
                         </div>
-                        <button onClick={() => setEditingActivity(ekskul)} className="bg-white/20 hover:bg-white/30 px-2 py-1 rounded-lg text-xs no-print flex items-center gap-1 transition-colors">
-                            <PenTool size={12}/> Edit
+                        <button 
+                            onClick={() => setEditingActivity(ekskul)} 
+                            className={`${isVirtual ? 'bg-indigo-600 text-white shadow-md' : 'bg-white/20'} hover:opacity-90 px-3 py-1.5 rounded-lg text-xs no-print flex items-center gap-1 transition-colors font-bold`}
+                        >
+                            {isVirtual ? <><Plus size={12}/> Aktifkan</> : <><PenTool size={12}/> Edit</>}
                         </button>
                     </div>
                     
                     <div className="p-5 space-y-4 flex-1">
+                        {isVirtual && (
+                            <div className="bg-amber-50 border border-amber-100 p-2 rounded-lg text-xs text-amber-700 flex items-start">
+                                <AlertCircle size={14} className="mr-1.5 mt-0.5 shrink-0"/>
+                                <span>Ekskul ini adalah template default. Edit & Simpan untuk mulai menambahkan anggota.</span>
+                            </div>
+                        )}
                         <div className="space-y-3">
                             <div className="flex items-start text-sm group">
                                 <Clock size={16} className="mr-3 text-gray-400 mt-0.5" />
@@ -315,17 +329,19 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
                         <div className="border-t pt-3 mt-2">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs font-bold text-gray-500 uppercase flex items-center"><Users size={12} className="mr-1"/> Anggota ({ekskul.members.length})</span>
-                                <button 
-                                    onClick={() => setEditingActivity(ekskul)} 
-                                    className="text-[10px] text-[#5AB2FF] font-bold hover:underline flex items-center no-print"
-                                >
-                                    <UserPlus size={10} className="mr-1"/> Kelola
-                                </button>
+                                {!isVirtual && (
+                                    <button 
+                                        onClick={() => setEditingActivity(ekskul)} 
+                                        className="text-[10px] text-[#5AB2FF] font-bold hover:underline flex items-center no-print"
+                                    >
+                                        <UserPlus size={10} className="mr-1"/> Kelola
+                                    </button>
+                                )}
                             </div>
                             {ekskul.members.length > 0 ? (
                                 <div className="bg-[#FFF9D0]/50 rounded-lg p-2 max-h-[120px] overflow-y-auto custom-scrollbar border border-amber-100">
                                     <ul className="text-xs text-gray-700 space-y-1.5">
-                                        {ekskul.members.map((mid, idx) => (
+                                        {ekskul.members.map((mid: string, idx: number) => (
                                             <li key={idx} className="flex items-center justify-between group/item hover:bg-white p-1 rounded transition-colors">
                                                 <div className="flex items-center overflow-hidden">
                                                     <span className="truncate max-w-[150px]">{students.find(st => st.id === mid)?.name || `ID: ${mid}`}</span>
@@ -347,7 +363,6 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
                 </div>
             )})}
             </div>
-            </>
         )}
 
         {activeTab === 'agenda' && (
@@ -380,7 +395,9 @@ const ActivitiesView: React.FC<ActivitiesViewProps> = ({
             <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] shadow-2xl">
                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-[#CAF4FF]/30">
                    <div>
-                       <h3 className="font-bold text-lg">{editingActivity.id ? `Atur Kegiatan: ${editingActivity.name}` : 'Tambah Ekskul Baru'}</h3>
+                       <h3 className="font-bold text-lg">
+                           {(editingActivity as any).isVirtual ? `Aktifkan: ${editingActivity.name}` : editingActivity.id ? `Atur Kegiatan: ${editingActivity.name}` : 'Tambah Ekskul Baru'}
+                       </h3>
                    </div>
                    <button onClick={()=>setEditingActivity(null)} className="p-1 hover:bg-gray-200 rounded-full"><X size={20}/></button>
                </div>

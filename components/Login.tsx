@@ -33,7 +33,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             setDevInfo(profiles.school.developerInfo);
           }
         } catch (e) {
-          console.error("Could not fetch public info", e);
+          // Suppress fetch error on login screen to avoid alarming users
+          // console.warn("Could not fetch public info (offline or network error)");
         }
       }
     };

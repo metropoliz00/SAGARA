@@ -118,6 +118,15 @@ export interface InventoryItem {
   qty: number;
 }
 
+// NEW: School Infrastructure Asset
+export interface SchoolAsset {
+  id: string;
+  name: string; // Jenis Sarana/Prasarana
+  condition: 'Baik' | 'Rusak Ringan' | 'Rusak Berat';
+  qty: number;
+  location?: string; // Optional location
+}
+
 export interface Guest {
   id: string;
   classId: string;
@@ -346,4 +355,4 @@ export interface KarakterAssessment {
 
 
 // FIX: Add 'support-docs' to ViewState type for navigation
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs' | 'supervisor-overview' | 'school-assets';

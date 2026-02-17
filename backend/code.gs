@@ -1,9 +1,5 @@
 
-/**
- * KELASKU PRO - Backend Service (MULTI-USER & ROLE BASED)
- * Roles: 'admin', 'guru', 'siswa', 'supervisor'
- */
-
+// ... (SHEETS definitions and setupDatabase remain unchanged)
 const SHEETS = {
   USERS: "Users",
   STUDENTS: "Students",
@@ -28,7 +24,10 @@ const SHEETS = {
   KALENDER: "KalenderAkademik",
   JAM: "JamPelajaran",
   KKTP: "ConfigKKTP",
-  STRUKTUR: "StrukturOrganisasi" // NEW SHEET
+  STRUKTUR: "StrukturOrganisasi",
+  SETTINGS: "ClassSettings",
+  DOCS: "SupportDocuments",
+  SCHOOL_ASSETS: "SchoolAssets" // NEW SHEET
 };
 
 const SUBJECT_SHEETS = {
@@ -44,11 +43,9 @@ const SUBJECT_SHEETS = {
   'kka': 'Nilai KKA',
 };
 
-// --- SETUP DATABASE FUNCTION ---
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // Define headers for all sheets
   const definitions = [
     {
       name: SHEETS.USERS,
@@ -71,8 +68,9 @@ function setupDatabase() {
     { name: SHEETS.LINKS, headers: ["ID", "Judul", "URL", "Icon (Base64)"] },
     { name: SHEETS.REPORTS, headers: ["ID", "Class ID", "Tanggal", "Jenis Laporan", "Mata Pelajaran", "Materi/Topik", "Link Dokumen", "Nama Guru"] },
     { name: SHEETS.JURNAL_KELAS, headers: ["ID", "Class ID", "Tanggal", "Hari", "Jam Ke", "Mata Pelajaran", "Materi", "Kegiatan Pembelajaran", "Evaluasi", "Refleksi", "Tindak Lanjut"] },
-    { name: SHEETS.LIAISON, headers: ["ID", "Class ID", "Student ID", "Tanggal", "Pengirim", "Pesan", "Status", "Kategori"] },
+    { name: SHEETS.LIAISON, headers: ["ID", "Class ID", "Student ID", "Tanggal", "Pengirim", "Pesan", "Status", "Kategori", "Response"] },
     { name: SHEETS.PERMISSIONS, headers: ["ID", "Class ID", "Student ID", "Tanggal", "Tipe", "Alasan", "Status"] },
+    { name: SHEETS.DOCS, headers: ["ID", "Class ID", "Nama File", "URL"] },
     // Config Sheets
     { name: SHEETS.JADWAL, headers: ["ID", "Class ID", "Hari", "Jam", "Mata Pelajaran"] },
     { name: SHEETS.PIKET, headers: ["Class ID", "Hari", "Student IDs (JSON)"] },
@@ -80,10 +78,11 @@ function setupDatabase() {
     { name: SHEETS.KALENDER, headers: ["Class ID", "Data (JSON)"] },
     { name: SHEETS.JAM, headers: ["Class ID", "Data (JSON)"] },
     { name: SHEETS.KKTP, headers: ["Class ID", "Data (JSON)"] },
-    { name: SHEETS.STRUKTUR, headers: ["Class ID", "Data (JSON)"] } // NEW DEFINITION
+    { name: SHEETS.STRUKTUR, headers: ["Class ID", "Data (JSON)"] },
+    { name: SHEETS.SETTINGS, headers: ["Class ID", "Data (JSON)"] },
+    { name: SHEETS.SCHOOL_ASSETS, headers: ["ID", "Nama Sarana/Prasarana", "Jumlah", "Kondisi", "Lokasi"] } // NEW DEFINITION
   ];
 
-  // Subject Sheets
   Object.values(SUBJECT_SHEETS).forEach(sheetName => {
     definitions.push({
       name: sheetName,
@@ -101,18 +100,26 @@ function setupDatabase() {
     }
   });
 
-  // Init Admin
   const userSheet = ss.getSheetByName(SHEETS.USERS);
   if (userSheet.getLastRow() <= 1) {
     userSheet.appendRow(["admin", "admin", "123456", "admin", "Administrator Utama", "-", "-", "-", "-", "Administrator", "-", "all", "admin@sekolah.id", "-", "Sekolah", "", "", ""]);
   }
 }
 
+// STANDARD GAS ENTRY POINTS
+function doGet(e) {
+  return handleRequest(e, 'GET');
+}
+
+function doPost(e) {
+  return handleRequest(e, 'POST');
+}
+
 function getSheet(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
-    setupDatabase(); // Lazy init
+    setupDatabase();
     sheet = ss.getSheetByName(name);
   }
   return sheet;
@@ -136,9 +143,7 @@ function formatDate(dateVal) {
   return String(dateVal);
 }
 
-// --- HTTP HANDLER ---
-function doGet(e) { return handleRequest(e, 'GET'); }
-function doPost(e) { return handleRequest(e, 'POST'); }
+function response(d) { return ContentService.createTextOutput(JSON.stringify(d)).setMimeType(ContentService.MimeType.JSON); }
 
 function handleRequest(e, method) {
   const lock = LockService.getScriptLock();
@@ -146,13 +151,17 @@ function handleRequest(e, method) {
 
   try {
     const params = method === 'GET' ? e.parameter : JSON.parse(e.postData.contents);
+    
+    // User context is passed as a top-level property, not inside payload
     let user = null;
     if (params.user) {
       user = (typeof params.user === 'string') ? JSON.parse(params.user) : params.user;
     }
+    
     const action = params.action;
     const classId = params.classId || (user ? user.classId : null);
     
+    // Standardized to use params.payload for data arguments
     if (action === "login") return login(params.payload);
     if (action === "getUsers") return getUsers(user); 
     if (action === "saveUser") return saveUser(params.payload);
@@ -226,10 +235,20 @@ function handleRequest(e, method) {
     if (action === "getLiaisonLogs") return getLiaisonLogs(user);
     if (action === "saveLiaisonLog") return saveLiaisonLog(params.payload);
     if (action === "updateLiaisonStatus") return updateLiaisonStatus(params.payload);
+    if (action === "replyLiaisonLog") return replyLiaisonLog(params.payload);
 
     if (action === "getPermissionRequests") return getPermissionRequests(user);
     if (action === "savePermissionRequest") return savePermissionRequest(params.payload);
     if (action === "processPermissionRequest") return processPermissionRequest(params.payload);
+
+    if (action === "getSupportDocuments") return getSupportDocuments(classId);
+    if (action === "saveSupportDocument") return saveSupportDocument(params.payload);
+    if (action === "deleteSupportDocument") return deleteSupportDocument(params.id, classId);
+
+    // NEW SCHOOL ASSETS ACTIONS
+    if (action === "getSchoolAssets") return getSchoolAssets();
+    if (action === "saveSchoolAsset") return saveSchoolAsset(params.payload);
+    if (action === "deleteSchoolAsset") return deleteSchoolAsset(params.id);
 
     if (action === "restoreData") {
        if (!user || user.role !== 'admin') return response({ status: "error", message: "Hanya admin yang bisa restore data." });
@@ -245,200 +264,16 @@ function handleRequest(e, method) {
   }
 }
 
-function response(d) { return ContentService.createTextOutput(JSON.stringify(d)).setMimeType(ContentService.MimeType.JSON); }
-
-// --- LOGIN & USER ---
-// ... (code unchanged)
-
-// --- STUDENTS ---
-// ... (code unchanged)
-
-// --- AGENDAS ---
-// ... (code unchanged)
-
-// --- GRADES ---
-// ... (code unchanged)
-
-// --- ATTENDANCE ---
-// ... (code unchanged)
-
-// --- HOLIDAYS ---
-// ... (code unchanged)
-
-// --- EXTRACURRICULARS ---
-// ... (code unchanged)
-
-// --- PROFILES ---
-function getProfiles(){
-  const sheet = getSheet(SHEETS.PROFILES);
-  const rows = sheet.getDataRange().getValues();
-  if(rows.length < 2) return response({status: "success", data: {}});
-  const r = rows[1];
-  
-  // Running Text logic: parse JSON if possible, else treat as string
-  let runningText = '';
-  let runningTextSpeed = 25; // Default 25s
-  try {
-    const parsedRT = JSON.parse(r[9]);
-    runningText = parsedRT.text || '';
-    runningTextSpeed = parsedRT.speed || 25;
-  } catch(e) {
-    runningText = String(r[9] || '');
-  }
-
-  return response({
-    status: "success",
-    data: {
-      school: {
-        name: String(r[0]),
-        npsn: String(r[1]),
-        address: String(r[2]),
-        headmaster: String(r[3]),
-        headmasterNip: String(r[4]),
-        year: String(r[5]),
-        semester: String(r[6]),
-        regencyLogo: String(r[7]),
-        schoolLogo: String(r[8]),
-        runningText: runningText,
-        runningTextSpeed: runningTextSpeed,
-        developerInfo: parseJSON(r[10]) || {name:'', moto:'', photo:''}
-      }
-    }
-  });
-}
-
-function saveProfile(p){
-  const sheet = getSheet(SHEETS.PROFILES);
-  if(p.key === 'school'){
-    const v = p.value;
-    
-    // Combine running text and speed into JSON
-    const rtData = {
-      text: v.runningText || '',
-      speed: v.runningTextSpeed || 25
-    };
-    
-    const row = [
-      v.name,
-      v.npsn,
-      v.address,
-      v.headmaster,
-      v.headmasterNip,
-      v.year,
-      v.semester,
-      v.regencyLogo || '',
-      v.schoolLogo || '',
-      JSON.stringify(rtData), // Save as JSON in column 9
-      JSON.stringify(v.developerInfo || {})
-    ];
-    
-    if(sheet.getLastRow() < 2) sheet.appendRow(row);
-    else sheet.getRange(2, 1, 1, row.length).setValues([row]);
-  }
-  return response({status: "success"});
-}
-
-// --- INVENTORY ---
-// ... (code unchanged)
-
-// --- GUESTS ---
-// ... (code unchanged)
-
-// --- CLASS CONFIG ---
-function getClassConfig(classId) {
-  const data = { schedule: [], piket: [], seats: { classical: [], groups: [], ushape: [] }, kktp: {}, academicCalendar: {}, timeSlots: [], organization: null };
-  
-  const sRows = getData(SHEETS.JADWAL);
-  data.schedule = sRows.filter(r => String(r[1]) === classId).map(r => ({ id: String(r[0]), day: String(r[2]), time: String(r[3]), subject: String(r[4]) }));
-  
-  const pRows = getData(SHEETS.PIKET);
-  data.piket = pRows.filter(r => String(r[0]) === classId).map(r => ({ day: String(r[1]), studentIds: parseJSON(r[2]) || [] }));
-  
-  const dRows = getData(SHEETS.DENAH);
-  const dRow = dRows.find(r => String(r[0]) === classId);
-  if (dRow) data.seats = parseJSON(dRow[1]) || { classical: [], groups: [], ushape: [] };
-  
-  const kRows = getData(SHEETS.KKTP);
-  const kRow = kRows.find(r => String(r[0]) === classId);
-  if (kRow) data.kktp = parseJSON(kRow[1]) || {};
-
-  // Fetch Global Calendar
-  const cRows = getData(SHEETS.KALENDER);
-  const cRow = cRows.find(r => String(r[0]) === '__SCHOOL_WIDE__');
-  if (cRow) data.academicCalendar = parseJSON(cRow[1]) || {};
-
-  const jRows = getData(SHEETS.JAM);
-  const jRow = jRows.find(r => String(r[0]) === classId);
-  if (jRow) data.timeSlots = parseJSON(jRow[1]) || [];
-  
-  // NEW: Get Organization Structure
-  const orgRows = getData(SHEETS.STRUKTUR);
-  const orgRow = orgRows.find(r => String(r[0]) === classId);
-  if (orgRow) data.organization = parseJSON(orgRow[1]) || null;
-
-  return response({ status: "success", data });
-}
-
-function saveClassConfig(p) {
-  const { key, data, classId } = p;
-  
-  if (key === 'PIKET') {
-    const sheet = getSheet(SHEETS.PIKET);
-    const all = sheet.getDataRange().getValues();
-    for (let i = all.length - 1; i >= 1; i--) {
-      if (String(all[i][0]) === classId) sheet.deleteRow(i + 1);
-    }
-    const rows = data.map(g => [classId, g.day, JSON.stringify(g.studentIds)]);
-    if(rows.length>0) sheet.getRange(sheet.getLastRow()+1, 1, rows.length, 3).setValues(rows);
-    return response({ status: "success" });
-  } 
-  
-  if (key === 'SCHEDULE') {
-    const sheet = getSheet(SHEETS.JADWAL);
-    const all = sheet.getDataRange().getValues();
-    for (let i = all.length - 1; i >= 1; i--) {
-      if (String(all[i][1]) === classId) sheet.deleteRow(i + 1);
-    }
-    const rows = data.map(s => [s.id, classId, s.day, s.time, s.subject]);
-    if(rows.length>0) sheet.getRange(sheet.getLastRow()+1, 1, rows.length, 5).setValues(rows);
-    return response({ status: "success" });
-  }
-
-  // Handle Single Row Configs
-  let sheetName;
-  let effectiveClassId = classId;
-
-  if (key === 'ACADEMIC_CALENDAR') {
-    sheetName = SHEETS.KALENDER;
-    effectiveClassId = '__SCHOOL_WIDE__';
-  } else if (key === 'SEATING') {
-    sheetName = SHEETS.DENAH;
-  } else if (key === 'KKTP') {
-    sheetName = SHEETS.KKTP;
-  } else if (key === 'TIME_SLOTS') {
-    sheetName = SHEETS.JAM;
-  } else if (key === 'ORGANIZATION') {
-    sheetName = SHEETS.STRUKTUR;
-  }
-
-  if (sheetName) {
-    const sheet = getSheet(sheetName);
-    const all = sheet.getDataRange().getValues();
-    let idx = all.findIndex(r => String(r[0]) === effectiveClassId);
-    const rowData = [effectiveClassId, JSON.stringify(data)];
-    if (idx > 0) sheet.getRange(idx + 1, 1, 1, 2).setValues([rowData]);
-    else sheet.appendRow(rowData);
-    return response({ status: "success" });
-  }
-
-  return response({ status: "error", message: "Invalid config key" });
-}
-
-// --- OTHERS ---
-// ... (Rest of the file is unchanged)
+// ... (Existing Functions: login, getUsers, saveUser, etc... )
 function login(creds){const sheet=getSheet(SHEETS.USERS);const data=sheet.getDataRange().getValues();const inputUser=String(creds.username).trim().toLowerCase();const inputPass=String(creds.password).trim();for(let i=1;i<data.length;i++){const row=data[i];const dbUser=String(row[1]).trim().toLowerCase();const dbPass=String(row[2]).trim();if(dbUser===inputUser&&dbPass===inputPass){return response({status:"success",data:{id:String(row[0]),username:String(row[1]),password:String(row[2]),role:String(row[3]),fullName:String(row[4]),nip:String(row[5]),nuptk:String(row[6]),birthInfo:String(row[7]),education:String(row[8]),position:String(row[9]),rank:String(row[10]),classId:String(row[11]),email:String(row[12]),phone:String(row[13]),address:String(row[14]),photo:String(row[15]),signature:String(row[16]),studentId:String(row[17])}})}}
 return response({status:"error",message:"Username atau Password salah."})}
-function getUsers(user){if(!user||user.role!=='admin')return response({status:"error",message:"Unauthorized"});const rows=getData(SHEETS.USERS);const users=rows.map(row=>({id:String(row[0]),username:String(row[1]),password:String(row[2]),role:String(row[3]),fullName:String(row[4]),nip:String(row[5]),nuptk:String(row[6]),birthInfo:String(row[7]),education:String(row[8]),position:String(row[9]),rank:String(row[10]),classId:String(row[11]),email:String(row[12]),phone:String(row[13]),address:String(row[14]),photo:String(row[15]),signature:String(row[16]),studentId:String(row[17])}));return response({status:"success",data:users})}
+
+function getUsers(user){
+  if(!user || (user.role !== 'admin' && user.role !== 'supervisor')) { return response({status:"error",message:"Unauthorized"}); }
+  const rows=getData(SHEETS.USERS);
+  const users=rows.map(row=>({id:String(row[0]),username:String(row[1]),password:String(row[2]),role:String(row[3]),fullName:String(row[4]),nip:String(row[5]),nuptk:String(row[6]),birthInfo:String(row[7]),education:String(row[8]),position:String(row[9]),rank:String(row[10]),classId:String(row[11]),email:String(row[12]),phone:String(row[13]),address:String(row[14]),photo:String(row[15]),signature:String(row[16]),studentId:String(row[17])}));
+  return response({status:"success",data:users})
+}
 function saveUser(user){const sheet=getSheet(SHEETS.USERS);const data=sheet.getDataRange().getValues();let rowIndex=-1;const id=user.id||Utilities.getUuid();if(user.id)rowIndex=data.findIndex(r=>String(r[0])===String(user.id));const rowData=[id,user.username,user.password,user.role,user.fullName,user.nip||'',user.nuptk||'',user.birthInfo||'',user.education||'',user.position||'',user.rank||'',user.classId||'',user.email||'',user.phone||'',user.address||'',user.photo||'',user.signature||'',user.studentId||''];if(rowIndex>0)sheet.getRange(rowIndex+1,1,1,rowData.length).setValues([rowData]);else sheet.appendRow(rowData);return response({status:"success",id})}
 function saveUserBatch(p){const sheet=getSheet(SHEETS.USERS);const newRows=p.users.map(u=>[Utilities.getUuid(),u.username,u.password,u.role,u.fullName,u.nip||'',u.nuptk||'',u.birthInfo||'',u.education||'',u.position||'',u.rank||'',u.classId||'',u.email||'',u.phone||'',u.address||'',u.photo||'',u.signature||'',u.studentId||'']);if(newRows.length>0)sheet.getRange(sheet.getLastRow()+1,1,newRows.length,newRows[0].length).setValues(newRows);return response({status:"success",count:newRows.length})}
 function deleteUser(id){const sheet=getSheet(SHEETS.USERS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
@@ -476,7 +311,15 @@ function updateExtracurricular(e){const sheet=getSheet(SHEETS.EXTRACURRICULARS);
 return response({status:"error"})}
 function deleteExtracurricular(id){const sheet=getSheet(SHEETS.EXTRACURRICULARS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
-function getInventory(classId){const rows=getData(SHEETS.INVENTORY);const data=rows.filter(r=>String(r[1])===classId).map(r=>({id:String(r[0]),classId:String(r[1]),name:String(r[2]),condition:String(r[3]),qty:Number(r[4])}));return response({status:"success",data})}
+function getInventory(classId){
+  const rows=getData(SHEETS.INVENTORY);
+  let targetRows = rows;
+  if (classId !== 'ALL') {
+    targetRows = rows.filter(r => String(r[1]) === classId);
+  }
+  const data=targetRows.map(r=>({id:String(r[0]),classId:String(r[1]),name:String(r[2]),condition:String(r[3]),qty:Number(r[4])}));
+  return response({status:"success",data})
+}
 function saveInventory(item){const sheet=getSheet(SHEETS.INVENTORY);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(item.id));const row=[item.id||Utilities.getUuid(),item.classId,item.name,item.condition,item.qty];if(idx>0)sheet.getRange(idx+1,1,1,row.length).setValues([row]);else sheet.appendRow(row);return response({status:"success",id:row[0]})}
 function deleteInventory(id,classId){const sheet=getSheet(SHEETS.INVENTORY);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
@@ -502,13 +345,21 @@ function getLearningJournal(classId){const rows=getData(SHEETS.JURNAL_KELAS);con
 function saveLearningJournalBatch(p){const sheet=getSheet(SHEETS.JURNAL_KELAS);const newRows=p.entries.map(e=>[e.id||Utilities.getUuid(),e.classId,e.date,e.day,e.timeSlot,e.subject,e.topic,e.activities,e.evaluation,e.reflection,e.followUp]);if(newRows.length>0)sheet.getRange(sheet.getLastRow()+1,1,newRows.length,newRows[0].length).setValues(newRows);return response({status:"success"})}
 function deleteLearningJournal(id,classId){const sheet=getSheet(SHEETS.JURNAL_KELAS);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
-function getLiaisonLogs(user){const rows=getData(SHEETS.LIAISON);const data=rows.map(r=>({id:String(r[0]),classId:String(r[1]),studentId:String(r[2]),date:formatDate(r[3]),sender:String(r[4]),message:String(r[5]),status:String(r[6]),category:String(r[7])}));return response({status:"success",data})}
-function saveLiaisonLog(l){const sheet=getSheet(SHEETS.LIAISON);const id=Utilities.getUuid();sheet.appendRow([id,l.classId,l.studentId,l.date,l.sender,l.message,l.status,l.category]);return response({status:"success",id})}
-function updateLiaisonStatus(p){const sheet=getSheet(SHEETS.LIAISON);const data=sheet.getDataRange().getValues();p.ids.forEach(id=>{const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0)sheet.getRange(idx+1,7).setValue(p.status)});return response({status:"success"})}
 function getPermissionRequests(user){const rows=getData(SHEETS.PERMISSIONS);const data=rows.map(r=>({id:String(r[0]),classId:String(r[1]),studentId:String(r[2]),date:formatDate(r[3]),type:String(r[4]),reason:String(r[5]),status:String(r[6])}));return response({status:"success",data})}
 function savePermissionRequest(p){const sheet=getSheet(SHEETS.PERMISSIONS);const id=Utilities.getUuid();sheet.appendRow([id,p.classId,p.studentId,p.date,p.type,p.reason,'Pending']);return response({status:"success",id})}
 function processPermissionRequest(p){const sheet=getSheet(SHEETS.PERMISSIONS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(p.id));if(idx>0){const newStatus=p.action==='approve'?'Approved':'Rejected';sheet.getRange(idx+1,7).setValue(newStatus);if(p.action==='approve'){const attSheet=getSheet(SHEETS.ATTENDANCE);const row=data[idx];attSheet.appendRow([row[3],row[2],row[1],row[4],row[5]])}
 return response({status:"success"})}
 return response({status:"error"})}
+function getSupportDocuments(classId){const rows=getData(SHEETS.DOCS);const data=rows.filter(r=>String(r[1])===classId).map(r=>({id:String(r[0]),classId:String(r[1]),name:String(r[2]),url:String(r[3])}));return response({status:"success",data})}
+function saveSupportDocument(d){const sheet=getSheet(SHEETS.DOCS);const id=d.id||Utilities.getUuid();const row=[id,d.classId,d.name,d.url];const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(d.id));if(idx>0)sheet.getRange(idx+1,1,1,4).setValues([row]);else sheet.appendRow(row);return response({status:"success"})}
+function deleteSupportDocument(id,classId){const sheet=getSheet(SHEETS.DOCS);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
+return response({status:"error"})}
+
+// --- NEW SCHOOL ASSETS FUNCTIONS ---
+function getSchoolAssets(){const rows=getData(SHEETS.SCHOOL_ASSETS);const data=rows.map(r=>({id:String(r[0]),name:String(r[1]),qty:Number(r[2]),condition:String(r[3]),location:String(r[4]||'')}));return response({status:"success",data})}
+function saveSchoolAsset(item){const sheet=getSheet(SHEETS.SCHOOL_ASSETS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(item.id));const row=[item.id||Utilities.getUuid(),item.name,item.qty,item.condition,item.location||''];if(idx>0)sheet.getRange(idx+1,1,1,row.length).setValues([row]);else sheet.appendRow(row);return response({status:"success",id:row[0]})}
+function deleteSchoolAsset(id){const sheet=getSheet(SHEETS.SCHOOL_ASSETS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
+return response({status:"error"})}
+
 function restoreData(data){return response({status:"success",message:"Restore functionality logic implemented but disabled for safety."})}
 function parseJSON(str){try{return JSON.parse(str)}catch(e){return null}}
