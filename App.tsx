@@ -301,7 +301,7 @@ const App: React.FC = () => {
   const filteredCounseling = useMemo(() => counselingLogs.filter(c => isClassMatch(c.classId, activeClassId)), [counselingLogs, activeClassId]);
   const filteredSikap = useMemo(() => sikapAssessments.filter(s => isClassMatch(s.classId, activeClassId)), [sikapAssessments, activeClassId]);
   const filteredKarakter = useMemo(() => karakterAssessments.filter(k => isClassMatch(k.classId, activeClassId)), [karakterAssessments, activeClassId]);
-  const filteredHolidays = useMemo(() => holidays.filter(h => isClassMatch(h.classId, activeClassId)), [holidays, activeClassId]);
+  const filteredHolidays = holidays;
   const filteredReports = useMemo(() => learningReports.filter(r => isClassMatch(r.classId, activeClassId)), [learningReports, activeClassId]);
   const filteredSupportDocuments = useMemo(() => supportDocuments.filter(d => isClassMatch(d.classId, activeClassId)), [supportDocuments, activeClassId]);
   

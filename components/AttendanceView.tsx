@@ -342,9 +342,9 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
     setIsSavingHoliday(true);
     try {
       if (!holidayForm.id) {
-        await onAddHoliday([{ classId: classId, date: holidayForm.date, description: holidayForm.description, type: holidayForm.type as Holiday['type'] }]);
+        await onAddHoliday([{ classId: "__SCHOOL_WIDE__", date: holidayForm.date, description: holidayForm.description, type: holidayForm.type as Holiday['type'] }]);
       } else {
-        await onUpdateHoliday(holidayForm as Holiday);
+        await onUpdateHoliday({ ...holidayForm, classId: "__SCHOOL_WIDE__" } as Holiday);
       }
       resetHolidayForm();
     } catch (e) { console.error(e); } finally { setIsSavingHoliday(false); }
@@ -768,7 +768,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                 type="date" 
                                 value={holidayForm.date} 
                                 onChange={(e) => setHolidayForm({...holidayForm, date: e.target.value})}
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none"
+                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                               />
                           </div>
                           
@@ -779,7 +779,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                 value={holidayForm.description} 
                                 onChange={(e) => setHolidayForm({...holidayForm, description: e.target.value})}
                                 placeholder="Contoh: HUT RI ke-79"
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none"
+                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                               />
                           </div>
 
@@ -788,7 +788,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                               <select 
                                 value={holidayForm.type} 
                                 onChange={(e) => setHolidayForm({...holidayForm, type: e.target.value as Holiday['type']})}
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-[#5AB2FF] outline-none bg-white"
+                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                               >
                                   {Object.entries(HOLIDAY_TYPE_LEGEND).map(([key, val]) => (
                                       <option key={key} value={key}>{val.label}</option>

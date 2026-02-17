@@ -135,7 +135,7 @@ const AcademicCalendarTab: React.FC<AcademicCalendarTabProps> = ({ initialData, 
                   const codeInfo = CALENDAR_CODES[content];
                   
                   newHolidays.push({
-                      classId: classId,
+                      classId: "__SCHOOL_WIDE__",
                       date: date,
                       description: specificDescription || codeInfo.label,
                       type: codeInfo.type as Holiday['type'],

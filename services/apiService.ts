@@ -3,7 +3,7 @@
 import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, OrganizationStructure } from '../types';
 
 // PENTING: Ganti URL di bawah ini dengan URL Deployment Web App Google Apps Script Anda yang baru.
-const API_URL = 'https://script.google.com/macros/s/AKfycbwnhZI6AvmUDdfRU4O6zVv2Ol36XWbpZ3LrHRS0XoudsK9ikGHocAR0tsUayb55uSlK/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyJVMuZj3ckziyeMBTJI8VK8PECbXTeBi-Hf6Mpjif9DehLUhKocqSB2yiajMo3oBqP/exec';
 
 // ... (existing code for ApiResponse, isApiConfigured, getCategoryColor, fetchApi)
 
