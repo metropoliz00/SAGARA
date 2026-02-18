@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, CalendarCheck, GraduationCap, School, LogOut, X, ChevronRight, 
   UserCog, HeartHandshake, Tent, BookText, Smile, Link2, FileText, Contact, BookOpen, 
-  UserCheck, Database, NotebookPen, Files
+  UserCheck, Database, NotebookPen, Files, Activity, Building, Wallet
 } from 'lucide-react';
 import { ViewState, User } from '../types';
 
@@ -16,14 +16,15 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
-// 1. Dashboard dipisahkan sebagai item mandiri
-const dashboardItem = { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'guru', 'siswa', 'supervisor'] };
+// 1. Dashboard dipisahkan sebagai item mandiri (Supervisor removed here)
+const dashboardItem = { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'guru', 'siswa'] };
 
 // 2. Dashboard dihapus dari grup 'Utama' dan item dipindahkan ke 'Pengaturan'
 const menuGroups = [
   {
     title: 'Utama',
     items: [
+      { id: 'supervisor-overview', label: 'Overview KS', icon: Activity, roles: ['supervisor'] },
       { id: 'pendahuluan', label: 'Pendahuluan', icon: BookText, roles: ['admin', 'guru', 'supervisor'] },
     ]
   },
@@ -56,6 +57,8 @@ const menuGroups = [
     title: 'Administrasi',
     items: [
       { id: 'admin', label: 'Administrasi Kelas', icon: School, roles: ['admin', 'guru', 'supervisor'] },
+      { id: 'school-assets', label: 'Sarana Prasarana', icon: Building, roles: ['admin', 'supervisor'] },
+      { id: 'bos-admin', label: 'Pengelolaan BOS', icon: Wallet, roles: ['admin', 'supervisor'] }, // NEW
       { id: 'support-docs', label: 'Bukti Dukung', icon: Files, roles: ['admin', 'guru', 'supervisor'] },
     ]
   },

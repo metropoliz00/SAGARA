@@ -1,4 +1,5 @@
 
+// ... (imports remain the same)
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -22,8 +23,11 @@ import LiaisonBookView from './components/LiaisonBookView';
 import StudentPortal from './components/StudentPortal'; 
 import BackupRestore from './components/BackupRestore';
 import SupportDocumentsView from './components/SupportDocumentsView';
+import SupervisorOverview from './components/SupervisorOverview'; 
+import SchoolAssetsAdmin from './components/SchoolAssetsAdmin'; 
+import BOSManagement from './components/BOSManagement'; // NEW IMPORT
 import CustomModal from './components/CustomModal'; 
-import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument } from './types';
+import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, InventoryItem, SchoolAsset, BOSTransaction } from './types';
 import { MOCK_SUBJECTS, MOCK_STUDENTS, MOCK_EXTRACURRICULARS } from './constants';
 import { apiService } from './services/apiService';
 import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X } from 'lucide-react';
@@ -66,7 +70,12 @@ const App: React.FC = () => {
   const [liaisonLogs, setLiaisonLogs] = useState<LiaisonLog[]>([]);
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]); 
   const [supportDocuments, setSupportDocuments] = useState<SupportDocument[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]); 
+  const [schoolAssets, setSchoolAssets] = useState<SchoolAsset[]>([]);
+  const [bosTransactions, setBosTransactions] = useState<BOSTransaction[]>([]); // NEW STATE
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'warning'} | null>(null);
+  
+  // ... (Rest of existing state code)
   
   // -- NEW STATE: Navigation Target for Journal --
   const [journalTargetDate, setJournalTargetDate] = useState<string | null>(null);
@@ -99,7 +108,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
-  // --- Modal Helper Functions ---
+  // ... (Rest of Modal Helper Functions and Persistence Effects) ...
   const showAlert = (message: string, type: 'success' | 'error' | 'alert' = 'alert', title?: string) => {
     setModalConfig({
       isOpen: true,
@@ -123,7 +132,7 @@ const App: React.FC = () => {
     });
   };
 
-  // --- PERSISTENCE EFFECTS ---
+  // ... (PERSISTENCE EFFECTS Code) ...
   useEffect(() => {
       if (currentUser) {
           localStorage.setItem('sagara_user', JSON.stringify(currentUser));
@@ -151,18 +160,21 @@ const App: React.FC = () => {
       }
   }, [selectedClassId, canSelectClass]);
 
+  useEffect(() => {
+      if (currentUser?.role === 'supervisor' && currentView === 'dashboard') {
+          setCurrentView('supervisor-overview');
+      }
+  }, [currentUser, currentView]);
+
   const handleLogout = () => {
       setCurrentUser(null);
-      setStudents([]); // Clear data from memory
+      setStudents([]); 
       setExtracurriculars([]);
       setAgendas([]);
-      
-      // Clear Persisted Data
       localStorage.removeItem('sagara_user');
       localStorage.removeItem('sagara_view');
       localStorage.removeItem('sagara_classId');
       localStorage.removeItem('sagara_student_tab');
-      
       setCurrentView('dashboard');
   };
   
@@ -183,7 +195,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // -- Dynamic Class List Generation --
   const availableClasses = useMemo(() => {
     const studentClasses = students.map(s => String(s.classId || '').trim().toUpperCase()).filter(Boolean);
     const userClasses = users.map(u => String(u.classId || '').trim().toUpperCase()).filter(Boolean);
@@ -200,13 +211,11 @@ const App: React.FC = () => {
     });
   }, [students, users]);
 
-  // -- Initialize Selected Class ID based on User Role --
   useEffect(() => {
     if (currentUser) {
         if (canSelectClass) {
             const currentStr = String(selectedClassId || '');
             const isValid = selectedClassId && availableClasses.some(c => String(c).toUpperCase() === currentStr.toUpperCase());
-            // Only auto-select if no valid selection exists and list is populated
             if (!isValid && availableClasses.length > 0 && !selectedClassId) {
                 setSelectedClassId(String(availableClasses[0]));
             }
@@ -214,13 +223,11 @@ const App: React.FC = () => {
             setCurrentView('dashboard'); 
             if (currentUser.classId) setSelectedClassId(String(currentUser.classId));
         } else {
-            // Homeroom teacher
             setSelectedClassId(String(currentUser.classId || ''));
         }
     }
   }, [currentUser, availableClasses, selectedClassId, canSelectClass]);
 
-  // -- CALCULATE ADMINISTRATION COMPLETENESS --
   useEffect(() => {
     const fetchAdminStats = async () => {
         if (!selectedClassId || String(selectedClassId).toLowerCase() === 'all' || isDemoMode) {
@@ -251,24 +258,20 @@ const App: React.FC = () => {
     fetchAdminStats();
   }, [selectedClassId, isDemoMode]); 
 
-  // -- ACCESS CONTROL LOGIC --
   const { isGlobalReadOnly, allowedSubjects } = useMemo(() => {
     if (!currentUser) return { isGlobalReadOnly: true, allowedSubjects: [] };
     if (currentUser.role === 'admin') return { isGlobalReadOnly: false, allowedSubjects: ['all'] };
-    if (currentUser.role === 'supervisor') return { isGlobalReadOnly: true, allowedSubjects: ['all'] }; // Supervisor Read-Only Global
+    if (currentUser.role === 'supervisor') return { isGlobalReadOnly: true, allowedSubjects: ['all'] }; 
     if (currentUser.role === 'siswa') return { isGlobalReadOnly: true, allowedSubjects: [] };
     
-    // For 'guru' role
     const pos = (currentUser.position || '').toLowerCase();
     if (pos.includes('pai') || pos.includes('agama')) return { isGlobalReadOnly: false, allowedSubjects: ['pai'] };
     if (pos.includes('pjok') || pos.includes('olahraga')) return { isGlobalReadOnly: false, allowedSubjects: ['pjok'] };
     if (pos.includes('inggris')) return { isGlobalReadOnly: false, allowedSubjects: ['inggris'] };
     
-    // Default for homeroom teachers
     return { isGlobalReadOnly: false, allowedSubjects: ['all'] };
   }, [currentUser]);
 
-  // -- FILTERED DATA COMPUTATION --
   const isClassMatch = (id1?: string, id2?: string) => {
       const s1 = String(id1 || '').trim().toLowerCase();
       const s2 = String(id2 || '').trim().toLowerCase();
@@ -320,427 +323,153 @@ const App: React.FC = () => {
       return raw.filter(p => isClassMatch(p.classId, activeClassId));
   }, [permissionRequests, activeClassId, currentUser]);
 
-  // ... (Handlers with Custom Modal Logic)
+  // ... (Existing Handlers: Auto Report, Restore, Permission, Student, Agenda, etc.) ...
   
-  // -- AUTO REPORT GENERATION LOGIC --
-  const handleSaveJournalAndAutoReport = async (entries: Partial<LearningJournalEntry>[]) => {
+  // --- BOS HANDLERS ---
+  const handleSaveBOS = async (transaction: BOSTransaction) => {
+    if (isDemoMode) {
+        setBosTransactions(prev => {
+            const exists = prev.find(t => t.id === transaction.id);
+            if (exists) return prev.map(t => t.id === transaction.id ? transaction : t);
+            return [...prev, { ...transaction, id: transaction.id || `bos-${Date.now()}` }];
+        });
+        handleShowNotification('Transaksi BOS disimpan (Demo).', 'success');
+        return;
+    }
+    await apiService.saveBOS(transaction);
+    handleShowNotification('Transaksi BOS berhasil disimpan.', 'success');
+    await fetchData();
+  };
+
+  const handleDeleteBOS = async (id: string) => {
       if (isDemoMode) {
-          handleShowNotification('Jurnal & Laporan otomatis disimpan (Demo)', 'success');
+          setBosTransactions(prev => prev.filter(t => t.id !== id));
+          handleShowNotification('Transaksi BOS dihapus (Demo).', 'success');
           return;
       }
+      await apiService.deleteBOS(id);
+      handleShowNotification('Transaksi BOS berhasil dihapus.', 'success');
+      await fetchData();
+  };
 
+  // ... (Other handlers unchanged)
+  // Re-inserting required handlers for completeness
+  const handleSaveJournalAndAutoReport = async (entries: Partial<LearningJournalEntry>[]) => {
+      if (isDemoMode) { handleShowNotification('Jurnal & Laporan otomatis disimpan (Demo)', 'success'); return; }
       try {
-          // 1. Save Journal Batch
           await apiService.saveLearningJournalBatch(entries);
           handleShowNotification('Jurnal pembelajaran berhasil disimpan.', 'success');
-
-          // 2. Aggregate Data for Auto-Report
           if (entries.length > 0 && entries[0].date) {
               const reportDate = entries[0].date;
-              
-              // Get unique subjects
               const uniqueSubjects = [...new Set(entries.map(e => e.subject).filter(Boolean))].join(', ');
-              // Combine topics
               const combinedTopics = entries.map(e => e.topic).filter(Boolean).join('; ');
-
               if (uniqueSubjects) {
                   const autoReport: LearningReport = {
-                      id: `jurnal-${reportDate}-${activeClassId}`, // Deterministic ID
-                      classId: activeClassId,
-                      date: reportDate,
-                      type: 'Jurnal Harian',
-                      subject: uniqueSubjects,
-                      topic: combinedTopics || 'Kegiatan Pembelajaran Harian',
-                      documentLink: '', // Optional
-                      teacherName: currentUser?.fullName || 'Guru Kelas'
+                      id: `jurnal-${reportDate}-${activeClassId}`, classId: activeClassId, date: reportDate,
+                      type: 'Jurnal Harian', subject: uniqueSubjects, topic: combinedTopics || 'Kegiatan Pembelajaran Harian',
+                      documentLink: '', teacherName: currentUser?.fullName || 'Guru Kelas'
                   };
-
-                  // 3. Save/Update Report
                   await apiService.saveLearningReport(autoReport);
-                  // Refresh reports data
                   const newReports = await apiService.getLearningReports(activeClassId);
                   setLearningReports(newReports);
               }
           }
-      } catch (e) {
-          console.error("Auto report error:", e);
-          handleShowNotification('Jurnal disimpan, namun gagal membuat laporan otomatis.', 'warning');
-      }
+      } catch (e) { console.error("Auto report error:", e); handleShowNotification('Jurnal disimpan, namun gagal membuat laporan otomatis.', 'warning'); }
   };
 
-  const handleNavigateToJournal = (date: string) => {
-      setJournalTargetDate(date);
-      setCurrentView('learning-journal');
-  };
-
+  const handleNavigateToJournal = (date: string) => { setJournalTargetDate(date); setCurrentView('learning-journal'); };
+  
   const handleRestoreData = async (data: any) => {
       try {
-          if(isDemoMode) {
-              showAlert("Restore tidak tersedia di mode demo.", "error");
-              return;
-          }
+          if(isDemoMode) { showAlert("Restore tidak tersedia di mode demo.", "error"); return; }
           const res = await apiService.restoreData(data);
-          if (res.status === 'success') {
-              window.location.reload();
-          } else {
-              throw new Error(res.message);
-          }
-      } catch (e: any) {
-          throw new Error(e.message || "Gagal restore data.");
-      }
+          if (res.status === 'success') { window.location.reload(); } else { throw new Error(res.message); }
+      } catch (e: any) { throw new Error(e.message || "Gagal restore data."); }
   };
 
   const handleProcessPermission = async (id: string, action: 'approve' | 'reject') => {
       setProcessingPermissionId(id);
       try {
           const req = permissionRequests.find(p => p.id === id);
-          const typeStr = req?.type as string;
-          const typeLabel = typeStr === 'sick' ? 'Sakit' : typeStr === 'dispensation' ? 'Dispensasi' : 'Ijin';
-
           if (isDemoMode) {
               setPermissionRequests(prev => prev.map(p => p.id === id ? { ...p, status: action === 'approve' ? 'Approved' : 'Rejected' } : p));
               if (action === 'approve' && req) {
-                  setAllAttendanceRecords(prev => [...prev, {
-                      studentId: req.studentId,
-                      classId: req.classId,
-                      date: req.date,
-                      status: req.type,
-                      notes: req.reason
-                  }]);
+                  setAllAttendanceRecords(prev => [...prev, { studentId: req.studentId, classId: req.classId, date: req.date, status: req.type, notes: req.reason }]);
               }
-              handleShowNotification(`${typeLabel} berhasil di${action === 'approve' ? 'terima' : 'tolak'} (Demo).`, 'success');
+              handleShowNotification(`Ijin berhasil di${action === 'approve' ? 'terima' : 'tolak'} (Demo).`, 'success');
           } else {
               await apiService.processPermissionRequest(id, action);
-              handleShowNotification(`${typeLabel} berhasil di${action === 'approve' ? 'terima' : 'tolak'}.`, 'success');
+              handleShowNotification(`Ijin berhasil di${action === 'approve' ? 'terima' : 'tolak'}.`, 'success');
               await fetchData();
           }
-      } catch (e) {
-          handleShowNotification('Gagal memproses ijin.', 'error');
-      } finally {
-          setProcessingPermissionId(null);
-      }
+      } catch (e) { handleShowNotification('Gagal memproses ijin.', 'error'); } finally { setProcessingPermissionId(null); }
   };
 
+  // Add/Update/Delete Student handlers
   const handleAddStudent = async (student: Omit<Student, 'id'>) => { 
     const targetClassId = String(activeClassId || student.classId || '1A'); 
     const studentWithClass = { ...student, classId: targetClassId };
-    if (isDemoMode) {
-      setStudents([...students, { ...studentWithClass, id: Date.now().toString() }]); return;
-    }
+    if (isDemoMode) { setStudents([...students, { ...studentWithClass, id: Date.now().toString() }]); return; }
     const res = await apiService.createStudent(studentWithClass);
-    if (res.id) {
-       setStudents([...students, { ...studentWithClass, id: res.id }]);
-       handleShowNotification("Siswa berhasil ditambahkan!", "success");
-       if (currentUser?.role === 'admin' && !availableClasses.includes(targetClassId.toUpperCase())) {
-           setSelectedClassId(targetClassId.toUpperCase());
-       }
-    }
+    if (res.id) { setStudents([...students, { ...studentWithClass, id: res.id }]); handleShowNotification("Siswa berhasil ditambahkan!", "success"); if (currentUser?.role === 'admin' && !availableClasses.includes(targetClassId.toUpperCase())) setSelectedClassId(targetClassId.toUpperCase()); }
   };
-  
   const handleBatchAddStudents = async (newStudents: Omit<Student, 'id'>[]) => { 
     const batchWithClass = newStudents.map(s => ({ ...s, classId: s.classId || activeClassId || '1A' }));
-    if (isDemoMode) {
-      const demoStudents = batchWithClass.map((s, i) => ({ ...s, id: Date.now().toString() + i }));
-      setStudents([...students, ...demoStudents]); return;
-    }
-    try {
-      const res = await apiService.createStudentBatch(batchWithClass);
-      if (res.status === 'success') { fetchData(); handleShowNotification(`Berhasil menambahkan ${newStudents.length} siswa!`, 'success'); }
-    } catch (e) { handleShowNotification('Gagal upload batch siswa', 'error'); }
+    if (isDemoMode) { const demoStudents = batchWithClass.map((s, i) => ({ ...s, id: Date.now().toString() + i })); setStudents([...students, ...demoStudents]); return; }
+    try { const res = await apiService.createStudentBatch(batchWithClass); if (res.status === 'success') { fetchData(); handleShowNotification(`Berhasil menambahkan ${newStudents.length} siswa!`, 'success'); } } catch (e) { handleShowNotification('Gagal upload batch siswa', 'error'); }
   };
-  
-  const handleUpdateStudent = async (updatedStudent: Student) => { 
-    setStudents(students.map(s => s.id === updatedStudent.id ? updatedStudent : s));
-    if (!isDemoMode) await apiService.updateStudent(updatedStudent);
-  };
-  
-  // Replaced native confirm with showConfirm
-  const handleDeleteStudent = async (id: string) => { 
-    showConfirm('Apakah Anda yakin ingin menghapus data siswa ini?', async () => {
-        setStudents(students.filter(s => s.id !== id));
-        if (!isDemoMode) await apiService.deleteStudent(id);
-    });
-  };
-  
-  const handleAddAgenda = async (newItem: AgendaItem) => { 
-    const agendaWithClass = { ...newItem, classId: activeClassId };
-    setAgendas([agendaWithClass, ...agendas]);
-    if (!isDemoMode) await apiService.createAgenda(agendaWithClass);
-  };
-  
-  const handleToggleAgenda = async (id: string) => { 
-    const updatedAgendas = agendas.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
-    setAgendas(updatedAgendas);
-    if (!isDemoMode) { const item = updatedAgendas.find(a => a.id === id); if(item) await apiService.updateAgenda(item); }
-  };
-  
-  const handleDeleteAgenda = async (id: string) => { 
-    showConfirm('Hapus agenda ini?', async () => {
-        setAgendas(agendas.filter(item => item.id !== id));
-        if (!isDemoMode) await apiService.deleteAgenda(id);
-    });
-  };
-  
-  const handleAddExtracurricular = async (item: Extracurricular) => { 
-    const itemWithClass = { ...item, classId: activeClassId };
-    setExtracurriculars(prev => [...prev, itemWithClass]);
-    if (!isDemoMode) { await apiService.createExtracurricular(itemWithClass); handleShowNotification("Ekskul berhasil ditambahkan", 'success'); }
-  };
-  
-  const handleUpdateExtracurricular = async (updatedItem: Extracurricular) => { 
-    const itemWithClass = { ...updatedItem, classId: activeClassId };
-    setExtracurriculars(prev => prev.map(ex => ex.id === itemWithClass.id ? itemWithClass : ex));
-    if(!isDemoMode) await apiService.updateExtracurricular(itemWithClass);
-  };
-  
-  const handleSaveGrade = async (studentId: string, subjectId: string, gradeData: any, classId: string) => { 
-    if(!isDemoMode) await apiService.saveGrade(studentId, subjectId, gradeData, classId);
-  };
-  
-  const handleCreateLog = async (log: BehaviorLog) => { 
-     setCounselingLogs([log, ...counselingLogs]);
-     if(log.point !== 0) {
-       const student = students.find(s => s.id === log.studentId);
-       if(student) {
-         const newScore = Math.min(100, Math.max(0, student.behaviorScore + log.point));
-         handleUpdateStudent({ ...student, behaviorScore: newScore });
-       }
-     }
-     if(!isDemoMode) await apiService.createCounselingLog(log);
-     handleShowNotification('Data konseling berhasil disimpan!', 'success');
-  };
-  
-  const handleUpdateProfile = async (type: 'teacher' | 'school', data: any) => { 
-    if (type === 'teacher') {
-        setTeacherProfile(data);
-        if (!currentUser) return;
-        const updatedUser: User = { ...currentUser, fullName: data.name, nip: data.nip, nuptk: data.nuptk, birthInfo: data.birthInfo, education: data.education, position: data.position, rank: data.rank, classId: data.teachingClass, email: data.email, phone: data.phone, address: data.address, photo: data.photo, signature: data.signature };
-        setCurrentUser(updatedUser);
-        if (!isDemoMode) await apiService.saveUser(updatedUser);
-    } else {
-        setSchoolProfile(data);
-        if (!isDemoMode) await apiService.saveProfile('school', data);
-    }
-  };
-  
-  const handleAddHoliday = async (holidaysToAdd: Omit<Holiday, 'id'>[]) => { 
-    if (isDemoMode) {
-        const newHolidays = holidaysToAdd.map(h => ({ ...h, id: Date.now().toString() + Math.random() }));
-        setHolidays(prev => [...prev, ...newHolidays].sort((a,b) => a.date.localeCompare(b.date)));
-        handleShowNotification("Hari libur berhasil ditambahkan (Demo).", "success"); return;
-    }
-    try { await apiService.saveHolidayBatch(holidaysToAdd); handleShowNotification("Hari libur berhasil disimpan!", "success"); await fetchData(); } catch (e) { handleShowNotification("Gagal menyimpan hari libur.", "error"); }
-  };
-  
-  const handleUpdateHoliday = async (updatedHoliday: Holiday) => { 
-    if (isDemoMode) {
-        setHolidays(prev => prev.map(h => h.id === updatedHoliday.id ? updatedHoliday : h).sort((a,b) => a.date.localeCompare(b.date)));
-        handleShowNotification("Hari libur diperbarui (Demo).", "success"); return;
-    }
-    try { await apiService.updateHoliday(updatedHoliday); handleShowNotification("Hari libur berhasil diperbarui.", "success"); await fetchData(); } catch(e) { handleShowNotification("Gagal memperbarui hari libur.", "error"); }
-  };
-  
-  const handleDeleteHoliday = async (id: string) => { 
-    showConfirm('Hapus hari libur ini?', async () => {
-        if (isDemoMode) {
-            setHolidays(prev => prev.filter(h => h.id !== id));
-            handleShowNotification("Hari libur dihapus (Demo).", "success"); return;
-        }
-        try { await apiService.deleteHoliday(id); handleShowNotification("Hari libur berhasil dihapus.", "success"); await fetchData(); } catch (e) { handleShowNotification("Gagal menghapus hari libur.", "error"); }
-    });
-  };
-  
-  const handleSaveSikap = async (studentId: string, assessment: Omit<SikapAssessment, 'studentId' | 'classId'>) => { 
-    setSikapAssessments(prev => {
-        const existing = prev.find(a => a.studentId === studentId);
-        if (existing) return prev.map(a => a.studentId === studentId ? { ...existing, ...assessment } : a);
-        return [...prev, { studentId, classId: activeClassId, ...assessment }];
-    });
-    if (!isDemoMode) await apiService.saveSikapAssessment(studentId, activeClassId, assessment);
-  };
-  
-  const handleSaveKarakter = async (studentId: string, assessment: Omit<KarakterAssessment, 'studentId' | 'classId'>) => { 
-      setKarakterAssessments(prev => {
-          const existing = prev.find(a => a.studentId === studentId);
-          if (existing) return prev.map(a => a.studentId === studentId ? { ...existing, ...assessment } : a);
-          return [...prev, { studentId, classId: activeClassId, ...assessment }];
-      });
-      if (!isDemoMode) await apiService.saveKarakterAssessment(studentId, activeClassId, assessment);
-  };
-  
-  const handleAddUserAccount = async (user: Omit<User, 'id'>) => { 
-    if (isDemoMode) {
-      const newUser = { ...user, id: `user-${Date.now()}` };
-      setUsers(prev => [...prev, newUser as User]);
-      handleShowNotification('Akun ditambahkan (Mode Demo).', 'success'); return;
-    }
-    const res = await apiService.saveUser(user as User);
-    if (res.id) { handleShowNotification('Akun baru berhasil dibuat!', 'success'); await fetchData(); }
-  };
-  
-  const handleBatchAddUserAccount = async (users: Omit<User, 'id'>[]) => { 
-    if (isDemoMode) {
-        const newUsers = users.map((u, i) => ({ ...u, id: `user-${Date.now()}-${i}` }));
-        setUsers(prev => [...prev, ...newUsers as User[]]);
-        handleShowNotification('Akun ditambahkan (Mode Demo).', 'success'); return;
-    }
-    await apiService.saveUserBatch(users); handleShowNotification(`Berhasil menambahkan ${users.length} akun!`, 'success'); await fetchData();
-  };
-  
-  const handleUpdateUserAccount = async (user: User) => { 
-    if (isDemoMode) {
-      setUsers(prev => prev.map(u => u.id === user.id ? user : u));
-      handleShowNotification('Akun diperbarui (Mode Demo).', 'success'); return;
-    }
-    await apiService.saveUser(user); handleShowNotification('Akun berhasil diperbarui!', 'success'); await fetchData();
-  };
-  
-  const handleDeleteUserAccount = async (id: string) => { 
-    if (isDemoMode) {
-        setUsers(prev => prev.filter(u => u.id !== id));
-        handleShowNotification('Akun dihapus (Mode Demo).', 'success'); return;
-    }
-    await apiService.deleteUser(id); handleShowNotification('Akun berhasil dihapus!', 'success'); await fetchData();
-  };
-  
-  const handleSaveEmploymentLink = async (link: Omit<EmploymentLink, 'id'> | EmploymentLink) => {
-    if (isDemoMode) {
-      const newLink = { ...link, id: (link as any).id || Date.now().toString() } as EmploymentLink;
-      setEmploymentLinks(prev => {
-        const exists = prev.find(l => l.id === newLink.id);
-        if (exists) return prev.map(l => l.id === newLink.id ? newLink : l);
-        return [...prev, newLink];
-      });
-      handleShowNotification('Link disimpan (Demo).', 'success');
-      return;
-    }
-    await apiService.saveEmploymentLink(link);
-    handleShowNotification('Link berhasil disimpan!', 'success');
-    await fetchData(); 
-  };
-  
-  const handleDeleteEmploymentLink = async (id: string) => {
-    showConfirm('Hapus link ini?', async () => {
-        if (isDemoMode) {
-            setEmploymentLinks(prev => prev.filter(l => l.id !== id));
-            handleShowNotification('Link dihapus (Demo).', 'success');
-            return;
-        }
-        await apiService.deleteEmploymentLink(id);
-        handleShowNotification('Link berhasil dihapus!', 'success');
-        await fetchData();
-    });
-  };
-  
-  const handleSaveReport = async (report: Omit<LearningReport, 'id'> | LearningReport) => {
-    if (isDemoMode) {
-      const newReport = { ...report, id: (report as any).id || Date.now().toString() } as LearningReport;
-      setLearningReports(prev => {
-        const exists = prev.find(r => r.id === newReport.id);
-        if (exists) return prev.map(r => r.id === newReport.id ? newReport : r);
-        return [...prev, newReport];
-      });
-      handleShowNotification('Laporan disimpan (Demo).', 'success');
-      return;
-    }
-    await apiService.saveLearningReport(report);
-    handleShowNotification('Laporan berhasil disimpan!', 'success');
-    await fetchData();
-  };
-  
-  const handleDeleteReport = async (id: string) => {
-    showConfirm('Hapus laporan ini?', async () => {
-        if (isDemoMode) {
-            setLearningReports(prev => prev.filter(r => r.id !== id));
-            handleShowNotification('Laporan dihapus (Demo).', 'success');
-            return;
-        }
-        await apiService.deleteLearningReport(id, activeClassId);
-        handleShowNotification('Laporan berhasil dihapus!', 'success');
-        await fetchData();
-    });
-  };
-  
-  const handleSaveLiaison = async (log: Omit<LiaisonLog, 'id'>) => {
-      if (isDemoMode) {
-          const newLog = { ...log, id: Date.now().toString(), status: 'Pending' } as LiaisonLog;
-          setLiaisonLogs(prev => [...prev, newLog]);
-          handleShowNotification('Pesan terkirim (Demo).', 'success');
-          return;
-      }
-      await apiService.saveLiaisonLog(log);
-      handleShowNotification('Pesan berhasil dikirim!', 'success');
-      const newLog = { ...log, id: 'temp-' + Date.now(), status: 'Pending' } as LiaisonLog;
-      setLiaisonLogs(prev => [...prev, newLog]);
-      const fetchedLogs = await apiService.getLiaisonLogs(currentUser);
-      setLiaisonLogs(fetchedLogs);
-  };
-  
-  const handleUpdateLiaisonStatus = async (ids: string[], status: 'Diterima' | 'Ditolak' | 'Selesai') => {
-      if (isDemoMode) {
-          setLiaisonLogs(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: status } : l));
-          handleShowNotification(`Status diperbarui menjadi ${status} (Demo).`, 'success');
-          return;
-      }
-      await apiService.updateLiaisonStatus(ids, status);
-      handleShowNotification(`Status laporan diperbarui: ${status}`, 'success');
-      const fetchedLogs = await apiService.getLiaisonLogs(currentUser);
-      setLiaisonLogs(fetchedLogs);
-  };
+  const handleUpdateStudent = async (updatedStudent: Student) => { setStudents(students.map(s => s.id === updatedStudent.id ? updatedStudent : s)); if (!isDemoMode) await apiService.updateStudent(updatedStudent); };
+  const handleDeleteStudent = async (id: string) => { showConfirm('Apakah Anda yakin ingin menghapus data siswa ini?', async () => { setStudents(students.filter(s => s.id !== id)); if (!isDemoMode) await apiService.deleteStudent(id); }); };
 
-  const handleSavePermissionRequest = async (date: string, records: any[]) => {
-      const typeStr = records[0]?.status;
-      const typeLabel = typeStr === 'sick' ? 'Sakit' : typeStr === 'dispensation' ? 'Dispensasi' : 'Ijin';
+  // Agendas & Extras
+  const handleAddAgenda = async (newItem: AgendaItem) => { const agendaWithClass = { ...newItem, classId: activeClassId }; setAgendas([agendaWithClass, ...agendas]); if (!isDemoMode) await apiService.createAgenda(agendaWithClass); };
+  const handleToggleAgenda = async (id: string) => { const updatedAgendas = agendas.map(item => item.id === id ? { ...item, completed: !item.completed } : item); setAgendas(updatedAgendas); if (!isDemoMode) { const item = updatedAgendas.find(a => a.id === id); if(item) await apiService.updateAgenda(item); } };
+  const handleDeleteAgenda = async (id: string) => { showConfirm('Hapus agenda ini?', async () => { setAgendas(agendas.filter(item => item.id !== id)); if (!isDemoMode) await apiService.deleteAgenda(id); }); };
+  const handleAddExtracurricular = async (item: Extracurricular) => { const itemWithClass = { ...item, classId: activeClassId }; setExtracurriculars(prev => [...prev, itemWithClass]); if (!isDemoMode) { await apiService.createExtracurricular(itemWithClass); handleShowNotification("Ekskul berhasil ditambahkan", 'success'); } };
+  const handleUpdateExtracurricular = async (updatedItem: Extracurricular) => { const itemWithClass = { ...updatedItem, classId: activeClassId }; setExtracurriculars(prev => prev.map(ex => ex.id === itemWithClass.id ? itemWithClass : ex)); if(!isDemoMode) await apiService.updateExtracurricular(itemWithClass); };
+  
+  // General & Logs
+  const handleSaveGrade = async (studentId: string, subjectId: string, gradeData: any, classId: string) => { if(!isDemoMode) await apiService.saveGrade(studentId, subjectId, gradeData, classId); };
+  const handleCreateLog = async (log: BehaviorLog) => { setCounselingLogs([log, ...counselingLogs]); if(log.point !== 0) { const student = students.find(s => s.id === log.studentId); if(student) { const newScore = Math.min(100, Math.max(0, student.behaviorScore + log.point)); handleUpdateStudent({ ...student, behaviorScore: newScore }); } } if(!isDemoMode) await apiService.createCounselingLog(log); handleShowNotification('Data konseling berhasil disimpan!', 'success'); };
+  const handleUpdateProfile = async (type: 'teacher' | 'school', data: any) => { if (type === 'teacher') { setTeacherProfile(data); if (!currentUser) return; const updatedUser: User = { ...currentUser, fullName: data.name, nip: data.nip, nuptk: data.nuptk, birthInfo: data.birthInfo, education: data.education, position: data.position, rank: data.rank, classId: data.teachingClass, email: data.email, phone: data.phone, address: data.address, photo: data.photo, signature: data.signature }; setCurrentUser(updatedUser); if (!isDemoMode) await apiService.saveUser(updatedUser); } else { setSchoolProfile(data); if (!isDemoMode) await apiService.saveProfile('school', data); } };
+  
+  // Holidays & Assessments
+  const handleAddHoliday = async (holidaysToAdd: Omit<Holiday, 'id'>[]) => { if (isDemoMode) { const newHolidays = holidaysToAdd.map(h => ({ ...h, id: Date.now().toString() + Math.random() })); setHolidays(prev => [...prev, ...newHolidays].sort((a,b) => a.date.localeCompare(b.date))); handleShowNotification("Hari libur berhasil ditambahkan (Demo).", "success"); return; } try { await apiService.saveHolidayBatch(holidaysToAdd); handleShowNotification("Hari libur berhasil disimpan!", "success"); await fetchData(); } catch (e) { handleShowNotification("Gagal menyimpan hari libur.", "error"); } };
+  const handleUpdateHoliday = async (updatedHoliday: Holiday) => { if (isDemoMode) { setHolidays(prev => prev.map(h => h.id === updatedHoliday.id ? updatedHoliday : h).sort((a,b) => a.date.localeCompare(b.date))); handleShowNotification("Hari libur diperbarui (Demo).", "success"); return; } try { await apiService.updateHoliday(updatedHoliday); handleShowNotification("Hari libur berhasil diperbarui.", "success"); await fetchData(); } catch(e) { handleShowNotification("Gagal memperbarui hari libur.", "error"); } };
+  const handleDeleteHoliday = async (id: string) => { showConfirm('Hapus hari libur ini?', async () => { if (isDemoMode) { setHolidays(prev => prev.filter(h => h.id !== id)); handleShowNotification("Hari libur dihapus (Demo).", "success"); return; } try { await apiService.deleteHoliday(id); handleShowNotification("Hari libur berhasil dihapus.", "success"); await fetchData(); } catch (e) { handleShowNotification("Gagal menghapus hari libur.", "error"); } }); };
+  const handleSaveSikap = async (studentId: string, assessment: Omit<SikapAssessment, 'studentId' | 'classId'>) => { setSikapAssessments(prev => { const existing = prev.find(a => a.studentId === studentId); if (existing) return prev.map(a => a.studentId === studentId ? { ...existing, ...assessment } : a); return [...prev, { studentId, classId: activeClassId, ...assessment }]; }); if (!isDemoMode) await apiService.saveSikapAssessment(studentId, activeClassId, assessment); };
+  const handleSaveKarakter = async (studentId: string, assessment: Omit<KarakterAssessment, 'studentId' | 'classId'>) => { setKarakterAssessments(prev => { const existing = prev.find(a => a.studentId === studentId); if (existing) return prev.map(a => a.studentId === studentId ? { ...existing, ...assessment } : a); return [...prev, { studentId, classId: activeClassId, ...assessment }]; }); if (!isDemoMode) await apiService.saveKarakterAssessment(studentId, activeClassId, assessment); };
+  
+  // Accounts
+  const handleAddUserAccount = async (user: Omit<User, 'id'>) => { if (isDemoMode) { const newUser = { ...user, id: `user-${Date.now()}` }; setUsers(prev => [...prev, newUser as User]); handleShowNotification('Akun ditambahkan (Mode Demo).', 'success'); return; } const res = await apiService.saveUser(user as User); if (res.id) { handleShowNotification('Akun baru berhasil dibuat!', 'success'); await fetchData(); } };
+  const handleBatchAddUserAccount = async (users: Omit<User, 'id'>[]) => { if (isDemoMode) { const newUsers = users.map((u, i) => ({ ...u, id: `user-${Date.now()}-${i}` })); setUsers(prev => [...prev, ...newUsers as User[]]); handleShowNotification('Akun ditambahkan (Mode Demo).', 'success'); return; } await apiService.saveUserBatch(users); handleShowNotification(`Berhasil menambahkan ${users.length} akun!`, 'success'); await fetchData(); };
+  const handleUpdateUserAccount = async (user: User) => { if (isDemoMode) { setUsers(prev => prev.map(u => u.id === user.id ? user : u)); handleShowNotification('Akun diperbarui (Mode Demo).', 'success'); return; } await apiService.saveUser(user); handleShowNotification('Akun berhasil diperbarui!', 'success'); await fetchData(); };
+  const handleDeleteUserAccount = async (id: string) => { if (isDemoMode) { setUsers(prev => prev.filter(u => u.id !== id)); handleShowNotification('Akun dihapus (Mode Demo).', 'success'); return; } await apiService.deleteUser(id); handleShowNotification('Akun berhasil dihapus!', 'success'); await fetchData(); };
+  
+  // Employment Links
+  const handleSaveEmploymentLink = async (link: Omit<EmploymentLink, 'id'> | EmploymentLink) => { if (isDemoMode) { const newLink = { ...link, id: (link as any).id || Date.now().toString() } as EmploymentLink; setEmploymentLinks(prev => { const exists = prev.find(l => l.id === newLink.id); if (exists) return prev.map(l => l.id === newLink.id ? newLink : l); return [...prev, newLink]; }); handleShowNotification('Link disimpan (Demo).', 'success'); return; } await apiService.saveEmploymentLink(link); handleShowNotification('Link berhasil disimpan!', 'success'); await fetchData(); };
+  const handleDeleteEmploymentLink = async (id: string) => { showConfirm('Hapus link ini?', async () => { if (isDemoMode) { setEmploymentLinks(prev => prev.filter(l => l.id !== id)); handleShowNotification('Link dihapus (Demo).', 'success'); return; } await apiService.deleteEmploymentLink(id); handleShowNotification('Link berhasil dihapus!', 'success'); await fetchData(); }); };
+  
+  // Learning Reports
+  const handleSaveReport = async (report: Omit<LearningReport, 'id'> | LearningReport) => { if (isDemoMode) { const newReport = { ...report, id: (report as any).id || Date.now().toString() } as LearningReport; setLearningReports(prev => { const exists = prev.find(r => r.id === newReport.id); if (exists) return prev.map(r => r.id === newReport.id ? newReport : r); return [...prev, newReport]; }); handleShowNotification('Laporan disimpan (Demo).', 'success'); return; } await apiService.saveLearningReport(report); handleShowNotification('Laporan berhasil disimpan!', 'success'); await fetchData(); };
+  const handleDeleteReport = async (id: string) => { showConfirm('Hapus laporan ini?', async () => { if (isDemoMode) { setLearningReports(prev => prev.filter(r => r.id !== id)); handleShowNotification('Laporan dihapus (Demo).', 'success'); return; } await apiService.deleteLearningReport(id, activeClassId); handleShowNotification('Laporan berhasil dihapus!', 'success'); await fetchData(); }); };
+  
+  // Liaison
+  const handleSaveLiaison = async (log: Omit<LiaisonLog, 'id'>) => { if (isDemoMode) { const newLog = { ...log, id: Date.now().toString(), status: 'Pending' } as LiaisonLog; setLiaisonLogs(prev => [...prev, newLog]); handleShowNotification('Pesan terkirim (Demo).', 'success'); return; } await apiService.saveLiaisonLog(log); handleShowNotification('Pesan berhasil dikirim!', 'success'); const newLog = { ...log, id: 'temp-' + Date.now(), status: 'Pending' } as LiaisonLog; setLiaisonLogs(prev => [...prev, newLog]); const fetchedLogs = await apiService.getLiaisonLogs(currentUser); setLiaisonLogs(fetchedLogs); };
+  const handleUpdateLiaisonStatus = async (ids: string[], status: 'Diterima' | 'Ditolak' | 'Selesai') => { if (isDemoMode) { setLiaisonLogs(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: status } : l)); handleShowNotification(`Status diperbarui menjadi ${status} (Demo).`, 'success'); return; } await apiService.updateLiaisonStatus(ids, status); handleShowNotification(`Status laporan diperbarui: ${status}`, 'success'); const fetchedLogs = await apiService.getLiaisonLogs(currentUser); setLiaisonLogs(fetchedLogs); };
 
-      if (isDemoMode) {
-          handleShowNotification(`Pengajuan ${typeLabel} tersimpan (Demo).`, 'success');
-          return;
-      }
-      for (const rec of records) {
-          await apiService.savePermissionRequest({
-              studentId: rec.studentId,
-              classId: rec.classId,
-              date: date,
-              type: rec.status,
-              reason: rec.notes
-          });
-      }
-      handleShowNotification(`Pengajuan ${typeLabel} dikirim. Menunggu konfirmasi.`, 'success');
-      const reqs = await apiService.getPermissionRequests(currentUser);
-      setPermissionRequests(reqs);
-  };
+  // Permissions
+  const handleSavePermissionRequest = async (date: string, records: any[]) => { const typeStr = records[0]?.status; const typeLabel = typeStr === 'sick' ? 'Sakit' : typeStr === 'dispensation' ? 'Dispensasi' : 'Ijin'; if (isDemoMode) { handleShowNotification(`Pengajuan ${typeLabel} tersimpan (Demo).`, 'success'); return; } for (const rec of records) { await apiService.savePermissionRequest({ studentId: rec.studentId, classId: rec.classId, date: date, type: rec.status, reason: rec.notes }); } handleShowNotification(`Pengajuan ${typeLabel} dikirim. Menunggu konfirmasi.`, 'success'); const reqs = await apiService.getPermissionRequests(currentUser); setPermissionRequests(reqs); };
 
-  const handleSaveSupportDocument = async (doc: Omit<SupportDocument, 'id'> | SupportDocument) => {
-    if (isDemoMode) {
-      const newDoc = { ...doc, id: (doc as any).id || `doc-${Date.now()}` } as SupportDocument;
-      setSupportDocuments(prev => {
-        const exists = prev.find(d => d.id === newDoc.id);
-        if (exists) return prev.map(d => d.id === newDoc.id ? newDoc : d);
-        return [newDoc, ...prev];
-      });
-      handleShowNotification('Dokumen disimpan (Demo).', 'success');
-      return;
-    }
-    await apiService.saveSupportDocument(doc);
-    handleShowNotification('Dokumen berhasil disimpan.', 'success');
-    await fetchData();
-  };
+  // Support Docs
+  const handleSaveSupportDocument = async (doc: Omit<SupportDocument, 'id'> | SupportDocument) => { if (isDemoMode) { const newDoc = { ...doc, id: (doc as any).id || `doc-${Date.now()}` } as SupportDocument; setSupportDocuments(prev => { const exists = prev.find(d => d.id === newDoc.id); if (exists) return prev.map(d => d.id === newDoc.id ? newDoc : d); return [newDoc, ...prev]; }); handleShowNotification('Dokumen disimpan (Demo).', 'success'); return; } await apiService.saveSupportDocument(doc); handleShowNotification('Dokumen berhasil disimpan.', 'success'); await fetchData(); };
+  const handleDeleteSupportDocument = async (id: string) => { showConfirm('Hapus dokumen ini?', async () => { if (isDemoMode) { setSupportDocuments(prev => prev.filter(d => d.id !== id)); handleShowNotification('Dokumen dihapus (Demo).', 'success'); return; } await apiService.deleteSupportDocument(id, activeClassId); handleShowNotification('Dokumen berhasil dihapus.', 'success'); await fetchData(); }); };
 
-  const handleDeleteSupportDocument = async (id: string) => {
-    showConfirm('Hapus dokumen ini?', async () => {
-      if (isDemoMode) {
-        setSupportDocuments(prev => prev.filter(d => d.id !== id));
-        handleShowNotification('Dokumen dihapus (Demo).', 'success');
-        return;
-      }
-      await apiService.deleteSupportDocument(id, activeClassId);
-      handleShowNotification('Dokumen berhasil dihapus.', 'success');
-      await fetchData();
-    });
-  };
+  // School Assets
+  const handleSaveSchoolAsset = async (asset: SchoolAsset) => { if (isDemoMode) { setSchoolAssets(prev => { const exists = prev.find(a => a.id === asset.id); if (exists) return prev.map(a => a.id === asset.id ? asset : a); return [...prev, { ...asset, id: asset.id || `asset-${Date.now()}` }]; }); handleShowNotification('Data aset disimpan (Demo).', 'success'); return; } await apiService.saveSchoolAsset(asset); handleShowNotification('Data sarana prasarana berhasil disimpan.', 'success'); await fetchData(); };
+  const handleDeleteSchoolAsset = async (id: string) => { if (isDemoMode) { setSchoolAssets(prev => prev.filter(a => a.id !== id)); handleShowNotification('Data aset dihapus (Demo).', 'success'); return; } await apiService.deleteSchoolAsset(id); handleShowNotification('Data sarana prasarana berhasil dihapus.', 'success'); await fetchData(); };
   
   const fetchData = async () => {
-    // ... (fetchData implementation unchanged)
     setLoading(true);
     setError(null);
     setIsDemoMode(false);
@@ -757,8 +486,8 @@ const App: React.FC = () => {
     }
 
     try {
-      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions, fSupportDocs] = await Promise.all([
-        currentUser?.role === 'admin' ? apiService.getUsers(currentUser) : Promise.resolve([]),
+      const promises = [
+        currentUser?.role === 'admin' || currentUser?.role === 'supervisor' ? apiService.getUsers(currentUser) : Promise.resolve([]),
         apiService.getStudents(currentUser),
         apiService.getAgendas(currentUser),
         apiService.getGrades(currentUser),
@@ -774,34 +503,74 @@ const App: React.FC = () => {
         apiService.getLiaisonLogs(currentUser), 
         apiService.getPermissionRequests(currentUser),
         apiService.getSupportDocuments(currentUser),
-      ]);
+      ];
+
+      // Add inventory fetch if admin/supervisor
+      if (currentUser?.role === 'admin' || currentUser?.role === 'supervisor') {
+          promises.push(apiService.getInventory('ALL'));
+      } else {
+          promises.push(Promise.resolve([]));
+      }
+
+      // Add School Assets Fetch
+      if (currentUser?.role === 'admin' || currentUser?.role === 'supervisor') {
+          promises.push(apiService.getSchoolAssets());
+      } else {
+          promises.push(Promise.resolve([]));
+      }
+
+      // Add BOS Fetch
+      if (currentUser?.role === 'admin' || currentUser?.role === 'supervisor') {
+          promises.push(apiService.getBOS());
+      } else {
+          promises.push(Promise.resolve([]));
+      }
+
+      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions, fSupportDocs, fInventory, fSchoolAssets, fBOS] = await Promise.all(promises);
       
-      setUsers(fUsers);
-      setStudents(fStudents);
-      setAgendas(fAgendas.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setGrades(fGrades);
-      setCounselingLogs(fCounseling.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setHolidays(fHolidays.sort((a,b) => a.date.localeCompare(b.date)));
-      setAllAttendanceRecords(fAttendance);
-      setSikapAssessments(fSikap);
-      setKarakterAssessments(fKarakter);
-      setEmploymentLinks(fLinks);
-      setLearningReports(fReports);
-      setLiaisonLogs(fLiaison);
-      setSupportDocuments(fSupportDocs);
+      setUsers(fUsers as User[]);
+      setStudents(fStudents as Student[]);
+      setAgendas((fAgendas as AgendaItem[]).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setGrades(fGrades as GradeRecord[]);
+      setCounselingLogs((fCounseling as BehaviorLog[]).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setHolidays((fHolidays as Holiday[]).sort((a,b) => a.date.localeCompare(b.date)));
+      setAllAttendanceRecords(fAttendance as any[]);
+      setSikapAssessments(fSikap as SikapAssessment[]);
+      setKarakterAssessments(fKarakter as KarakterAssessment[]);
+      setEmploymentLinks(fLinks as EmploymentLink[]);
+      setLearningReports(fReports as LearningReport[]);
+      setLiaisonLogs(fLiaison as LiaisonLog[]);
+      setSupportDocuments(fSupportDocs as SupportDocument[]);
       
-      const hydratedPermissions = fPermissions.map((p: any) => ({
+      // Set global inventory state
+      if (Array.isArray(fInventory)) {
+          setInventory(fInventory as InventoryItem[]);
+      }
+
+      // Set global school assets state
+      if (Array.isArray(fSchoolAssets)) {
+          setSchoolAssets(fSchoolAssets as SchoolAsset[]);
+      }
+
+      // Set BOS state
+      if (Array.isArray(fBOS)) {
+          setBosTransactions(fBOS as BOSTransaction[]);
+      }
+      
+      const hydratedPermissions = (fPermissions as PermissionRequest[]).map((p: any) => ({
           ...p,
-          studentName: fStudents.find((s: Student) => s.id === p.studentId)?.name || 'Siswa Tidak Dikenal'
+          studentName: (fStudents as Student[]).find((s: Student) => s.id === p.studentId)?.name || 'Siswa Tidak Dikenal'
       }));
       setPermissionRequests(hydratedPermissions);
       
       if (fExtracurriculars) {
-          setExtracurriculars(fExtracurriculars);
+          setExtracurriculars(fExtracurriculars as Extracurricular[]);
       } else {
           setExtracurriculars([]);
       }
       
+      const profilesTyped = fProfiles as { teacher?: TeacherProfileData, school?: SchoolProfileData };
+
       if (currentUser) {
           setTeacherProfile(prev => ({
               ...prev,
@@ -821,7 +590,7 @@ const App: React.FC = () => {
           }));
       }
 
-      if(fProfiles.school) setSchoolProfile(fProfiles.school);
+      if(profilesTyped.school) setSchoolProfile(profilesTyped.school);
 
     } catch (err: any) {
       console.warn("Gagal memuat data:", err);
@@ -895,16 +664,32 @@ const App: React.FC = () => {
                       allAttendance={allAttendanceRecords}
                       grades={grades}
                       liaisonLogs={liaisonLogs}
-                      agendas={filteredAgendas} // Passed agendas
-                      behaviorLogs={filteredCounseling.filter(c => c.studentId === myStudentData.id)} // Passed personal behavior logs
-                      permissionRequests={permissionRequests.filter(p => p.studentId === myStudentData.id)} // Passed personal requests
-                      karakterAssessments={karakterAssessments.filter(k => k.studentId === myStudentData.id)} // Passed personal character assessment
+                      agendas={filteredAgendas}
+                      behaviorLogs={filteredCounseling.filter(c => c.studentId === myStudentData.id)}
+                      permissionRequests={permissionRequests.filter(p => p.studentId === myStudentData.id)}
+                      karakterAssessments={karakterAssessments.filter(k => k.studentId === myStudentData.id)}
                       onSavePermission={handleSavePermissionRequest}
                       onSaveLiaison={handleSaveLiaison}
                       onSaveKarakter={handleSaveKarakter}
-                      onUpdateStudent={handleUpdateStudent} // NEW: Pass student updater
+                      onUpdateStudent={handleUpdateStudent}
                    />;
         }
+        
+        if (isSupervisor) {
+            return <SupervisorOverview
+                  students={students} 
+                  users={users}       
+                  attendanceRecords={allAttendanceRecords}
+                  grades={grades}
+                  liaisonLogs={liaisonLogs}
+                  permissionRequests={permissionRequests}
+                  counselingLogs={counselingLogs}
+                  extracurriculars={extracurriculars}
+                  inventory={inventory}
+                  schoolAssets={schoolAssets}
+               />;
+        }
+
         const teachers = users.filter(u => u.role === 'guru');
         return <Dashboard 
                   students={filteredStudents} 
@@ -918,11 +703,40 @@ const App: React.FC = () => {
                   subjects={MOCK_SUBJECTS}
                   adminCompleteness={adminPercentage}
                   employmentLinks={employmentLinks}
-                  pendingPermissions={pendingPermissions} // Passed Pending Permissions
-                  onOpenPermissionModal={() => setIsPermissionModalOpen(true)} // Modal Trigger
-                  schoolProfile={schoolProfile} // Passed School Profile for Running Text
+                  pendingPermissions={pendingPermissions} 
+                  onOpenPermissionModal={() => setIsPermissionModalOpen(true)} 
+                  schoolProfile={schoolProfile} 
                />;
-      // ... (other cases using updated colors implicitly)
+      case 'supervisor-overview':
+        if (!isSupervisor) { setCurrentView('dashboard'); return null; }
+        return <SupervisorOverview
+                  students={students}
+                  users={users}
+                  attendanceRecords={allAttendanceRecords}
+                  grades={grades}
+                  liaisonLogs={liaisonLogs}
+                  permissionRequests={permissionRequests}
+                  counselingLogs={counselingLogs}
+                  extracurriculars={extracurriculars}
+                  inventory={inventory} 
+                  schoolAssets={schoolAssets}
+               />;
+      case 'school-assets':
+        if (!isAdminRole && !isSupervisor) { setCurrentView('dashboard'); return null; }
+        return <SchoolAssetsAdmin 
+                  assets={schoolAssets}
+                  onSave={handleSaveSchoolAsset}
+                  onDelete={handleDeleteSchoolAsset}
+               />;
+      case 'bos-admin': // NEW CASE
+        if (!isAdminRole && !isSupervisor) { setCurrentView('dashboard'); return null; }
+        return <BOSManagement
+                  transactions={bosTransactions}
+                  onSave={handleSaveBOS}
+                  onDelete={handleDeleteBOS}
+                  schoolProfile={schoolProfile}
+                  isReadOnly={isSupervisor} // Supervisor Read Only
+               />;
       case 'student-monitor':
         if (!isAdminRole && !isSupervisor && currentUser.role !== 'guru') { setCurrentView('dashboard'); return null; }
         return <StudentMonitor 
@@ -933,9 +747,9 @@ const App: React.FC = () => {
                   liaisonLogs={filteredLiaison}
                   onSaveLiaison={handleSaveLiaison}
                   onSavePermission={handleSavePermissionRequest}
-                  onUpdateLiaisonStatus={handleUpdateLiaisonStatus} // Passed updater
+                  onUpdateLiaisonStatus={handleUpdateLiaisonStatus}
                   classId={activeClassId}
-                  onUpdateStudent={handleUpdateStudent} // NEW: Pass student updater
+                  onUpdateStudent={handleUpdateStudent}
                />;
       case 'liaison-book': 
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
@@ -943,7 +757,7 @@ const App: React.FC = () => {
                   logs={filteredLiaison}
                   students={students} 
                   onReply={handleSaveLiaison}
-                  onUpdateStatus={handleUpdateLiaisonStatus} // Passed updater
+                  onUpdateStatus={handleUpdateLiaisonStatus}
                   classId={activeClassId}
                />;
       case 'pendahuluan':
@@ -976,8 +790,8 @@ const App: React.FC = () => {
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
         return <AttendanceView 
                   students={filteredStudents}
-                  allStudents={students} // PASS ALL STUDENTS FOR GLOBAL SCANNING
-                  allAttendanceRecords={filteredAttendance} // Passes robustly filtered attendance
+                  allStudents={students}
+                  allAttendanceRecords={filteredAttendance}
                   holidays={filteredHolidays}
                   onRefreshData={fetchData}
                   onAddHoliday={handleAddHoliday}
@@ -998,7 +812,7 @@ const App: React.FC = () => {
                   onSave={handleSaveGrade} 
                   onShowNotification={handleShowNotification} 
                   classId={activeClassId}
-                  isReadOnly={isGlobalReadOnly} // Supervisor is ReadOnly
+                  isReadOnly={isGlobalReadOnly}
                   allowedSubjects={allowedSubjects}
                 />;
       case 'attitude':
@@ -1021,16 +835,16 @@ const App: React.FC = () => {
                   onSave={handleSaveReport}
                   onDelete={handleDeleteReport}
                   classId={activeClassId}
-                  teachers={teachersList} // Pass teachers list
-                  onNavigateToJournal={handleNavigateToJournal} // Pass navigation handler
+                  teachers={teachersList}
+                  onNavigateToJournal={handleNavigateToJournal}
                />;
-      case 'learning-journal': // NEW CASE
+      case 'learning-journal':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
         return <LearningJournalView 
                   classId={activeClassId}
                   isReadOnly={isGlobalReadOnly}
-                  targetDate={journalTargetDate} // Pass target date state
-                  onSaveBatch={handleSaveJournalAndAutoReport} // Use Auto-Report Logic
+                  targetDate={journalTargetDate}
+                  onSaveBatch={handleSaveJournalAndAutoReport}
                />;
       case 'counseling':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
@@ -1066,7 +880,8 @@ const App: React.FC = () => {
                   holidays={filteredHolidays}
                   onAddHoliday={handleAddHoliday}
                   classId={activeClassId}
-                  userRole={currentUser.role} // NEW: Pass user role
+                  userRole={currentUser.role}
+                  users={users}
                 />;
       case 'support-docs':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
@@ -1095,7 +910,7 @@ const App: React.FC = () => {
         }
         return <AccountManagement
                   users={users}
-                  students={students} // PASSED PROP
+                  students={students}
                   onAdd={handleAddUserAccount}
                   onBatchAdd={handleBatchAddUserAccount}
                   onUpdate={handleUpdateUserAccount}
@@ -1122,6 +937,8 @@ const App: React.FC = () => {
             liaisonLogs,
             permissionRequests,
             schoolProfile,
+            schoolAssets,
+            bosTransactions // Include BOS
         };
         return <BackupRestore 
                   data={fullBackupData} 
@@ -1141,7 +958,7 @@ const App: React.FC = () => {
                   employmentLinks={employmentLinks}
                   pendingPermissions={pendingPermissions} 
                   onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
-                  schoolProfile={schoolProfile} // Added prop
+                  schoolProfile={schoolProfile}
                />;
     }
   };
@@ -1187,7 +1004,7 @@ const App: React.FC = () => {
             {canSelectClass && (
                 <div className="hidden lg:flex items-center bg-[#CAF4FF]/30 border border-[#A0DEFF]/50 rounded-lg px-3 py-1.5 shadow-sm">
                     <Filter size={14} className="text-[#5AB2FF] mr-2" />
-                    <span className="text-xs font-bold text-gray-500 uppercase mr-2">Pilih Kelas:</span>
+                    <span className="text-xs font-bold text-gray-50 uppercase mr-2">Pilih Kelas:</span>
                     <select 
                         value={selectedClassId} 
                         onChange={(e) => setSelectedClassId(e.target.value)}
@@ -1271,7 +1088,6 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Mobile Filter for Admin/Supervisor */}
         {canSelectClass && (
             <div className="lg:hidden bg-white border-b px-4 py-2 flex items-center justify-center shadow-sm relative z-20">
                 <span className="text-xs font-bold text-gray-500 uppercase mr-2">Kelas Aktif:</span>
@@ -1301,7 +1117,6 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Permission Modal & Notification - unchanged */}
       {isPermissionModalOpen && !isStudentRole && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm no-print">
               <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
@@ -1363,7 +1178,6 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* NEW CUSTOM ALERT/CONFIRM MODAL */}
       <CustomModal 
         isOpen={modalConfig.isOpen}
         type={modalConfig.type}

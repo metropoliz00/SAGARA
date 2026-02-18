@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Student, TeacherProfileData, OrganizationStructure } from '../../types';
-import { Users, User, GripVertical, Plus, Save, Trash2, PenTool, Loader2, X } from 'lucide-react';
+import { Student, TeacherProfileData, OrganizationStructure, User } from '../../types';
+import { Users, User as UserIcon, GripVertical, Plus, Save, Trash2, PenTool, Loader2, X } from 'lucide-react';
 
 interface OrganizationChartTabProps {
   students: Student[];
   teacherProfile?: TeacherProfileData;
   initialStructure: OrganizationStructure;
   onSave: (structure: OrganizationStructure) => void;
+  users?: User[]; // New prop to lookup teachers
+  classId: string; // New prop to identify current class
 }
 
 const PREDEFINED_ROLES = [
@@ -19,7 +21,7 @@ const PREDEFINED_ROLES = [
     { id: 'treasurer2', label: 'Bendahara 2' },
 ];
 
-const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, teacherProfile, initialStructure, onSave }) => {
+const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, teacherProfile, initialStructure, onSave, users, classId }) => {
     const [structure, setStructure] = useState<OrganizationStructure>(initialStructure || { roles: {}, sections: [] });
     const [editingSection, setEditingSection] = useState<{id: string, name: string} | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -27,6 +29,29 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
     useEffect(() => {
         setStructure(initialStructure || { roles: {}, sections: [] });
     }, [initialStructure]);
+
+    // Lookup the correct teacher for this specific class
+    const classTeacher = useMemo(() => {
+        if (users && users.length > 0) {
+            // Normalize comparison to be case-insensitive just in case
+            const foundTeacher = users.find(u => 
+                u.role === 'guru' && 
+                u.classId && 
+                String(u.classId).toLowerCase() === String(classId).toLowerCase()
+            );
+            
+            if (foundTeacher) {
+                return {
+                    name: foundTeacher.fullName,
+                    photo: foundTeacher.photo,
+                    // If we needed more fields we could map them here
+                };
+            }
+        }
+        // Fallback to the generic profile passed down (usually current user)
+        // But only if we couldn't find a specific match, or if users list wasn't provided
+        return teacherProfile;
+    }, [users, classId, teacherProfile]);
 
     const { unassignedStudents, studentMap } = useMemo(() => {
         const assignedIds = new Set(Object.values(structure.roles).filter(Boolean));
@@ -161,16 +186,26 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
                     </button>
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm min-h-[600px] text-center">
-                    <h3 className="font-bold text-xl uppercase mb-8">Struktur Organisasi Kelas</h3>
+                    <h3 className="font-bold text-xl uppercase mb-8">STRUKTUR ORGANISASI KELAS {classId}</h3>
                     
                     {/* Level 1: Guru */}
                     <div className="flex justify-center mb-4">
                         <div className="flex flex-col items-center">
                             <span className="text-xs font-bold text-gray-400 uppercase">Guru Kelas</span>
                             <div className="w-40 h-24 mt-1 rounded-lg flex items-center justify-center p-2 text-center bg-amber-100 border-2 border-amber-200 shadow-lg">
-                                <div className="flex flex-col items-center" title={teacherProfile?.name}>
-                                    <img src={teacherProfile?.photo} alt={teacherProfile?.name} className="w-10 h-10 rounded-full object-cover"/>
-                                    <p className="text-xs font-bold text-gray-800 mt-1 leading-tight">{teacherProfile?.name?.split(' ').slice(0, 2).join(' ')}</p>
+                                <div className="flex flex-col items-center" title={classTeacher?.name || 'Belum ada guru'}>
+                                    {classTeacher?.photo ? (
+                                        <img src={classTeacher.photo} alt={classTeacher.name} className="w-10 h-10 rounded-full object-cover"/>
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full bg-amber-300 flex items-center justify-center text-amber-700">
+                                            <UserIcon size={20} />
+                                        </div>
+                                    )}
+                                    <p className="text-xs font-bold text-gray-800 mt-1 leading-tight">
+                                        {classTeacher?.name 
+                                            ? classTeacher.name.split(' ').slice(0, 2).join(' ') 
+                                            : 'Wali Kelas Belum Diatur'}
+                                    </p>
                                 </div>
                             </div>
                         </div>

@@ -1,378 +1,350 @@
 
-// ... existing imports
-import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, OrganizationStructure } from '../types';
+// ... (Previous imports and isApiConfigured remain the same)
+import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, OrganizationStructure, SchoolAsset, BOSTransaction } from '../types';
 
-// PENTING: Ganti URL di bawah ini dengan URL Deployment Web App Google Apps Script Anda yang baru.
-const API_URL = 'https://script.google.com/macros/s/AKfycbzvgGLjlU2-P4gmyf4iji6czq1aipAvQ02Ifeo8tseGq6UIWqhQyf0Otg-vxr7VwClM/exec';
-
-// ... (existing code for ApiResponse, isApiConfigured, getCategoryColor, fetchApi)
-
-interface ApiResponse<T> {
-  status: 'success' | 'error';
-  data?: T;
-  message?: string;
-  id?: string;
-}
+// PENTING: Menggunakan URL Deployment yang valid dan stabil.
+const API_URL = 'https://script.google.com/macros/s/AKfycbz5qmDMX0blcz50K3SlIwLrale8l_U_d_iJtnepVV2nm_g6OuSEy6HVM-r6ABHLs7qx/exec';
 
 const isApiConfigured = () => {
-  return API_URL.startsWith('https://script.google.com') && !API_URL.includes('MASUKKAN_DEPLOYMENT_ID_BARU_DISINI');
+  return API_URL && API_URL.startsWith('http');
 };
 
-const getCategoryColor = (category: string = ''): string => {
-  const cat = category.toLowerCase();
-  if (cat.includes('wajib') || cat.includes('pramuka')) return 'bg-amber-600';
-  if (cat.includes('seni') || cat.includes('tari') || cat.includes('hadrah')) return 'bg-emerald-600';
-  if (cat.includes('olah') || cat.includes('tenis')) return 'bg-blue-600';
-  if (cat.includes('bela') || cat.includes('karate') || cat.includes('silat')) return 'bg-rose-600';
-  if (cat.includes('agama') || cat.includes('jus')) return 'bg-teal-600';
-  if (cat.includes('tekno') || cat.includes('tik')) return 'bg-cyan-600';
-  if (cat.includes('tekno') || cat.includes('tongklek')) return 'bg-orange-600';
-  return 'bg-indigo-600'; 
-};
+const fetchApi = async (method: string, body: any = null) => {
+  if (!isApiConfigured()) {
+    throw new Error("API URL belum dikonfigurasi.");
+  }
 
-const fetchApi = async (method: 'GET' | 'POST', params?: any) => {
-    if (!isApiConfigured()) {
-        throw new Error("API URL belum dikonfigurasi.");
-    }
-    const options: RequestInit = {
-        method: method,
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    };
-    let url = API_URL;
-    if (method === 'GET' && params) {
-      const searchParams = new URLSearchParams();
-      for (const key in params) {
-        if (typeof params[key] === 'object' && params[key] !== null) {
-          searchParams.append(key, JSON.stringify(params[key]));
-        } else {
-          searchParams.append(key, params[key]);
-        }
-      }
-      url += `?${searchParams.toString()}`;
-    }
-    else if (method === 'POST' && params) options.body = JSON.stringify(params);
+  const options: RequestInit = {
+    method: 'POST',
+    redirect: 'follow', // Essential for Google Apps Script Web Apps
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8', // Avoids CORS preflight issues
+    },
+    body: JSON.stringify(body)
+  };
 
-    try {
-        const response = await fetch(url, options);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+  try {
+    const response = await fetch(API_URL, options);
+    
+    if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+    }
+
+    // Handle HTML error pages from Google Scripts (e.g. 404/500/Permissions)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") === -1) {
         const text = await response.text();
-        return JSON.parse(text);
-    } catch (error: any) {
-        if (error.name === 'TypeError' || error.message === 'Failed to fetch') {
-            throw new Error("Gagal menghubungi server.");
-        }
-        throw error;
+        console.error("API returned non-JSON response:", text.substring(0, 500));
+        throw new Error("Server response is not valid JSON. Please check backend deployment.");
     }
-};
 
-type AttendanceRecord = { studentId: string; classId: string; status: 'present' | 'sick' | 'permit' | 'alpha'; notes: string };
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+        console.warn("Network error or CORS issue accessing API");
+        throw new Error("Tidak dapat terhubung ke server (Network/CORS Error).");
+    }
+    console.error("API Error:", error);
+    throw error;
+  }
+};
 
 export const apiService = {
   isConfigured: isApiConfigured,
 
-  // --- Auth ---
-  login: async (username: string, password: string): Promise<User | null> => {
-      if (!isApiConfigured()) {
-          if (username === 'admin' && password === '123456') {
-              return { id: 'admin', username: 'admin', fullName: 'Administrator', position: 'Admin Sekolah', role: 'admin' };
-          }
-          return null;
-      }
-      const result = await fetchApi('POST', { action: 'login', payload: { username, password } });
-      
-      if (result.status === 'success' && result.data) {
-          return result.data;
-      }
-      if (result.status === 'error') {
-          throw new Error(result.message || 'Login gagal.');
-      }
-      return null;
+  // --- Auth & Users ---
+  login: async (username: string, password?: string): Promise<User | null> => {
+    const res = await fetchApi('POST', { action: 'login', payload: { username, password } });
+    if (res.status === 'success') return res.data;
+    return null;
   },
-
-  getUsers: async (user: User | null): Promise<User[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getUsers', user });
-    return result.status === 'success' && result.data ? result.data : [];
+  getUsers: async (currentUser: User | null): Promise<User[]> => {
+    const res = await fetchApi('POST', { action: 'getUsers', user: currentUser });
+    return res.status === 'success' ? res.data : [];
   },
-
-  saveUser: async (user: User) => {
-    return await fetchApi('POST', { action: 'saveUser', payload: user });
+  saveUser: async (user: User): Promise<User> => {
+    const res = await fetchApi('POST', { action: 'saveUser', payload: user });
+    return res.status === 'success' ? res.data : user;
   },
-
-  saveUserBatch: async (users: Omit<User, 'id'>[]) => {
-    return await fetchApi('POST', { action: 'saveUserBatch', payload: { users } });
+  saveUserBatch: async (users: Omit<User, 'id'>[]): Promise<void> => {
+    await fetchApi('POST', { action: 'saveUserBatch', payload: { users } });
   },
-
-  deleteUser: async (id: string) => {
-    return await fetchApi('POST', { action: 'deleteUser', id });
+  deleteUser: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteUser', id });
   },
-
-  syncStudentAccounts: async () => {
+  syncStudentAccounts: async (): Promise<{ status: string; message: string }> => {
     return await fetchApi('POST', { action: 'syncStudentAccounts' });
   },
 
   // --- Students ---
-  getStudents: async (user: User | null): Promise<Student[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getStudents', user });
-    return result.status === 'success' && result.data ? result.data : [];
+  getStudents: async (currentUser: User | null): Promise<Student[]> => {
+    const res = await fetchApi('POST', { action: 'getStudents', user: currentUser });
+    return res.status === 'success' ? res.data : [];
   },
-  createStudent: async (student: Omit<Student, 'id'>) => {
-    return await fetchApi('POST', { action: 'createStudent', payload: student });
+  createStudent: async (student: Omit<Student, 'id'>): Promise<Student> => {
+    const res = await fetchApi('POST', { action: 'createStudent', payload: student });
+    return res.status === 'success' ? res.data : { ...student, id: 'temp' } as Student;
   },
-  createStudentBatch: async (students: Omit<Student, 'id'>[]) => {
+  createStudentBatch: async (students: Omit<Student, 'id'>[]): Promise<any> => {
     return await fetchApi('POST', { action: 'createStudentBatch', payload: { students } });
   },
-  updateStudent: async (student: Student) => {
-    return await fetchApi('POST', { action: 'updateStudent', payload: student });
+  updateStudent: async (student: Student): Promise<void> => {
+    await fetchApi('POST', { action: 'updateStudent', payload: student });
   },
-  deleteStudent: async (id: string) => {
-    return await fetchApi('POST', { action: 'deleteStudent', id: id });
+  deleteStudent: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteStudent', id });
+  },
+
+  // --- Agendas ---
+  getAgendas: async (currentUser: User | null): Promise<AgendaItem[]> => {
+    const res = await fetchApi('POST', { action: 'getAgendas', user: currentUser });
+    return res.status === 'success' ? res.data : [];
+  },
+  createAgenda: async (agenda: AgendaItem): Promise<void> => {
+    await fetchApi('POST', { action: 'createAgenda', payload: agenda });
+  },
+  updateAgenda: async (agenda: AgendaItem): Promise<void> => {
+    await fetchApi('POST', { action: 'updateAgenda', payload: agenda });
+  },
+  deleteAgenda: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteAgenda', id });
+  },
+
+  // --- Grades ---
+  getGrades: async (currentUser: User | null): Promise<GradeRecord[]> => {
+    const res = await fetchApi('POST', { action: 'getGrades', user: currentUser });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveGrade: async (studentId: string, subjectId: string, gradeData: GradeData, classId: string): Promise<void> => {
+    await fetchApi('POST', { action: 'saveGrade', payload: { studentId, subjectId, gradeData, classId } });
+  },
+
+  // --- Counseling ---
+  getCounselingLogs: async (currentUser: User | null): Promise<BehaviorLog[]> => {
+    const res = await fetchApi('POST', { action: 'getCounselingLogs', user: currentUser });
+    return res.status === 'success' ? res.data : [];
+  },
+  createCounselingLog: async (log: BehaviorLog): Promise<void> => {
+    await fetchApi('POST', { action: 'createCounselingLog', payload: log });
+  },
+
+  // --- Extracurriculars ---
+  getExtracurriculars: async (currentUser: User | null): Promise<Extracurricular[]> => {
+    const res = await fetchApi('POST', { action: 'getExtracurriculars', user: currentUser });
+    return res.status === 'success' ? res.data : [];
+  },
+  createExtracurricular: async (extra: Extracurricular): Promise<void> => {
+    await fetchApi('POST', { action: 'createExtracurricular', payload: extra });
+  },
+  updateExtracurricular: async (extra: Extracurricular): Promise<void> => {
+    await fetchApi('POST', { action: 'updateExtracurricular', payload: extra });
+  },
+  deleteExtracurricular: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteExtracurricular', id });
+  },
+
+  // --- Profiles ---
+  getProfiles: async (): Promise<{ teacher?: TeacherProfileData, school?: SchoolProfileData }> => {
+    const res = await fetchApi('POST', { action: 'getProfiles' });
+    return res.status === 'success' ? res.data : {};
+  },
+  saveProfile: async (type: 'teacher' | 'school', data: any): Promise<void> => {
+    await fetchApi('POST', { action: 'saveProfile', payload: { type, data } });
+  },
+
+  // --- Holidays ---
+  getHolidays: async (currentUser: User | null): Promise<Holiday[]> => {
+    const res = await fetchApi('POST', { action: 'getHolidays' });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveHolidayBatch: async (holidays: Omit<Holiday, 'id'>[]): Promise<void> => {
+    await fetchApi('POST', { action: 'saveHolidayBatch', payload: { holidays } });
+  },
+  updateHoliday: async (holiday: Holiday): Promise<void> => {
+    await fetchApi('POST', { action: 'updateHoliday', payload: holiday });
+  },
+  deleteHoliday: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteHoliday', id });
+  },
+
+  // --- Attendance ---
+  getAttendance: async (currentUser: User | null): Promise<any[]> => {
+    const res = await fetchApi('POST', { action: 'getAttendance', user: currentUser });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveAttendance: async (date: string, records: any[]): Promise<void> => {
+    await fetchApi('POST', { action: 'saveAttendance', payload: { date, records } });
+  },
+  saveAttendanceBatch: async (batchData: { date: string, records: any[] }[]): Promise<void> => {
+    await fetchApi('POST', { action: 'saveAttendanceBatch', payload: { batchData } });
   },
 
   // --- Sikap & Karakter ---
-  // ... (Rest of existing methods remain unchanged)
-  getSikapAssessments: async (user: User | null): Promise<SikapAssessment[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getSikapAssessments', user });
-    return result.status === 'success' && result.data ? result.data : [];
+  getSikapAssessments: async (currentUser: User | null): Promise<SikapAssessment[]> => {
+    const res = await fetchApi('POST', { action: 'getSikapAssessments', user: currentUser });
+    return res.status === 'success' ? res.data : [];
   },
-  saveSikapAssessment: async (studentId: string, classId: string, assessment: Omit<SikapAssessment, 'studentId' | 'classId'>) => {
-    return await fetchApi('POST', { action: 'saveSikapAssessment', payload: { studentId, classId, assessment } });
+  saveSikapAssessment: async (studentId: string, classId: string, assessment: any): Promise<void> => {
+    await fetchApi('POST', { action: 'saveSikapAssessment', payload: { studentId, classId, assessment } });
   },
-  getKarakterAssessments: async (user: User | null): Promise<KarakterAssessment[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getKarakterAssessments', user });
-    return result.status === 'success' && result.data ? result.data : [];
+  getKarakterAssessments: async (currentUser: User | null): Promise<KarakterAssessment[]> => {
+    const res = await fetchApi('POST', { action: 'getKarakterAssessments', user: currentUser });
+    return res.status === 'success' ? res.data : [];
   },
-  saveKarakterAssessment: async (studentId: string, classId: string, assessment: Omit<KarakterAssessment, 'studentId' | 'classId'>) => {
-    return await fetchApi('POST', { action: 'saveKarakterAssessment', payload: { studentId, classId, assessment } });
+  saveKarakterAssessment: async (studentId: string, classId: string, assessment: any): Promise<void> => {
+    await fetchApi('POST', { action: 'saveKarakterAssessment', payload: { studentId, classId, assessment } });
+  },
+
+  // --- Employment Links ---
+  getEmploymentLinks: async (): Promise<EmploymentLink[]> => {
+    const res = await fetchApi('POST', { action: 'getEmploymentLinks' });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveEmploymentLink: async (link: any): Promise<void> => {
+    await fetchApi('POST', { action: 'saveEmploymentLink', payload: link });
+  },
+  deleteEmploymentLink: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteEmploymentLink', id });
   },
 
   // --- Inventory ---
   getInventory: async (classId: string): Promise<InventoryItem[]> => {
-    if (!isApiConfigured()) return [];
-    const res = await fetchApi('GET', { action: 'getInventory', classId });
-    return res.status === 'success' && res.data ? res.data : [];
+    const res = await fetchApi('POST', { action: 'getInventory', classId });
+    return res.status === 'success' ? res.data : [];
   },
-  saveInventory: async (item: InventoryItem) => {
-    return await fetchApi('POST', { action: 'saveInventory', payload: item });
+  saveInventory: async (item: InventoryItem): Promise<void> => {
+    await fetchApi('POST', { action: 'saveInventory', payload: item });
   },
-  deleteInventory: async (id: string, classId: string) => {
+  deleteInventory: async (id: string, classId: string): Promise<any> => {
     return await fetchApi('POST', { action: 'deleteInventory', id, classId });
   },
 
   // --- Guests ---
   getGuests: async (classId: string): Promise<Guest[]> => {
-    if (!isApiConfigured()) return [];
-    const res = await fetchApi('GET', { action: 'getGuests', classId });
-    return res.status === 'success' && res.data ? res.data : [];
+    const res = await fetchApi('POST', { action: 'getGuests', classId });
+    return res.status === 'success' ? res.data : [];
   },
-  saveGuest: async (guest: Guest) => {
-    return await fetchApi('POST', { action: 'saveGuest', payload: guest });
+  saveGuest: async (guest: Guest): Promise<void> => {
+    await fetchApi('POST', { action: 'saveGuest', payload: guest });
   },
-  deleteGuest: async (id: string, classId: string) => {
+  deleteGuest: async (id: string, classId: string): Promise<any> => {
     return await fetchApi('POST', { action: 'deleteGuest', id, classId });
   },
 
   // --- Class Config (Schedule, Piket, Seating, KKTP) ---
-  getClassConfig: async (classId: string): Promise<{schedule: ScheduleItem[], piket: PiketGroup[], seats: SeatingLayouts, kktp?: Record<string, number>, academicCalendar?: AcademicCalendarData, timeSlots?: string[], organization?: OrganizationStructure}> => {
-     const defaultConfig = {schedule: [], piket: [], seats: { classical: [], groups: [], ushape: [] }, academicCalendar: {}, timeSlots: [], organization: { roles: {}, sections: [] }};
+  getClassConfig: async (classId: string): Promise<{
+      schedule: ScheduleItem[], 
+      piket: PiketGroup[], 
+      seats: SeatingLayouts, 
+      kktp?: Record<string, number>, 
+      academicCalendar?: AcademicCalendarData, 
+      timeSlots?: string[], 
+      organization?: OrganizationStructure,
+      settings?: { showStudentRecap?: boolean } 
+  }> => {
+     const defaultConfig = {schedule: [], piket: [], seats: { classical: [], groups: [], ushape: [] }, academicCalendar: {}, timeSlots: [], organization: { roles: {}, sections: [] }, settings: {} };
      if (!isApiConfigured() || !classId) return defaultConfig;
      
-     const res = await fetchApi('GET', { action: 'getClassConfig', classId });
+     const res = await fetchApi('POST', { action: 'getClassConfig', classId });
      if (res.status === 'success' && res.data) {
         return { ...defaultConfig, ...res.data };
      }
      return defaultConfig;
   },
-  saveClassConfig: async (key: 'SCHEDULE' | 'PIKET' | 'SEATING' | 'KKTP' | 'ACADEMIC_CALENDAR' | 'TIME_SLOTS' | 'ORGANIZATION', data: any, classId: string) => {
-     return await fetchApi('POST', { action: 'saveClassConfig', payload: { key, data, classId } });
-  },
-
-  // --- Agendas ---
-  getAgendas: async (user: User | null): Promise<AgendaItem[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getAgendas', user });
-    return result.status === 'success' && result.data ? result.data : [];
-  },
-  createAgenda: async (agenda: AgendaItem) => {
-    return await fetchApi('POST', { action: 'createAgenda', payload: agenda });
-  },
-  updateAgenda: async (agenda: AgendaItem) => {
-    return await fetchApi('POST', { action: 'updateAgenda', payload: agenda });
-  },
-  deleteAgenda: async (id: string) => {
-    return await fetchApi('POST', { action: 'deleteAgenda', id: id });
-  },
-
-  // --- Grades ---
-  getGrades: async (user: User | null): Promise<GradeRecord[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getGrades', user });
-    return result.status === 'success' && result.data ? result.data : [];
-  },
-  saveGrade: async (studentId: string, subjectId: string, gradeData: GradeData, classId: string) => {
-    return await fetchApi('POST', { action: 'saveGrade', payload: { studentId, subjectId, gradeData, classId } });
-  },
-
-  // --- ATTENDANCE (New granular methods) ---
-  getAttendance: async (user: User | null): Promise<{studentId: string, date: string, status: string, notes: string}[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getAttendance', user });
-    return result.status === 'success' && result.data ? result.data : [];
-  },
-  saveAttendance: async (date: string, records: AttendanceRecord[]) => {
-    return await fetchApi('POST', { action: 'saveAttendance', payload: { date, records } });
-  },
-  saveAttendanceBatch: async (batchData: {date: string, records: AttendanceRecord[]}[]) => {
-    return await fetchApi('POST', { action: 'saveAttendanceBatch', payload: { batchData } });
-  },
-
-  // --- HOLIDAYS ---
-  getHolidays: async (user: User | null): Promise<Holiday[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getHolidays', user });
-    return result.status === 'success' && result.data ? result.data : [];
-  },
-  saveHolidayBatch: async (holidays: Omit<Holiday, 'id'>[]) => {
-    return await fetchApi('POST', { action: 'saveHolidayBatch', payload: { holidays } });
-  },
-  updateHoliday: async (holiday: Holiday) => {
-    return await fetchApi('POST', { action: 'updateHoliday', payload: holiday });
-  },
-  deleteHoliday: async (id: string) => {
-    return await fetchApi('POST', { action: 'deleteHoliday', id });
-  },
-
-  // --- Counseling ---
-  getCounselingLogs: async (user: User | null): Promise<BehaviorLog[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getCounselingLogs', user });
-    return result.status === 'success' && result.data ? result.data : [];
-  },
-  createCounselingLog: async (log: BehaviorLog) => {
-    return await fetchApi('POST', { action: 'createCounselingLog', payload: log });
-  },
-
-  // --- Extracurriculars ---
-  getExtracurriculars: async (user: User | null): Promise<Extracurricular[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getExtracurriculars', user });
-    if (result.status === 'success' && result.data) {
-        return result.data.map((r:Extracurricular) => ({
-            ...r,
-            color: getCategoryColor(r.category)
-        }));
-    }
-    return [];
-  },
-  createExtracurricular: async (item: Extracurricular) => {
-    return await fetchApi('POST', { action: 'createExtracurricular', payload: item });
-  },
-  updateExtracurricular: async (item: Extracurricular) => {
-    return await fetchApi('POST', { action: 'updateExtracurricular', payload: item });
-  },
-  deleteExtracurricular: async (id: string) => {
-    return await fetchApi('POST', { action: 'deleteExtracurricular', id });
-  },
-
-  // --- Profiles ---
-  getProfiles: async (): Promise<{ teacher?: TeacherProfileData, school?: SchoolProfileData }> => {
-    if (!isApiConfigured()) return {};
-    const result = await fetchApi('GET', { action: 'getProfiles' });
-    return result.status === 'success' && result.data ? result.data : {};
-  },
-  saveProfile: async (key: 'teacher' | 'school', value: any) => {
-    return await fetchApi('POST', { action: 'saveProfile', payload: { key, value } });
-  },
-
-  // --- Employment Links ---
-  getEmploymentLinks: async (): Promise<EmploymentLink[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getEmploymentLinks' });
-    return result.status === 'success' && result.data ? result.data : [];
-  },
-  saveEmploymentLink: async (link: Omit<EmploymentLink, 'id'> | EmploymentLink) => {
-    return await fetchApi('POST', { action: 'saveEmploymentLink', payload: link });
-  },
-  deleteEmploymentLink: async (id: string) => {
-    return await fetchApi('POST', { action: 'deleteEmploymentLink', id });
+  saveClassConfig: async (key: string, data: any, classId: string): Promise<void> => {
+     await fetchApi('POST', { action: 'saveClassConfig', payload: { key, data, classId } });
   },
 
   // --- Learning Reports ---
   getLearningReports: async (classId: string): Promise<LearningReport[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getLearningReports', classId });
-    return result.status === 'success' && result.data ? result.data : [];
+    const res = await fetchApi('POST', { action: 'getLearningReports', classId });
+    return res.status === 'success' ? res.data : [];
   },
-  saveLearningReport: async (report: Omit<LearningReport, 'id'> | LearningReport) => {
-    return await fetchApi('POST', { action: 'saveLearningReport', payload: report });
+  saveLearningReport: async (report: any): Promise<void> => {
+    await fetchApi('POST', { action: 'saveLearningReport', payload: report });
   },
-  deleteLearningReport: async (id: string, classId: string) => {
-    return await fetchApi('POST', { action: 'deleteLearningReport', id, classId });
+  deleteLearningReport: async (id: string, classId: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteLearningReport', id, classId });
   },
 
-  // --- NEW: Learning Journal (Jurnal Pembelajaran) ---
+  // --- Learning Journal ---
   getLearningJournal: async (classId: string): Promise<LearningJournalEntry[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getLearningJournal', classId });
-    return result.status === 'success' && result.data ? result.data : [];
+    const res = await fetchApi('POST', { action: 'getLearningJournal', classId });
+    return res.status === 'success' ? res.data : [];
   },
-  saveLearningJournalBatch: async (entries: Partial<LearningJournalEntry>[]) => {
-    return await fetchApi('POST', { action: 'saveLearningJournalBatch', payload: { entries } });
+  saveLearningJournalBatch: async (entries: any[]): Promise<void> => {
+    await fetchApi('POST', { action: 'saveLearningJournalBatch', payload: { entries } });
   },
-  deleteLearningJournal: async (id: string, classId: string) => {
-    return await fetchApi('POST', { action: 'deleteLearningJournal', id, classId });
+  deleteLearningJournal: async (id: string, classId: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteLearningJournal', id, classId });
   },
 
   // --- Liaison Logs ---
-  getLiaisonLogs: async (user: User | null): Promise<LiaisonLog[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getLiaisonLogs', user });
-    return result.status === 'success' && result.data ? result.data : [];
+  getLiaisonLogs: async (currentUser: User | null): Promise<LiaisonLog[]> => {
+    const res = await fetchApi('POST', { action: 'getLiaisonLogs', user: currentUser });
+    return res.status === 'success' ? res.data : [];
   },
-  saveLiaisonLog: async (log: Omit<LiaisonLog, 'id'>) => {
-    return await fetchApi('POST', { action: 'saveLiaisonLog', payload: log });
+  saveLiaisonLog: async (log: any): Promise<void> => {
+    await fetchApi('POST', { action: 'saveLiaisonLog', payload: log });
   },
-  // NEW: Reply to Liaison Log
-  replyLiaisonLog: async (id: string, response: string) => {
-    return await fetchApi('POST', { action: 'replyLiaisonLog', payload: { id, response } });
+  updateLiaisonStatus: async (ids: string[], status: string): Promise<void> => {
+    await fetchApi('POST', { action: 'updateLiaisonStatus', payload: { ids, status } });
   },
-  // Update Liaison Status
-  updateLiaisonStatus: async (ids: string[], status: 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai') => {
-    return await fetchApi('POST', { action: 'updateLiaisonStatus', payload: { ids, status } });
+  replyLiaisonLog: async (id: string, response: string): Promise<void> => {
+    await fetchApi('POST', { action: 'replyLiaisonLog', payload: { id, response } });
   },
 
-  // --- NEW: Permission Requests (Ijin) ---
-  getPermissionRequests: async (user: User | null): Promise<PermissionRequest[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getPermissionRequests', user });
-    return result.status === 'success' && result.data ? result.data : [];
+  // --- Permission Requests ---
+  getPermissionRequests: async (currentUser: User | null): Promise<PermissionRequest[]> => {
+    const res = await fetchApi('POST', { action: 'getPermissionRequests', user: currentUser });
+    return res.status === 'success' ? res.data : [];
   },
-  savePermissionRequest: async (request: Omit<PermissionRequest, 'id' | 'status'>) => {
-    return await fetchApi('POST', { action: 'savePermissionRequest', payload: request });
+  savePermissionRequest: async (request: any): Promise<void> => {
+    await fetchApi('POST', { action: 'savePermissionRequest', payload: request });
   },
-  processPermissionRequest: async (id: string, action: 'approve' | 'reject') => {
-    return await fetchApi('POST', { action: 'processPermissionRequest', payload: { id, action } });
-  },
-
-  // --- NEW: Support Documents ---
-  getSupportDocuments: async (user: User | null): Promise<SupportDocument[]> => {
-    if (!isApiConfigured()) return [];
-    const result = await fetchApi('GET', { action: 'getSupportDocuments', user });
-    return result.status === 'success' && result.data ? result.data : [];
-  },
-  saveSupportDocument: async (doc: Omit<SupportDocument, 'id'> | SupportDocument) => {
-    return await fetchApi('POST', { action: 'saveSupportDocument', payload: doc });
-  },
-  deleteSupportDocument: async (id: string, classId: string) => {
-    return await fetchApi('POST', { action: 'deleteSupportDocument', id, classId });
+  processPermissionRequest: async (id: string, actionStatus: string): Promise<void> => {
+    await fetchApi('POST', { action: 'processPermissionRequest', payload: { id, action: actionStatus } });
   },
 
-  // --- NEW: Restore Data (Admin) ---
-  restoreData: async (data: any) => {
+  // --- Support Documents ---
+  getSupportDocuments: async (currentUser: User | null): Promise<SupportDocument[]> => {
+    const res = await fetchApi('POST', { action: 'getSupportDocuments', user: currentUser });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveSupportDocument: async (doc: any): Promise<void> => {
+    await fetchApi('POST', { action: 'saveSupportDocument', payload: doc });
+  },
+  deleteSupportDocument: async (id: string, classId: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteSupportDocument', id, classId });
+  },
+
+  // --- School Assets (Sarana Prasarana) ---
+  getSchoolAssets: async (): Promise<SchoolAsset[]> => {
+    const res = await fetchApi('POST', { action: 'getSchoolAssets' });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveSchoolAsset: async (asset: SchoolAsset): Promise<void> => {
+    await fetchApi('POST', { action: 'saveSchoolAsset', payload: asset });
+  },
+  deleteSchoolAsset: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteSchoolAsset', id });
+  },
+
+  // --- BOS Management ---
+  getBOS: async (): Promise<BOSTransaction[]> => {
+    const res = await fetchApi('POST', { action: 'getBOS' });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveBOS: async (transaction: BOSTransaction): Promise<void> => {
+    await fetchApi('POST', { action: 'saveBOS', payload: transaction });
+  },
+  deleteBOS: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteBOS', id });
+  },
+
+  // --- Backup/Restore ---
+  restoreData: async (data: any): Promise<any> => {
     return await fetchApi('POST', { action: 'restoreData', payload: data });
-  }
+  },
 };

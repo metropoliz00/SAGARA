@@ -6,7 +6,7 @@ import {
   Printer, FileSpreadsheet, Upload, Download, Loader2, CalendarDays, RefreshCw
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
-import { Student, InventoryItem, Guest, ScheduleItem, PiketGroup, TeacherProfileData, SeatingLayouts, AcademicCalendarData, Holiday, OrganizationStructure } from '../types';
+import { Student, InventoryItem, Guest, ScheduleItem, PiketGroup, TeacherProfileData, SeatingLayouts, AcademicCalendarData, Holiday, OrganizationStructure, User } from '../types';
 import { DEFAULT_TIME_SLOTS } from '../constants';
 
 // Import Sub-Components
@@ -26,6 +26,7 @@ interface ClassroomAdminProps {
   onAddHoliday: (holidays: Omit<Holiday, 'id'>[]) => Promise<void>;
   classId: string;
   userRole?: string; // NEW PROP
+  users?: User[]; // NEW: To find class teacher
 }
 
 const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({ 
@@ -35,7 +36,8 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
   holidays, 
   onAddHoliday, 
   classId,
-  userRole // Destructure new prop
+  userRole, // Destructure new prop
+  users
 }) => {
   const [activeTab, setActiveTab] = useState<'schedule' | 'piket' | 'seating' | 'inventory' | 'guestbook' | 'calendar' | 'organization'>('schedule');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -291,7 +293,16 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
       {activeTab === 'schedule' && <ScheduleTab schedule={schedule} timeSlots={timeSlots} onSave={handleSaveScheduleAndTimes} onShowNotification={onShowNotification} />}
       {activeTab === 'piket' && <PiketTab piketGroups={piketGroups} students={students} onSave={handleSavePiket} />}
       {activeTab === 'seating' && <SeatingTab seatingLayouts={seatingLayouts} setSeatingLayouts={setSeatingLayouts} students={students} onSave={handleSaveSeating} teacherProfile={teacherProfile} />}
-      {activeTab === 'organization' && <OrganizationChartTab students={students} teacherProfile={teacherProfile} initialStructure={organization} onSave={handleSaveOrganization} />}
+      {activeTab === 'organization' && (
+          <OrganizationChartTab 
+              students={students} 
+              teacherProfile={teacherProfile} 
+              users={users} 
+              classId={classId}
+              initialStructure={organization} 
+              onSave={handleSaveOrganization} 
+          />
+      )}
       {activeTab === 'calendar' && (
           <AcademicCalendarTab 
               initialData={academicCalendar} 

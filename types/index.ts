@@ -118,6 +118,15 @@ export interface InventoryItem {
   qty: number;
 }
 
+// NEW: School Infrastructure Asset
+export interface SchoolAsset {
+  id: string;
+  name: string; // Jenis Sarana/Prasarana
+  condition: 'Baik' | 'Rusak Ringan' | 'Rusak Berat';
+  qty: number;
+  location?: string; // Optional location
+}
+
 export interface Guest {
   id: string;
   classId: string;
@@ -288,6 +297,26 @@ export interface OrganizationStructure {
   sections: { id: string; name: string }[];
 }
 
+// NEW: BOS Interface
+export interface BOSTransaction {
+  id: string;
+  date: string;
+  type: 'income' | 'expense';
+  category: 
+    | 'SiLPA Tahun Lalu' // Added to fix type error
+    | 'BOS Reguler' 
+    | 'Standar Isi' 
+    | 'Standar Proses' 
+    | 'Standar Kompetensi Lulusan' 
+    | 'Standar Pendidik dan Tenaga Kependidikan' 
+    | 'Standar Sarana dan Prasarana' 
+    | 'Standar Pengelolaan' 
+    | 'Standar Pembiayaan' 
+    | 'Standar Penilaian Pendidikan';
+  description: string;
+  amount: number;
+}
+
 
 // --- Penilaian Sikap & Karakter ---
 
@@ -346,4 +375,4 @@ export interface KarakterAssessment {
 
 
 // FIX: Add 'support-docs' to ViewState type for navigation
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs' | 'supervisor-overview' | 'school-assets' | 'bos-admin';
