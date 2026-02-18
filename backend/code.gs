@@ -60,7 +60,7 @@ function setupDatabase() {
     { name: SHEETS.HOLIDAYS, headers: ["ID", "Class ID", "Tanggal", "Keterangan", "Tipe"] },
     { name: SHEETS.COUNSELING, headers: ["ID", "Class ID", "Student ID", "Nama Siswa", "Tanggal", "Tipe", "Kategori", "Deskripsi", "Poin", "Emosi", "Status"] },
     { name: SHEETS.EXTRACURRICULARS, headers: ["ID", "Class ID", "Nama Ekskul", "Kategori", "Jadwal", "Pelatih", "Anggota (JSON ID)"] },
-    { name: SHEETS.PROFILES, headers: ["Nama Sekolah", "NIP/NPSN", "Alamat", "Kepala Sekolah", "NIP Kepsek", "Tahun Ajaran", "Semester", "Logo Kab (Base64)", "Logo Sekolah (Base64)", "Running Text", "Developer Info (JSON)"] },
+    { name: SHEETS.PROFILES, headers: ["Nama Sekolah", "NIP/NPSN", "Alamat", "Kepala Sekolah", "NIP Kepsek", "Tahun Ajaran", "Semester", "Logo Kab (Base64)", "Logo Sekolah (Base64)", "Running Text", "Developer Info (JSON)", "TTD Kepsek (Base64)"] },
     { name: SHEETS.INVENTORY, headers: ["ID", "Class ID", "Nama Barang", "Kondisi", "Jumlah"] },
     { name: SHEETS.GUESTS, headers: ["ID", "Class ID", "Tanggal", "Waktu", "Nama Tamu", "Instansi", "Keperluan"] },
     { name: SHEETS.SIKAP, headers: ["Student ID", "Class ID", "Keimanan", "Kewargaan", "Bernalar Kritis", "Kreatif", "Gotong Royong", "Mandiri", "Kesehatan", "Komunikasi"] },
@@ -363,3 +363,43 @@ return response({status:"error"})}
 
 function restoreData(data){return response({status:"success",message:"Restore functionality logic implemented but disabled for safety."})}
 function parseJSON(str){try{return JSON.parse(str)}catch(e){return null}}
+
+// --- PROFILES FUNCTIONALITY ---
+function getProfiles(){
+  const sheet = getSheet(SHEETS.PROFILES);
+  const data = sheet.getDataRange().getValues();
+  let school = {};
+  if(data.length > 1){
+    const r = data[1];
+    school = {
+      name: String(r[0]||''),
+      npsn: String(r[1]||''),
+      address: String(r[2]||''),
+      headmaster: String(r[3]||''),
+      headmasterNip: String(r[4]||''),
+      year: String(r[5]||''),
+      semester: String(r[6]||''),
+      regencyLogo: String(r[7]||''),
+      schoolLogo: String(r[8]||''),
+      runningText: String(r[9]||''),
+      developerInfo: parseJSON(r[10])||{name:'',moto:'',photo:''},
+      headmasterSignature: String(r[11]||'')
+    };
+  }
+  return response({status:"success", data:{school: school}});
+}
+
+function saveProfile(p){
+  if(p.type === 'school'){
+    const sheet = getSheet(SHEETS.PROFILES);
+    const d = p.data;
+    // headers: ["Nama Sekolah", "NIP/NPSN", "Alamat", "Kepala Sekolah", "NIP Kepsek", "Tahun Ajaran", "Semester", "Logo Kab (Base64)", "Logo Sekolah (Base64)", "Running Text", "Developer Info (JSON)", "TTD Kepsek (Base64)"]
+    const row = [d.name, d.npsn, d.address, d.headmaster, d.headmasterNip, d.year, d.semester, d.regencyLogo, d.schoolLogo, d.runningText, JSON.stringify(d.developerInfo||{}), d.headmasterSignature||''];
+    if(sheet.getLastRow() > 1){
+      sheet.getRange(2, 1, 1, row.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+    }
+  }
+  return response({status:"success"});
+}
