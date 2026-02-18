@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   username: string;
@@ -283,6 +284,7 @@ export interface BOSTransaction {
   date: string;
   type: 'income' | 'expense';
   category: 
+    | 'SiLPA Tahun Lalu'
     | 'BOS Reguler' 
     | 'Standar Isi' 
     | 'Standar Proses' 
