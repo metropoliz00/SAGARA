@@ -1,5 +1,6 @@
+
 {
-  "name": "SAGARA V2",
+  "name": "SAGARA",
   "description": "Sistem Akademik dan Administrasi Terintegrasi untuk pengelolaan data siswa, absensi, nilai, dan laporan otomatis.",
   "requestFramePermissions": [
     "camera"
