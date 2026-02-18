@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/apiService';
 import { User, Lock, Loader2, ArrowRight, Sparkles, Eye, EyeOff, Code, X } from 'lucide-react';
 import { User as UserType, SchoolProfileData } from '../types';
@@ -10,8 +10,8 @@ interface LoginProps {
 
 // Placeholder - User must replace this in Google Cloud Console
 // NOTE: Google Sign In requires a valid Client ID and configured origin/redirect URI
-// Explicitly typed as string to prevent TS2367 error when comparing with placeholders
-const GOOGLE_CLIENT_ID: string = "188596791323-rf3gor7ompi1hn7086vp38rkths652te.apps.googleusercontent.com"; 
+// Cast to string to prevent TypeScript from inferring a literal type, which causes TS2367 in comparisons
+const GOOGLE_CLIENT_ID = "188596791323-rf3gor7ompi1hn7086vp38rkths652te.apps.googleusercontent.com" as string; 
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
@@ -79,26 +79,44 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   useEffect(() => {
-      // Initialize Google Button
-      if ((window as any).google) {
-          try {
-              // Ensure we don't try to init if ID is clearly invalid/placeholder (optional check)
-              if (GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
-                  console.warn("Google Client ID not configured");
-                  return;
-              }
+      // Fungsi untuk merender tombol
+      const renderGoogleButton = () => {
+          if ((window as any).google && document.getElementById("google-btn")) {
+              try {
+                  // Ensure we don't try to init if ID is clearly invalid/placeholder
+                  if (GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
+                      console.warn("Google Client ID not configured");
+                      return true; // Stop interval
+                  }
 
-              (window as any).google.accounts.id.initialize({
-                  client_id: GOOGLE_CLIENT_ID,
-                  callback: handleGoogleResponse
-              });
-              (window as any).google.accounts.id.renderButton(
-                  document.getElementById("google-btn"),
-                  { theme: "outline", size: "large", width: "100%", logo_alignment: "center" }
-              );
-          } catch (e) {
-              console.warn("Google Sign In failed to initialize", e);
+                  (window as any).google.accounts.id.initialize({
+                      client_id: GOOGLE_CLIENT_ID,
+                      callback: handleGoogleResponse
+                  });
+                  (window as any).google.accounts.id.renderButton(
+                      document.getElementById("google-btn"),
+                      { theme: "outline", size: "large", width: "100%", logo_alignment: "center" }
+                  );
+                  return true; // Berhasil render
+              } catch (e) {
+                  console.warn("Google Sign In failed to initialize", e);
+                  return false;
+              }
           }
+          return false; // Belum siap
+      };
+
+      // Coba render langsung
+      if (!renderGoogleButton()) {
+          // Jika belum siap, cek setiap 500ms sampai script Google terload
+          const intervalId = setInterval(() => {
+              if (renderGoogleButton()) {
+                  clearInterval(intervalId);
+              }
+          }, 500);
+
+          // Bersihkan interval saat unmount
+          return () => clearInterval(intervalId);
       }
   }, []);
 
@@ -200,12 +218,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                </div>
                
                <div className="mt-6 text-center">
-                  <h1 className="text-3xl font-extrabold tracking-tight font-sans flex items-center justify-center gap-1">
+                  {/* Updated Font Size Here */}
+                  <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight font-sans flex items-center justify-center gap-1">
                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF]">
                        SAGARA
                      </span>
                   </h1>
-                  <div className="h-1 w-12 bg-gradient-to-r from-[#FFF9D0] to-[#CAF4FF] rounded-full mx-auto my-3"></div>
+                  <div className="h-1 w-16 bg-gradient-to-r from-[#FFF9D0] to-[#CAF4FF] rounded-full mx-auto my-3"></div>
                   <p className="text-sm text-slate-500 font-medium tracking-wide">
                     Sistem Akademik & Administrasi Terintegrasi
                   </p>
@@ -291,7 +310,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 
                 {/* Only render Google button container if configured (to avoid layout shift if empty) */}
                 {GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE" && (
-                    <div className="mt-2 h-12" id="google-btn">
+                    <div className="mt-2 h-12 flex justify-center" id="google-btn">
                         {/* Google Button renders here */}
                     </div>
                 )}
