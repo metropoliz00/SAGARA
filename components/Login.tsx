@@ -8,6 +8,10 @@ interface LoginProps {
   onLoginSuccess: (user: UserType) => void;
 }
 
+// Placeholder - User must replace this in Google Cloud Console
+// NOTE: Google Sign In requires a valid Client ID and configured origin/redirect URI
+const GOOGLE_CLIENT_ID = "188596791323-rf3gor7ompi1hn7086vp38rkths652te.apps.googleusercontent.com"; 
+
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -41,6 +45,54 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     fetchPublicInfo();
 
     return () => clearTimeout(timer);
+  }, []);
+
+  // --- GOOGLE SIGN IN LOGIC ---
+  const handleGoogleResponse = async (response: any) => {
+      try {
+          setLoading(true);
+          const token = response.credential;
+          // Decode JWT to get email
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const email = payload.email;
+          
+          if (!email) {
+              setError("Gagal mendapatkan email dari Google.");
+              setLoading(false);
+              return;
+          }
+
+          // Backend Verification
+          const user = await apiService.loginWithGoogle(email);
+          if (user) {
+              onLoginSuccess(user);
+          } else {
+              setError("Email Google tidak terdaftar di sistem.");
+          }
+      } catch (e: any) {
+          console.error("Google Login Error", e);
+          setError(e.message || "Gagal login dengan Google.");
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  useEffect(() => {
+      // Initialize Google Button
+      if ((window as any).google && GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE") {
+          try {
+              (window as any).google.accounts.id.initialize({
+                  client_id: GOOGLE_CLIENT_ID,
+                  callback: handleGoogleResponse
+              });
+              (window as any).google.accounts.id.renderButton(
+                  document.getElementById("google-btn"),
+                  { theme: "outline", size: "large", width: "100%", logo_alignment: "center" }
+              );
+          } catch (e) {
+              console.warn("Google Sign In failed to initialize", e);
+          }
+      }
   }, []);
 
   // Hidden backdoor logic for testing
@@ -143,7 +195,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                <div className="mt-6 text-center">
                   <h1 className="text-3xl font-extrabold tracking-tight font-sans flex items-center justify-center gap-1">
                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF]">
-                       SAGARA
+                       KELASKU PRO
                      </span>
                   </h1>
                   <div className="h-1 w-12 bg-gradient-to-r from-[#FFF9D0] to-[#CAF4FF] rounded-full mx-auto my-3"></div>
@@ -222,9 +274,27 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                </button>
             </form>
 
+            {/* --- GOOGLE LOGIN SECTION --- */}
+            <div className="mt-6">
+                <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-gray-200"></div>
+                    <span className="flex-shrink-0 mx-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Atau</span>
+                    <div className="flex-grow border-t border-gray-200"></div>
+                </div>
+                
+                <div className="mt-2 h-12" id="google-btn">
+                    {/* Google Button renders here */}
+                    {GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE" && (
+                       <p className="text-[10px] text-center text-gray-400 italic mt-2">
+                          (Google Client ID belum dikonfigurasi)
+                       </p>
+                    )}
+                </div>
+            </div>
+
             <div className="mt-8 text-center">
                <div className="flex items-center justify-center space-x-2 text-xs text-slate-400">
-                 <span>&copy; 2026 | SAGARA Dev. Meyga</span>
+                 <span>&copy; 2026 | KELASKU PRO Dev. Meyga</span>
                </div>
             </div>
 

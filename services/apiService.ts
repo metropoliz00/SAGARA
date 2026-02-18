@@ -3,7 +3,7 @@
 import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, OrganizationStructure, SchoolAsset, BOSTransaction } from '../types';
 
 // PENTING: Menggunakan URL Deployment yang valid dan stabil.
-const API_URL = 'https://script.google.com/macros/s/AKfycbz5qmDMX0blcz50K3SlIwLrale8l_U_d_iJtnepVV2nm_g6OuSEy6HVM-r6ABHLs7qx/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwag0id-VHvLBjDZh8llUv3v7JHLscTsCD6bZh9mXHEivNpYLiQ3OiiUV7hVic_EzX9/exec';
 
 const isApiConfigured = () => {
   return API_URL && API_URL.startsWith('http');
@@ -57,6 +57,12 @@ export const apiService = {
   login: async (username: string, password?: string): Promise<User | null> => {
     const res = await fetchApi('POST', { action: 'login', payload: { username, password } });
     if (res.status === 'success') return res.data;
+    return null;
+  },
+  loginWithGoogle: async (email: string): Promise<User | null> => {
+    const res = await fetchApi('POST', { action: 'loginGoogle', payload: { email } });
+    if (res.status === 'success') return res.data;
+    if (res.status === 'error') throw new Error(res.message);
     return null;
   },
   getUsers: async (currentUser: User | null): Promise<User[]> => {
