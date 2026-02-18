@@ -165,6 +165,7 @@ function handleRequest(e, method) {
     
     // Standardized to use params.payload for data arguments
     if (action === "login") return login(params.payload);
+    if (action === "loginGoogle") return loginGoogle(params.payload); // NEW HANDLER
     if (action === "getUsers") return getUsers(user); 
     if (action === "saveUser") return saveUser(params.payload);
     if (action === "saveUserBatch") return saveUserBatch(params.payload);
@@ -281,6 +282,30 @@ return response({status:"error"})}
 // ... (Rest of the functions)
 function login(creds){const sheet=getSheet(SHEETS.USERS);const data=sheet.getDataRange().getValues();const inputUser=String(creds.username).trim().toLowerCase();const inputPass=String(creds.password).trim();for(let i=1;i<data.length;i++){const row=data[i];const dbUser=String(row[1]).trim().toLowerCase();const dbPass=String(row[2]).trim();if(dbUser===inputUser&&dbPass===inputPass){return response({status:"success",data:{id:String(row[0]),username:String(row[1]),password:String(row[2]),role:String(row[3]),fullName:String(row[4]),nip:String(row[5]),nuptk:String(row[6]),birthInfo:String(row[7]),education:String(row[8]),position:String(row[9]),rank:String(row[10]),classId:String(row[11]),email:String(row[12]),phone:String(row[13]),address:String(row[14]),photo:String(row[15]),signature:String(row[16]),studentId:String(row[17])}})}}
 return response({status:"error",message:"Username atau Password salah."})}
+
+function loginGoogle(payload){
+  const email = String(payload.email).trim().toLowerCase();
+  const sheet = getSheet(SHEETS.USERS);
+  const data = sheet.getDataRange().getValues();
+  // Email is at index 12 (0-based)
+  for(let i=1; i<data.length; i++){
+    const row = data[i];
+    const dbEmail = String(row[12]).trim().toLowerCase();
+    if(dbEmail === email){
+      return response({
+        status: "success",
+        data: {
+          id:String(row[0]),username:String(row[1]),password:String(row[2]),role:String(row[3]),
+          fullName:String(row[4]),nip:String(row[5]),nuptk:String(row[6]),birthInfo:String(row[7]),
+          education:String(row[8]),position:String(row[9]),rank:String(row[10]),classId:String(row[11]),
+          email:String(row[12]),phone:String(row[13]),address:String(row[14]),photo:String(row[15]),
+          signature:String(row[16]),studentId:String(row[17])
+        }
+      });
+    }
+  }
+  return response({status: "error", message: "Email tidak terdaftar di sistem."});
+}
 
 function getUsers(user){
   if(!user || (user.role !== 'admin' && user.role !== 'supervisor')) { return response({status:"error",message:"Unauthorized"}); }

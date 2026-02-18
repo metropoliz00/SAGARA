@@ -16,15 +16,17 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
-// 1. Dashboard dipisahkan sebagai item mandiri (Supervisor removed here)
+// 1. Dashboard dipisahkan sebagai item mandiri
 const dashboardItem = { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'guru', 'siswa'] };
 
-// 2. Dashboard dihapus dari grup 'Utama' dan item dipindahkan ke 'Pengaturan'
+// 2. Overview KS dipisahkan sebagai item mandiri (Moved from Utama)
+const supervisorItem = { id: 'supervisor-overview', label: 'Overview KS', icon: Activity, roles: ['supervisor'] };
+
+// 3. Menu Groups (Updated)
 const menuGroups = [
   {
     title: 'Utama',
     items: [
-      { id: 'supervisor-overview', label: 'Overview KS', icon: Activity, roles: ['supervisor'] },
       { id: 'pendahuluan', label: 'Pendahuluan', icon: BookText, roles: ['admin', 'guru', 'supervisor'] },
     ]
   },
@@ -58,7 +60,7 @@ const menuGroups = [
     items: [
       { id: 'admin', label: 'Administrasi Kelas', icon: School, roles: ['admin', 'guru', 'supervisor'] },
       { id: 'school-assets', label: 'Sarana Prasarana', icon: Building, roles: ['admin', 'supervisor'] },
-      { id: 'bos-admin', label: 'Pengelolaan BOS', icon: Wallet, roles: ['admin', 'supervisor'] }, // NEW
+      { id: 'bos-admin', label: 'Pengelolaan BOS', icon: Wallet, roles: ['admin', 'supervisor'] },
       { id: 'support-docs', label: 'Bukti Dukung', icon: Files, roles: ['admin', 'guru', 'supervisor'] },
     ]
   },
@@ -167,9 +169,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onChangeVie
         {/* Navigation */}
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
           
-          {/* 3. Render item Dashboard sebagai tombol mandiri */}
-          <div className="py-1">
+          {/* Render item Dashboard & Overview KS sebagai tombol mandiri */}
+          <div className="py-1 space-y-1">
             {renderMenuItem(dashboardItem)}
+            {renderMenuItem(supervisorItem)}
           </div>
 
           {menuGroups.map((group) => {

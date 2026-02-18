@@ -2,28 +2,22 @@
 export interface User {
   id: string;
   username: string;
-  password?: string; // Only for creating/updating
+  password?: string;
   role: 'admin' | 'guru' | 'siswa' | 'supervisor';
-  fullName: string; // Nama Lengkap
-  
-  // New Fields matching the backend sheet columns
+  fullName: string;
   nip?: string;
   nuptk?: string;
-  birthInfo?: string; // Tempat Tgl Lahir
-  education?: string; // Pendidikan Terakhir
-  position: string;   // Jabatan Guru
-  rank?: string;      // Pangkat / Gol
-  classId?: string;   // Tugas Mengajar Kelas
-  
+  birthInfo?: string;
+  education?: string;
+  position: string;
+  rank?: string;
+  classId?: string;
   email?: string;
-  phone?: string;     // No HP
-  address?: string;   // Alamat
-
-  // Media
-  photo?: string;     // Base64
-  signature?: string; // Base64
-
-  studentId?: string; // Only for Siswa role
+  phone?: string;
+  address?: string;
+  photo?: string;
+  signature?: string;
+  studentId?: string;
 }
 
 export interface Student {
@@ -37,16 +31,15 @@ export interface Student {
   birthPlace?: string;
   religion?: string;
   address: string;
-  photo?: string; // New: Base64 Image URL
+  photo?: string;
   
-  // Parent Info
   fatherName: string; 
   fatherJob?: string; 
   fatherEducation?: string;
-  motherName: string; 
-  motherJob?: string; 
+  motherName: string;
+  motherJob?: string;
   motherEducation?: string;
-  parentName: string; // Acts as Guardian Name (Wali)
+  parentName: string;
   parentJob?: string;
   parentPhone: string;
   
@@ -57,8 +50,7 @@ export interface Student {
   hobbies?: string;
   ambition?: string;
   economyStatus?: 'Mampu' | 'Cukup' | 'Kurang Mampu' | 'KIP';
-  joinDate?: string;
-  originSchool?: string;
+  
   achievements?: string[];
   violations?: string[];
   behaviorScore: number;
@@ -69,7 +61,7 @@ export interface Student {
     alpha: number;
   };
   
-  teacherNotes?: string; // NEW: Catatan Wali Kelas
+  teacherNotes?: string;
 }
 
 export interface Subject {
@@ -118,7 +110,6 @@ export interface InventoryItem {
   qty: number;
 }
 
-// NEW: School Infrastructure Asset
 export interface SchoolAsset {
   id: string;
   name: string; // Jenis Sarana/Prasarana
@@ -148,7 +139,7 @@ export interface AgendaItem {
 }
 
 export interface BehaviorLog {
-  id: number | string;
+  id: string;
   classId: string;
   studentId: string;
   studentName: string;
@@ -168,8 +159,7 @@ export interface Extracurricular {
   category: string;
   schedule: string;
   coach: string;
-  members: string[]; // List of Student IDs
-  icon?: any; // Icon is purely frontend, might need mapping
+  members: string[];
   color: string;
 }
 
@@ -178,17 +168,16 @@ export interface Holiday {
   classId: string;
   date: string;
   description: string;
-  type: 'nasional' | 'haribesar' | 'cuti' | 'semester'; 
+  type: 'nasional' | 'haribesar' | 'cuti' | 'semester';
 }
 
 export interface EmploymentLink {
   id: string;
   title: string;
   url: string;
-  icon?: string; // Base64
+  icon?: string;
 }
 
-// FIX: Add missing SupportDocument interface
 export interface SupportDocument {
   id: string;
   classId: string;
@@ -196,7 +185,6 @@ export interface SupportDocument {
   url: string;
 }
 
-// NEW: Learning Report Interface (Laporan Pembelajaran - existing)
 export interface LearningReport {
   id: string;
   classId: string;
@@ -205,42 +193,39 @@ export interface LearningReport {
   subject: string;
   topic: string;
   documentLink: string;
-  teacherName?: string; // NEW: Added teacher name
+  teacherName?: string;
 }
 
-// NEW: Jurnal Pembelajaran (Detailed Table)
 export interface LearningJournalEntry {
   id: string;
   classId: string;
-  date: string; // YYYY-MM-DD
-  day: string; // Senin, Selasa, etc.
+  date: string;
+  day: string;
   subject: string;
   timeSlot?: string;
-  topic: string; // Materi
-  activities: string; // Kegiatan Pembelajaran
-  evaluation: string; // Evaluasi
-  reflection: string; // Refleksi
-  followUp: string; // Tindak Lanjut
+  topic: string;
+  activities: string;
+  evaluation: string;
+  reflection: string;
+  followUp: string;
 }
 
-// UPDATED: Liaison Book (Buku Penghubung)
 export interface LiaisonLog {
   id: string;
   classId: string;
   studentId: string;
   date: string;
   sender: 'Guru' | 'Wali Murid';
-  category?: string; // New: Kesiswaan, Pelayanan, Fasilitas, Lain-lain
-  message: string; // Deskripsi Permasalahan
-  status?: 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai'; // Expanded status
-  response?: string; // NEW: Balasan Guru
+  category?: string;
+  message: string;
+  status?: 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai';
+  response?: string;
 }
 
-// NEW: Permission Request (Ijin Siswa)
 export interface PermissionRequest {
   id: string;
   studentId: string;
-  studentName?: string; // Hydrated on frontend
+  studentName?: string;
   classId: string;
   date: string;
   type: 'sick' | 'permit' | 'dispensation';
@@ -251,21 +236,19 @@ export interface PermissionRequest {
 export interface TeacherProfileData {
   name: string;
   nip: string;
-  nuptk?: string; 
-  birthInfo?: string; 
-  education?: string; 
-  position?: string; 
-  rank?: string; 
-  teachingClass?: string; 
-  
+  nuptk?: string;
+  birthInfo?: string;
+  education?: string;
+  position?: string;
+  rank?: string;
+  teachingClass?: string;
   phone: string;
   email: string;
   address: string;
-  signature?: string; // Base64 Data URL
-  photo?: string; // Base64 Data URL for Profile Picture
+  signature?: string;
+  photo?: string;
 }
 
-// FIX: Add missing properties developerInfo and headmasterSignature
 export interface SchoolProfileData {
   name: string;
   npsn: string;
@@ -274,10 +257,10 @@ export interface SchoolProfileData {
   headmasterNip: string;
   year: string;
   semester: string;
-  regencyLogo?: string; // Base64
-  schoolLogo?: string; // Base64
-  runningText?: string; // NEW: Teks Berjalan
-  runningTextSpeed?: number; // NEW: Kecepatan Teks Berjalan (detik)
+  regencyLogo?: string;
+  schoolLogo?: string;
+  runningText?: string;
+  runningTextSpeed?: number;
   headmasterSignature?: string;
   developerInfo?: {
     name: string;
@@ -286,14 +269,12 @@ export interface SchoolProfileData {
   };
 }
 
-// Data Kalender Pendidikan
 export interface AcademicCalendarData {
-  [yearMonth: string]: (string | null)[]; // Key: YYYY-MM, Value: array of 31 day contents
+  [yearMonth: string]: (string | null)[];
 }
 
-// --- NEW: Struktur Organisasi ---
 export interface OrganizationStructure {
-  roles: Record<string, string | null>; // e.g., { president: 'student123', vicePresident: null, ... }
+  roles: Record<string, string | null>;
   sections: { id: string; name: string }[];
 }
 
@@ -303,7 +284,7 @@ export interface BOSTransaction {
   date: string;
   type: 'income' | 'expense';
   category: 
-    | 'SiLPA Tahun Lalu' // Added to fix type error
+    | 'SiLPA Tahun Lalu'
     | 'BOS Reguler' 
     | 'Standar Isi' 
     | 'Standar Proses' 
@@ -316,9 +297,6 @@ export interface BOSTransaction {
   description: string;
   amount: number;
 }
-
-
-// --- Penilaian Sikap & Karakter ---
 
 export const SIKAP_INDICATORS = {
   keimanan: 'Keimanan & Ketakwaan',
@@ -361,7 +339,6 @@ export type KarakterIndicatorKey = keyof typeof KARAKTER_INDICATORS;
 export interface KarakterAssessment {
   studentId: string;
   classId: string;
-  // Changed from number to string to support "Terbiasa" | "Belum Terbiasa"
   bangunPagi: string;
   beribadah: string;
   berolahraga: string;
@@ -369,10 +346,29 @@ export interface KarakterAssessment {
   gemarBelajar: string;
   bermasyarakat: string;
   tidurAwal: string;
-  catatan?: string; // New field for notes
-  afirmasi?: string; // New field for Positive Affirmation
+  catatan?: string;
+  afirmasi?: string;
 }
 
-
-// FIX: Add 'support-docs' to ViewState type for navigation
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'grades' | 'admin' | 'counseling' | 'activities' | 'profile' | 'pendahuluan' | 'attitude' | 'accounts' | 'employment-links' | 'learning-reports' | 'learning-journal' | 'student-monitor' | 'liaison-book' | 'backup-restore' | 'support-docs' | 'supervisor-overview' | 'school-assets' | 'bos-admin';
+export type ViewState = 
+  | 'dashboard' 
+  | 'students' 
+  | 'attendance' 
+  | 'grades' 
+  | 'admin' 
+  | 'counseling' 
+  | 'activities' 
+  | 'profile' 
+  | 'pendahuluan' 
+  | 'attitude' 
+  | 'accounts' 
+  | 'employment-links' 
+  | 'learning-reports' 
+  | 'learning-journal' 
+  | 'student-monitor' 
+  | 'liaison-book' 
+  | 'backup-restore' 
+  | 'support-docs' 
+  | 'supervisor-overview'
+  | 'school-assets'
+  | 'bos-admin';

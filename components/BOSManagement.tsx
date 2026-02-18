@@ -15,7 +15,7 @@ interface BOSManagementProps {
 }
 
 const CATEGORIES = [
-  'SiLPA Tahun Lalu',
+  // 'SiLPA Tahun Lalu', // Removed from default list to prevent overlap/duplication
   'BOS Reguler',
   'Standar Isi',
   'Standar Proses',
@@ -517,6 +517,7 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
                     onChange={e => setForm({...form, category: e.target.value as any})}
                     className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                 >
+                    {(form.category === 'SiLPA Tahun Lalu') && <option value="SiLPA Tahun Lalu">SiLPA Tahun Lalu</option>}
                     {CATEGORIES.map(c => (
                         <option key={c} value={c}>{c}</option>
                     ))}
