@@ -303,7 +303,7 @@ export interface BOSTransaction {
   date: string;
   type: 'income' | 'expense';
   category: 
-    | 'SiLPA Tahun Lalu' // Added
+    | 'SiLPA Tahun Lalu' // Added to fix type error
     | 'BOS Reguler' 
     | 'Standar Isi' 
     | 'Standar Proses' 
