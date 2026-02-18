@@ -6,9 +6,9 @@ import {
 } from 'recharts';
 import { 
   Users, Briefcase, TrendingDown, AlertTriangle, CheckCircle, 
-  MessageSquare, FileText, Activity, GraduationCap, Bell, UserX, X, Tent, Package, UserCheck, Shield, Building
+  MessageSquare, FileText, Activity, GraduationCap, Bell, UserX, X, Tent, Package, UserCheck, Shield, Building, Wallet, Coins, TrendingUp
 } from 'lucide-react';
-import { Student, User, GradeRecord, LiaisonLog, PermissionRequest, BehaviorLog, GradeData, Extracurricular, InventoryItem, SchoolAsset } from '../types';
+import { Student, User, GradeRecord, LiaisonLog, PermissionRequest, BehaviorLog, GradeData, Extracurricular, InventoryItem, SchoolAsset, BOSTransaction } from '../types';
 
 interface SupervisorOverviewProps {
   students: Student[];
@@ -20,11 +20,12 @@ interface SupervisorOverviewProps {
   counselingLogs: BehaviorLog[];
   extracurriculars: Extracurricular[];
   inventory: InventoryItem[]; 
-  schoolAssets: SchoolAsset[]; // NEW PROP
+  schoolAssets: SchoolAsset[];
+  bosTransactions: BOSTransaction[]; // NEW PROP
 }
 
 const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
-  students, users, attendanceRecords, grades, liaisonLogs, permissionRequests, counselingLogs, extracurriculars, inventory, schoolAssets
+  students, users, attendanceRecords, grades, liaisonLogs, permissionRequests, counselingLogs, extracurriculars, inventory, schoolAssets, bosTransactions
 }) => {
   const [activeModal, setActiveModal] = useState<'permissions' | 'discipline' | 'incomplete' | null>(null);
 
@@ -35,7 +36,7 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
     return { l, p };
   }, [students]);
 
-  // 1. GTK Stats (Guru & Tenaga Kependidikan) - Updated Logic based on Position Name
+  // 1. GTK Stats (Guru & Tenaga Kependidikan)
   const gtkStats = useMemo(() => {
     const lower = (str: string | undefined) => (str || '').toLowerCase();
 
@@ -45,31 +46,18 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
         return pos.includes('kepala sekolah');
     }).length;
 
-    // Guru (Guru Kelas, Guru PAI, Guru PJOK)
+    // Guru
     const teachers = users.filter(u => {
         const pos = lower(u.position);
-        // Pastikan bukan KS
         if (pos.includes('kepala sekolah')) return false;
-
-        // Filter spesifik sesuai request
-        return pos.includes('guru kelas') || 
-               pos.includes('guru pai') || 
-               pos.includes('guru agama') || // Sinonim umum
-               pos.includes('guru pjok') || 
-               pos.includes('guru olahraga'); // Sinonim umum
+        return pos.includes('guru');
     }).length;
 
-    // Tenaga Kependidikan (Staff, Operator, TU, Penjaga)
+    // Tenaga Kependidikan
     const staff = users.filter(u => {
         const pos = lower(u.position);
         if (pos.includes('kepala sekolah')) return false;
-        
-        // Filter spesifik staff dan peran pendukung lainnya
-        return pos.includes('staff') || 
-               pos.includes('tata usaha') || 
-               pos.includes('operator') || 
-               pos.includes('penjaga') ||
-               pos.includes('administrasi');
+        return pos.includes('staff') || pos.includes('tata usaha') || pos.includes('operator') || pos.includes('penjaga') || pos.includes('administrasi');
     }).length;
 
     const totalGTK = headmaster + teachers + staff;
@@ -99,18 +87,14 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
       }));
   }, [students]);
 
-  // 3. Attendance Stats (Calculated from ALL backend data)
+  // 3. Attendance Stats
   const attendanceStats = useMemo(() => {
     if (!attendanceRecords || attendanceRecords.length === 0) {
         return { todayPercentage: 0, donutData: [], trendData: [] };
     }
 
-    // A. Calculate Overall Percentage
     const totalRecords = attendanceRecords.length;
-    // Count 'present' and 'dispensation' as positive attendance
     const presentCount = attendanceRecords.filter(r => r.status === 'present' || r.status === 'dispensation').length;
-    
-    // Overall Percentage
     const overallPercentage = totalRecords > 0 ? Math.round((presentCount / totalRecords) * 100) : 0;
 
     const donutData = [
@@ -118,34 +102,22 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
       { name: 'Tidak Hadir', value: totalRecords - presentCount },
     ];
 
-    // B. Calculate Trend Data (Group by Date)
     const dateMap: Record<string, { present: number; total: number }> = {};
-
     attendanceRecords.forEach(r => {
-        // Ensure date format consistency (YYYY-MM-DD)
         const dateKey = r.date.includes('T') ? r.date.split('T')[0] : r.date;
-        
-        if (!dateMap[dateKey]) {
-            dateMap[dateKey] = { present: 0, total: 0 };
-        }
-        
+        if (!dateMap[dateKey]) dateMap[dateKey] = { present: 0, total: 0 };
         dateMap[dateKey].total += 1;
-        if (r.status === 'present' || r.status === 'dispensation') {
-            dateMap[dateKey].present += 1;
-        }
+        if (r.status === 'present' || r.status === 'dispensation') dateMap[dateKey].present += 1;
     });
 
-    // Sort dates and take the last 7 available data points
     const sortedDates = Object.keys(dateMap).sort();
     const recentDates = sortedDates.slice(-7);
 
     const trendData = recentDates.map(date => {
         const stats = dateMap[date];
         const pct = Math.round((stats.present / stats.total) * 100);
-        // Format date for X-Axis (e.g., 20/10)
         const d = new Date(date);
         const label = `${d.getDate()}/${d.getMonth() + 1}`;
-        
         return { name: label, hadir: pct, fullDate: date };
     });
 
@@ -159,12 +131,11 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
         if (totalRec === 0) return false;
         const pct = (s.attendance.present / totalRec) * 100;
         return pct < 75;
-    }).slice(0, 5); // Top 5 risky students
+    }).slice(0, 5); 
   }, [students]);
 
   // 5. Inventory Data (Sorted by Condition)
   const inventoryList = useMemo(() => {
-      // Sort: Rusak first, then by class
       return [...inventory].sort((a, b) => {
           if (a.condition === 'Rusak' && b.condition !== 'Rusak') return -1;
           if (a.condition !== 'Rusak' && b.condition === 'Rusak') return 1;
@@ -172,18 +143,54 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
       });
   }, [inventory]);
 
-  // 6. Extracurricular Stats
-  const ekskulStats = useMemo(() => {
-    const stats: Record<string, number> = {};
-    extracurriculars.forEach(e => {
-        const name = e.name.trim(); // Normalize name
-        stats[name] = (stats[name] || 0) + (e.members ? e.members.length : 0);
-    });
+  // 6. BOS Financial Overview (NEW)
+  const bosOverview = useMemo(() => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth(); // 0-indexed
+      const currentMonthName = now.toLocaleString('id-ID', { month: 'long' });
+      
+      // SiLPA Tahun Lalu (Separate nominal info)
+      const silpa = bosTransactions
+          .filter(t => t.category === 'SiLPA Tahun Lalu' && new Date(t.date).getFullYear() === currentYear)
+          .reduce((acc, t) => acc + t.amount, 0);
 
-    return Object.entries(stats)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
-  }, [extracurriculars]);
+      // BOS Reguler (Sum of incoming transfers this year)
+      const bosReguler = bosTransactions
+          .filter(t => t.category === 'BOS Reguler' && new Date(t.date).getFullYear() === currentYear)
+          .reduce((acc, t) => acc + t.amount, 0);
+
+      // Current Balance: Current Year Income - Current Year Expense (Excluding SiLPA)
+      // Filter strictly for current fiscal year to avoid mixing previous year's flow
+      const transactionsUpToMonth = bosTransactions.filter(t => {
+          const d = new Date(t.date);
+          const y = d.getFullYear();
+          const m = d.getMonth();
+          
+          return y === currentYear && m <= currentMonth;
+      });
+
+      const totalIncome = transactionsUpToMonth
+          .filter(t => t.type === 'income' && t.category !== 'SiLPA Tahun Lalu') // Explicitly exclude SiLPA
+          .reduce((acc, t) => acc + t.amount, 0);
+
+      const totalExpense = transactionsUpToMonth
+          .filter(t => t.type === 'expense')
+          .reduce((acc, t) => acc + t.amount, 0);
+
+      const balance = totalIncome - totalExpense;
+
+      return {
+          silpa,
+          bosReguler,
+          balance,
+          period: `${currentMonthName} ${currentYear}`
+      };
+  }, [bosTransactions]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+  };
 
   // 7. Notifications
   const notifications = useMemo(() => {
@@ -193,46 +200,13 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
       const pendingLiaison = liaisonLogs.filter(l => l.status === 'Pending').length;
 
       return [
-          { 
-            id: 'permissions',
-            label: 'Izin Menunggu Persetujuan', 
-            count: pendingPermits.length, 
-            icon: FileText, 
-            color: 'text-blue-600', 
-            bg: 'bg-blue-100',
-            data: pendingPermits
-          },
-          { 
-            id: 'discipline',
-            label: 'Kasus Disiplin Bulan Ini', 
-            count: negativeLogs.length, 
-            icon: AlertTriangle, 
-            color: 'text-red-600', 
-            bg: 'bg-red-100',
-            data: negativeLogs
-          },
-          { 
-            id: 'liaison', 
-            label: 'Pesan Wali Murid (Baru)', 
-            count: pendingLiaison, 
-            icon: MessageSquare, 
-            color: 'text-emerald-600', 
-            bg: 'bg-emerald-100',
-            data: []
-          },
-          { 
-            id: 'incomplete',
-            label: 'Data Siswa Belum Lengkap', 
-            count: incompleteData.length, 
-            icon: UserX, 
-            color: 'text-amber-600', 
-            bg: 'bg-amber-100',
-            data: incompleteData
-          },
+          { id: 'permissions', label: 'Izin Menunggu Persetujuan', count: pendingPermits.length, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-100', data: pendingPermits },
+          { id: 'discipline', label: 'Kasus Disiplin Bulan Ini', count: negativeLogs.length, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', data: negativeLogs },
+          { id: 'liaison', label: 'Pesan Wali Murid (Baru)', count: pendingLiaison, icon: MessageSquare, color: 'text-emerald-600', bg: 'bg-emerald-100', data: [] },
+          { id: 'incomplete', label: 'Data Siswa Belum Lengkap', count: incompleteData.length, icon: UserX, color: 'text-amber-600', bg: 'bg-amber-100', data: incompleteData },
       ];
   }, [permissionRequests, counselingLogs, liaisonLogs, students]);
 
-  // --- Helper to get student info ---
   const getStudentInfo = (id: string) => students.find(s => s.id === id);
 
   return (
@@ -242,30 +216,61 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center">
                     <Activity className="mr-3 text-indigo-600"/> Overview Kepala Sekolah
                 </h2>
-                <p className="text-gray-500 text-sm">Ringkasan eksekutif data akademik dan kepegawaian.</p>
+                <p className="text-gray-500 text-sm">Ringkasan eksekutif data akademik, kepegawaian, dan keuangan.</p>
             </div>
             
-            {/* Student Count Header with Breakdown */}
             <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-200 shadow-sm mt-3 md:mt-0">
                 <div className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-bold border border-indigo-100">
                     Total: {students.length} Siswa
                 </div>
-                <div className="flex items-center gap-3 px-2 text-sm font-medium">
-                    <span className="text-blue-600 flex items-center" title="Laki-laki">
-                        <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>
-                        L: {genderCounts.l}
-                    </span>
-                    <span className="text-pink-600 flex items-center" title="Perempuan">
-                        <span className="w-2 h-2 rounded-full bg-pink-500 mr-1.5"></span>
-                        P: {genderCounts.p}
-                    </span>
+            </div>
+        </div>
+
+        {/* --- BOS FINANCIAL OVERVIEW (NEW SECTION) --- */}
+        <h3 className="text-lg font-bold text-gray-800 flex items-center">
+            <Wallet className="mr-2 text-indigo-600" size={20} /> Pengelolaan BOS
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">SiLPA Tahun Lalu</p>
+                        <p className="text-xs text-gray-400">Tahun Anggaran {new Date().getFullYear()}</p>
+                    </div>
+                    <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Coins size={20}/></div>
                 </div>
+                <h3 className="text-2xl font-black text-gray-800">{formatCurrency(bosOverview.silpa)}</h3>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Penerimaan BOS Reguler</p>
+                        <p className="text-xs text-gray-400">Tahun Anggaran {new Date().getFullYear()}</p>
+                    </div>
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><TrendingUp size={20}/></div>
+                </div>
+                <h3 className="text-2xl font-black text-gray-800">{formatCurrency(bosOverview.bosReguler)}</h3>
+            </div>
+
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <p className="text-xs font-bold uppercase mb-1 opacity-90">Sisa Saldo (Tahun Berjalan)</p>
+                        <p className="text-xs opacity-75">{bosOverview.period}</p>
+                    </div>
+                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Wallet size={20}/></div>
+                </div>
+                <h3 className="text-2xl font-black">{formatCurrency(bosOverview.balance)}</h3>
+                <p className="text-[10px] opacity-80 mt-1">*Tidak termasuk SiLPA</p>
             </div>
         </div>
 
         {/* TOP CARDS: GTK FOCUS */}
+        <h3 className="text-lg font-bold text-gray-800 mt-6 flex items-center">
+            <Users className="mr-2 text-indigo-600" size={20} /> Pengelolaan GTK
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Total GTK */}
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg flex items-center justify-between">
                 <div>
                     <p className="text-xs font-bold uppercase mb-1 opacity-80">Total GTK</p>
@@ -273,8 +278,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                 </div>
                 <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm"><Users size={28}/></div>
             </div>
-
-            {/* Card 2: Kepala Sekolah */}
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
                 <div>
                     <p className="text-xs text-gray-500 font-bold uppercase mb-1">Kepala Sekolah</p>
@@ -282,8 +285,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                 </div>
                 <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Shield size={24}/></div>
             </div>
-
-            {/* Card 3: Guru */}
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
                 <div>
                     <p className="text-xs text-gray-500 font-bold uppercase mb-1">Guru</p>
@@ -291,8 +292,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                 </div>
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Briefcase size={24}/></div>
             </div>
-
-            {/* Card 4: Tenaga Kependidikan */}
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
                 <div>
                     <p className="text-xs text-gray-500 font-bold uppercase mb-1">Tendik</p>
@@ -352,7 +351,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
 
         {/* THIRD ROW: CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Student Distribution */}
             <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-4 flex items-center"><Users size={18} className="mr-2 text-indigo-500"/> Komposisi Siswa (L/P)</h3>
                 <div className="h-64">
@@ -370,7 +368,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                 </div>
             </div>
 
-            {/* Notifications */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-4 flex items-center"><Bell size={18} className="mr-2 text-amber-500"/> Notifikasi Penting</h3>
                 <div className="space-y-3">
@@ -401,8 +398,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
 
         {/* FOURTH ROW: SCHOOL ASSETS & CLASS INVENTORY */}
         <div className="grid grid-cols-1 gap-6">
-            
-            {/* SCHOOL ASSETS (SARANA PRASARANA) */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-4 flex items-center">
                     <Building size={18} className="mr-2 text-indigo-600"/> Data Sarana & Prasarana Sekolah
@@ -447,7 +442,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                 </div>
             </div>
 
-            {/* CLASS INVENTORY (INVENTARIS KELAS) */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-4 flex items-center">
                     <Package size={18} className="mr-2 text-indigo-600"/> Data Inventaris Per Kelas

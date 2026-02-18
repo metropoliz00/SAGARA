@@ -687,6 +687,7 @@ const App: React.FC = () => {
                   extracurriculars={extracurriculars}
                   inventory={inventory}
                   schoolAssets={schoolAssets}
+                  bosTransactions={bosTransactions}
                />;
         }
 
@@ -720,6 +721,7 @@ const App: React.FC = () => {
                   extracurriculars={extracurriculars}
                   inventory={inventory} 
                   schoolAssets={schoolAssets}
+                  bosTransactions={bosTransactions}
                />;
       case 'school-assets':
         if (!isAdminRole && !isSupervisor) { setCurrentView('dashboard'); return null; }
