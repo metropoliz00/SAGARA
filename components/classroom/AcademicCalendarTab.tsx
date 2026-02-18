@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AcademicCalendarData, Holiday } from '../../types';
 import { Calendar, Save, Loader2, RefreshCw, AlertTriangle, X, Lock } from 'lucide-react';
@@ -71,13 +70,19 @@ const AcademicCalendarTab: React.FC<AcademicCalendarTabProps> = ({ initialData, 
   const [isLegendVisible, setIsLegendVisible] = useState(true);
 
   useEffect(() => {
-    // Only update localData if initialData is actually populated (fetched).
-    // This prevents overwriting unsaved work if initialData is empty or re-fetched empty.
+    // Prioritaskan data dari backend.
     if (initialData && Object.keys(initialData).length > 0) {
       setLocalData(initialData);
-    } else if (Object.keys(localData).length === 0 && startYear === 2025) {
-      // If we have absolutely no data and are on the default year, load the prefill.
-      setLocalData(PREFILLED_CALENDAR_2025);
+    } 
+    // Jika tidak ada data backend, putuskan apakah akan mengisi data contoh atau mengosongkan.
+    else {
+      // Hanya isi data contoh untuk tahun ajaran default sebagai titik awal.
+      if (startYear === 2025) {
+        setLocalData(PREFILLED_CALENDAR_2025);
+      } else {
+        // Untuk tahun ajaran lain yang tidak memiliki data, pastikan kalender kosong.
+        setLocalData({});
+      }
     }
   }, [initialData, startYear]);
 

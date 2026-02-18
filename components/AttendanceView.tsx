@@ -1193,6 +1193,78 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                </div>
            </div>
        )}
+
+       {/* --- RESTORED QR SCANNER UI --- */}
+       {!isReadOnly && (
+        <>
+            <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end space-y-3 no-print">
+                {isFabOpen && (
+                    <div className="flex flex-col space-y-3 animate-fade-in-up">
+                        <button 
+                            onClick={() => { setIsScannerOpen(true); setIsFabOpen(false); }} 
+                            className="flex items-center space-x-2 bg-white text-gray-700 px-4 py-2 rounded-full shadow-lg border border-gray-100 hover:scale-105 transition-transform"
+                        >
+                            <span className="text-sm font-bold">Scan QR Code</span>
+                            <div className="bg-indigo-100 p-2 rounded-full text-indigo-600"><Scan size={20}/></div>
+                        </button>
+                    </div>
+                )}
+                <button 
+                    onClick={() => setIsFabOpen(!isFabOpen)} 
+                    className={`p-4 rounded-full shadow-xl text-white transition-all transform hover:scale-110 ${isFabOpen ? 'bg-red-500 rotate-45' : 'bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF]'}`}
+                >
+                    <Plus size={28} />
+                </button>
+            </div>
+
+            {isScannerOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative">
+                        <div className="p-4 bg-gray-900 text-white flex justify-between items-center">
+                            <h3 className="font-bold flex items-center"><Scan className="mr-2"/> Scan Kartu Siswa</h3>
+                            <button onClick={() => setIsScannerOpen(false)} className="p-1 hover:bg-white/20 rounded-full"><X/></button>
+                        </div>
+                        
+                        <div className="relative bg-black h-80">
+                            <div id="reader" className="w-full h-full"></div>
+                            {/* Scan Line Overlay */}
+                            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                                <div className="w-64 h-64 border-2 border-white/50 rounded-lg relative">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-red-500 shadow-[0_0_10px_red] animate-scan"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-white">
+                            <div className="flex justify-center gap-4 mb-4">
+                                <button 
+                                    onClick={() => setCameraFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
+                                    className="flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-full text-sm font-bold text-gray-700 hover:bg-gray-200"
+                                >
+                                    <Camera size={16}/> <span>Ganti Kamera</span>
+                                </button>
+                            </div>
+                            
+                            {lastScannedStudent && (
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center animate-fade-in-up">
+                                    <div className="bg-emerald-100 p-2 rounded-full mr-3 text-emerald-600">
+                                        <CheckCircle size={24} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-emerald-600 font-bold uppercase">Berhasil Scan</p>
+                                        <p className="font-bold text-gray-800">{lastScannedStudent.name}</p>
+                                        <p className="text-xs text-gray-500">{lastScannedStudent.time}</p>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <p className="text-center text-xs text-gray-400 mt-4">Arahkan kamera ke QR Code pada kartu pelajar siswa.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+       )}
     </div>
   );
 };

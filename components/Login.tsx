@@ -218,13 +218,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                </div>
                
                <div className="mt-6 text-center">
-                  {/* Updated Font Size Here */}
-                  <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight font-sans flex items-center justify-center gap-1">
+                  <h1 className="text-3xl font-extrabold tracking-tight font-sans flex items-center justify-center gap-1">
                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF]">
                        SAGARA
                      </span>
                   </h1>
-                  <div className="h-1 w-16 bg-gradient-to-r from-[#FFF9D0] to-[#CAF4FF] rounded-full mx-auto my-3"></div>
+                  <div className="h-1 w-12 bg-gradient-to-r from-[#FFF9D0] to-[#CAF4FF] rounded-full mx-auto my-3"></div>
                   <p className="text-sm text-slate-500 font-medium tracking-wide">
                     Sistem Akademik & Administrasi Terintegrasi
                   </p>

@@ -1,4 +1,3 @@
-
 // ... (imports remain the same)
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Student, GradeRecord, GradeData, Subject } from '../types';
@@ -75,19 +74,21 @@ const GradesView: React.FC<GradesViewProps> = ({
       }
   };
 
-  // ... (Rest of existing methods: isSubjectEditable, activeSubject, currentKktp, recapData, handleKktpChange, saveKktp, getStudentGrade, updateLocalGrade, calculateFinalAverage, handleSaveRow, handleSaveAll, handlePrint, handleDownloadTemplate, handleExport, handleImportClick, handleFileChange, getSubjectInitials)
-  // --- ACCESS CHECK HELPER ---
   const isSubjectEditable = useMemo(() => {
       if (isReadOnly) return false; 
       if (!allowedSubjects || allowedSubjects.includes('all')) return true; 
       return allowedSubjects.includes(selectedSubject);
   }, [isReadOnly, allowedSubjects, selectedSubject]);
 
-
   const activeSubject = useMemo(() => MOCK_SUBJECTS.find((s: Subject) => s.id === selectedSubject), [selectedSubject]);
   const currentKktp = kktpMap[selectedSubject] || activeSubject?.kkm || 75;
 
-  // --- RECAP & RANKING CALCULATION ---
+  const getInputColor = (score: number) => {
+    if (!score || score === 0) return 'bg-transparent text-gray-800';
+    if (score < currentKktp) return 'bg-rose-50 text-rose-700';
+    return 'bg-emerald-50 text-emerald-700';
+  };
+
   const recapData = useMemo(() => {
       const computed = students.map(student => {
           const studentRecord = grades.find(g => g.studentId === student.id);
@@ -411,7 +412,6 @@ const GradesView: React.FC<GradesViewProps> = ({
                     {students.map(s => {
                        const g = getStudentGrade(s.id);
                        const finalAvg = calculateFinalAverage(g);
-                       const isBelowKkpt = finalAvg > 0 && finalAvg < currentKktp;
                        
                        return (
                           <tr key={s.id} className="hover:bg-indigo-50/30 transition-colors print:hover:bg-transparent border-b">
@@ -424,19 +424,36 @@ const GradesView: React.FC<GradesViewProps> = ({
                                     </div>
                                 </div>
                              </td>
-                             {(['sum1','sum2','sum3','sum4','sas'] as (keyof GradeData)[]).map(f => (
-                                <td key={String(f)} className={`p-2 border-r ${f === 'sas' ? 'bg-blue-50/30 print:bg-white' : ''}`}>
-                                    {!isSubjectEditable ? (
-                                        <div className="w-full text-center py-1.5 font-bold text-gray-700">{g[f] || '-'}</div>
-                                    ) : (
-                                        <input type="number" min="0" max="100" value={g[f]||0} onChange={e=>updateLocalGrade(s.id, f, Number(e.target.value))} className={`w-full text-center py-1.5 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none rounded bg-transparent print:border-none print:p-0 ${f === 'sas' ? 'font-bold' : ''}`}/>
-                                    )}
-                                </td>
-                             ))}
-                             <td className={`p-2 text-center border-l font-black text-lg ${isBelowKkpt ? 'bg-rose-50 text-rose-600' : finalAvg >= currentKktp ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'} print:bg-white print:text-black`}>
+                             {(['sum1','sum2','sum3','sum4','sas'] as (keyof GradeData)[]).map(f => {
+                                const score = g[f] || 0;
+                                const colorClass = getInputColor(score);
+                                return (
+                                   <td key={String(f)} className={`p-1 border-r align-top ${f === 'sas' ? 'bg-blue-50/30 print:bg-white' : ''}`}>
+                                       {!isSubjectEditable ? (
+                                         <div>
+                                            <div className={`w-full text-center py-2 font-bold rounded-lg ${colorClass}`}>{score > 0 ? score : '-'}</div>
+                                            {f !== 'sas' && score > 0 && (
+                                                <div className="text-center text-[9px] font-bold mt-1">
+                                                    {score < currentKktp ? <span className="text-rose-600">Remedial</span> : <span className="text-emerald-600">Pengayaan</span>}
+                                                </div>
+                                            )}
+                                         </div>
+                                       ) : (
+                                        <div>
+                                            <input type="number" min="0" max="100" value={score} onChange={e=>updateLocalGrade(s.id, f, Number(e.target.value))} className={`w-full text-center py-2 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none rounded-lg print:border-none print:p-0 ${f === 'sas' ? 'font-bold' : ''} ${colorClass}`}/>
+                                            {f !== 'sas' && score > 0 && (
+                                                <div className="text-center text-[9px] font-bold mt-1">
+                                                    {score < currentKktp ? <span className="text-rose-600">Remedial</span> : <span className="text-emerald-600">Pengayaan</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                       )}
+                                    </td>
+                                );
+                             })}
+                             <td className={`p-2 text-center border-l font-black text-lg bg-indigo-50 text-indigo-700 print:bg-white print:text-black`}>
                                 <div className="flex flex-col items-center">
                                     <span>{finalAvg > 0 ? finalAvg : '-'}</span>
-                                    {isBelowKkpt && <span className="text-[9px] font-bold uppercase no-print">Remedial</span>}
                                 </div>
                              </td>
                              {isSubjectEditable && (

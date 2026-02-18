@@ -1,4 +1,3 @@
-
 // ... (imports remain the same)
 import React, { useState, useMemo, useEffect } from 'react';
 import { Student, GradeRecord, LiaisonLog, AgendaItem, BehaviorLog, PermissionRequest, KarakterAssessment, KARAKTER_INDICATORS, KarakterIndicatorKey } from '../types';
@@ -39,6 +38,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   // -- STATES FOR DASHBOARD GRADES --
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(MOCK_SUBJECTS[0]?.id || 'pai');
   const [showRecapReport, setShowRecapReport] = useState(false);
+  const [kktpMap, setKktpMap] = useState<Record<string, number>>({});
 
   // -- STATES FOR FORMS --
   const [permissionForm, setPermissionForm] = useState({
@@ -63,7 +63,15 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   const [profileData, setProfileData] = useState<Partial<Student>>(student);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // -- STATE FOR CLOCK --
+  const [currentDate, setCurrentDate] = useState(new Date());
+
   // -- EFFECTS --
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDate(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     setProfileData(student);
   }, [student]);
@@ -78,16 +86,30 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
       }
   }, [karakterAssessments, student.id]);
 
-  // NEW: Check if Recap Report is enabled for this class
+  // NEW: Check if Recap Report is enabled and load KKTP for this class
   useEffect(() => {
       const checkConfig = async () => {
           if (student.classId) {
               try {
                   const config = await apiService.getClassConfig(student.classId);
-                  if (config && config.settings?.showStudentRecap) {
-                      setShowRecapReport(true);
-                  } else {
-                      setShowRecapReport(false);
+                  if (config) {
+                      if (config.settings?.showStudentRecap) {
+                          setShowRecapReport(true);
+                      } else {
+                          setShowRecapReport(false);
+                      }
+                      
+                      // Load KKTP data
+                      let finalKktp: Record<string, number> = {};
+                      if (config.kktp && Object.keys(config.kktp).length > 0) {
+                          finalKktp = config.kktp;
+                      } else {
+                          // Fallback to MOCK_SUBJECTS if not configured
+                          MOCK_SUBJECTS.forEach(s => {
+                              finalKktp[s.id] = s.kkm;
+                          });
+                      }
+                      setKktpMap(finalKktp);
                   }
               } catch (e) {
                   console.error("Failed to load class config for student");
@@ -193,6 +215,28 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
   // -- COMPUTED DATA --
 
+  const formattedTime = new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(currentDate).replace(/\./g, ':');
+
+  const formattedDate = new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(currentDate);
+
+  const getGreeting = useMemo(() => {
+    const hour = currentDate.getHours();
+    if (hour >= 5 && hour < 11) return "Pagi";
+    if (hour >= 11 && hour < 15) return "Siang";
+    if (hour >= 15 && hour < 19) return "Sore";
+    return "Malam";
+  }, [currentDate]);
+
   const attendanceStats = useMemo(() => {
     // Filter for current month only
     const now = new Date();
@@ -286,6 +330,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
           const vals = [sData.sum1, sData.sum2, sData.sum3, sData.sum4, sData.sas].filter(v => v > 0);
           const final = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
           return {
+              id: subj.id,
               name: subj.name,
               ...sData,
               final
@@ -306,6 +351,20 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
     { id: 'character', label: 'Karakter', icon: HeartHandshake },
   ];
 
+  const currentKktp = kktpMap[selectedSubjectId] || MOCK_SUBJECTS.find(s => s.id === selectedSubjectId)?.kkm || 75;
+
+  const scoreItems = [
+      { key: 'sum1', label: 'Sumatif 1' },
+      { key: 'sum2', label: 'Sumatif 2' },
+      { key: 'sum3', label: 'Sumatif 3' },
+      { key: 'sum4', label: 'Sumatif 4' },
+      { key: 'sas', label: 'SAS' },
+  ];
+
+  const average = selectedGradeData.average;
+  const hasAverage = average > 0;
+  const isAverageBelowKktp = hasAverage && average < currentKktp;
+
   return (
     <div className="animate-fade-in pb-24 space-y-4 font-sans text-slate-800 max-w-[1280px] mx-auto">
       
@@ -313,7 +372,20 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] z-0"></div>
           
-          <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end mt-8 gap-6">
+          <div className="relative z-10 flex justify-between items-center mb-6">
+            <div className="flex items-center space-x-3 bg-white/70 backdrop-blur-sm px-4 py-2 rounded-xl shadow-sm border border-gray-100">
+                <Calendar size={24} className="text-[#5AB2FF] shrink-0" />
+                <div>
+                    <p className="text-lg font-bold text-gray-800 tabular-nums tracking-wider">{formattedTime}</p>
+                    <p className="text-xs font-medium text-gray-500 capitalize">{formattedDate}</p>
+                </div>
+            </div>
+            <h1 className="text-2xl font-bold text-white drop-shadow-md hidden md:block">
+              Selamat {getGreeting}! 👋
+            </h1>
+          </div>
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-6">
               <div className="w-28 h-28 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white shrink-0">
                   {student.photo && !student.photo.startsWith('ERROR') ? (
                       <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
@@ -323,7 +395,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
               </div>
 
               <div className="flex-1 text-center md:text-left mb-1">
-                  <h1 className="text-2xl font-extrabold text-slate-800 mb-2">{student.name}</h1>
+                  <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#5AB2FF] to-blue-500 mb-2">
+                      {student.name}
+                  </h1>
                   <div className="inline-flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm text-gray-600">
                       <span className="bg-gray-100 px-3 py-1 rounded-full font-bold border border-gray-200 shadow-sm flex items-center text-slate-700">
                           NIS: {student.nis}
@@ -415,47 +489,108 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                           </div>
                       </div>
                   </div>
-
-                  {/* 3. Academic Summary (Nilai Sumatif) - NEW */}
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                          <h3 className="font-bold text-gray-800 flex items-center">
-                              <GraduationCap className="mr-2 text-indigo-500" size={20}/> Hasil Belajar (Sumatif)
-                          </h3>
-                          <div className="relative w-full sm:w-auto">
-                              <select 
-                                value={selectedSubjectId} 
-                                onChange={(e) => setSelectedSubjectId(e.target.value)}
-                                className="w-full sm:w-48 appearance-none bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold py-2 pl-4 pr-10 rounded-xl outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer text-sm"
-                              >
-                                  {MOCK_SUBJECTS.map(s => (
-                                      <option key={s.id} value={s.id}>{s.name}</option>
-                                  ))}
-                              </select>
-                              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none"/>
-                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                          {['sum1', 'sum2', 'sum3', 'sum4'].map((key, idx) => (
-                              <div key={key} className="bg-gray-50 border border-gray-100 p-3 rounded-xl text-center flex flex-col justify-center">
-                                  <span className="text-[10px] text-gray-400 font-bold uppercase mb-1">Sumatif {idx + 1}</span>
-                                  <span className={`text-xl font-bold ${selectedGradeData[key as keyof typeof selectedGradeData] > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
-                                      {selectedGradeData[key as keyof typeof selectedGradeData] || '-'}
-                                  </span>
+                  
+                  {/* Split view for Grades and Agenda */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* 3. Academic Summary (Nilai Sumatif) - UPDATED */}
+                      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                              <h3 className="font-bold text-gray-800 flex items-center">
+                                  <GraduationCap className="mr-2 text-indigo-500" size={20}/> Hasil Belajar (Sumatif)
+                              </h3>
+                              <div className="relative w-full sm:w-auto">
+                                  <select 
+                                    value={selectedSubjectId} 
+                                    onChange={(e) => setSelectedSubjectId(e.target.value)}
+                                    className="w-full sm:w-48 appearance-none bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold py-2 pl-4 pr-10 rounded-xl outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer text-sm"
+                                  >
+                                      {MOCK_SUBJECTS.map(s => (
+                                          <option key={s.id} value={s.id}>{s.name}</option>
+                                      ))}
+                                  </select>
+                                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none"/>
                               </div>
-                          ))}
-                          <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center flex flex-col justify-center col-span-2 md:col-span-1">
-                              <span className="text-[10px] text-blue-400 font-bold uppercase mb-1">SAS</span>
-                              <span className={`text-xl font-bold ${selectedGradeData.sas > 0 ? 'text-blue-700' : 'text-gray-300'}`}>
-                                  {selectedGradeData.sas || '-'}
-                              </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                              {scoreItems.map(item => {
+                                  const score = selectedGradeData[item.key as keyof typeof selectedGradeData] as number;
+                                  const isSas = item.key === 'sas';
+                                  const hasScore = score > 0;
+                                  const isBelowKktp = hasScore && score < currentKktp;
+                                  
+                                  const defaultBg = isSas ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100';
+                                  const successBg = 'bg-emerald-50 border-emerald-200';
+                                  const failBg = 'bg-red-50 border-red-200';
+
+                                  const successText = 'text-emerald-700';
+                                  const failText = 'text-red-700';
+
+                                  const successLabel = 'text-emerald-600';
+                                  const failLabel = 'text-red-500';
+
+                                  return (
+                                      <div key={item.key} className={`p-3 rounded-xl text-center flex flex-col justify-center border transition-all ${
+                                          !hasScore ? defaultBg : isBelowKktp ? failBg : successBg
+                                      }`}>
+                                          <span className={`text-[10px] font-bold uppercase mb-1 ${
+                                              !hasScore ? 'text-gray-400' : isBelowKktp ? failLabel : successLabel
+                                          }`}>
+                                              {item.label}
+                                          </span>
+                                          <span className={`text-xl font-bold ${
+                                              !hasScore ? 'text-gray-300' : isBelowKktp ? failText : successText
+                                          }`}>
+                                              {hasScore ? score : '-'}
+                                          </span>
+                                          {hasScore && (
+                                              <span className={`text-[9px] font-bold mt-1 ${isBelowKktp ? 'text-red-500' : 'text-emerald-600'}`}>
+                                                  {isBelowKktp ? 'Remedial' : 'Pengayaan'}
+                                              </span>
+                                          )}
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                          
+                          <div className={`mt-4 p-4 rounded-xl flex justify-between items-center shadow-md transition-colors ${
+                            !hasAverage ? 'bg-indigo-600 text-white' :
+                            isAverageBelowKktp ? 'bg-red-500 text-white' : 'bg-emerald-600 text-white'
+                        }`}>
+                              <div>
+                                  <span className="font-medium text-sm text-white/80">Nilai Rata-rata Akhir</span>
+                                  {hasAverage && (
+                                      <span className="block text-xs font-bold text-white mt-1">
+                                          {isAverageBelowKktp ? 'Perlu Perbaikan' : 'Tercapai'}
+                                      </span>
+                                  )}
+                              </div>
+                              <span className="text-3xl font-black">{hasAverage ? average : '-'}</span>
                           </div>
                       </div>
-                      
-                      <div className="mt-4 bg-indigo-600 text-white p-4 rounded-xl flex justify-between items-center shadow-md">
-                          <span className="font-medium text-sm text-indigo-100">Nilai Rata-rata Akhir</span>
-                          <span className="text-2xl font-black">{selectedGradeData.average || '-'}</span>
+
+                      {/* 5. Agenda */}
+                      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
+                          <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                              <ListTodo className="mr-2 text-[#5AB2FF]" size={18}/> Agenda Kegiatan
+                          </h3>
+                          <div className="space-y-3 flex-1">
+                              {upcomingAgendas.length === 0 ? (
+                                  <div className="text-center text-gray-400 text-sm py-8 italic">Tidak ada agenda mendatang.</div>
+                              ) : (
+                                  upcomingAgendas.slice(0, 5).map(agenda => (
+                                      <div key={agenda.id} className="flex items-start p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                          <div className={`mt-1.5 w-2.5 h-2.5 rounded-full mr-3 shrink-0 ${agenda.type==='urgent'?'bg-red-500': agenda.type==='warning'?'bg-amber-500':'bg-blue-500'}`}></div>
+                                          <div>
+                                              <h4 className="text-sm font-bold text-gray-800">{agenda.title}</h4>
+                                              <p className="text-xs text-gray-500 mt-1 flex items-center">
+                                                  <Calendar size={10} className="mr-1"/> {new Date(agenda.date).toLocaleDateString('id-ID', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}
+                                              </p>
+                                          </div>
+                                      </div>
+                                  ))
+                              )}
+                          </div>
                       </div>
                   </div>
 
@@ -490,53 +625,41 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
-                                      {myRecapData.subjects.map((subj, idx) => (
-                                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                              <td className="p-3 font-medium text-gray-700">{subj.name}</td>
-                                              <td className="p-3 text-center text-gray-500">{subj.sum1 || '-'}</td>
-                                              <td className="p-3 text-center text-gray-500">{subj.sum2 || '-'}</td>
-                                              <td className="p-3 text-center text-gray-500">{subj.sum3 || '-'}</td>
-                                              <td className="p-3 text-center text-gray-500">{subj.sum4 || '-'}</td>
-                                              <td className="p-3 text-center font-semibold bg-blue-50/30 text-blue-700">{subj.sas || '-'}</td>
-                                              <td className="p-3 text-center font-bold bg-emerald-50/50 text-emerald-700">{subj.final || '-'}</td>
-                                          </tr>
-                                      ))}
+                                      {myRecapData.subjects.map((subj, idx) => {
+                                          const kktp = kktpMap[subj.id] || MOCK_SUBJECTS.find(s => s.id === subj.id)?.kkm || 75;
+                                          const isBelowKktp = subj.final > 0 && subj.final < kktp;
+                                          return (
+                                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                                <td className="p-3 font-medium text-gray-700">{subj.name}</td>
+                                                <td className="p-3 text-center text-gray-500">{subj.sum1 || '-'}</td>
+                                                <td className="p-3 text-center text-gray-500">{subj.sum2 || '-'}</td>
+                                                <td className="p-3 text-center text-gray-500">{subj.sum3 || '-'}</td>
+                                                <td className="p-3 text-center text-gray-500">{subj.sum4 || '-'}</td>
+                                                <td className="p-3 text-center font-semibold bg-blue-50/30 text-blue-700">{subj.sas || '-'}</td>
+                                                <td className={`p-3 text-center font-bold bg-emerald-50/50 text-emerald-700`}>
+                                                    <div className="flex flex-col items-center">
+                                                        <span>{subj.final || '-'}</span>
+                                                        {subj.final > 0 && (
+                                                            <span className={`text-[9px] font-bold mt-1 ${isBelowKktp ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                {isBelowKktp ? 'Remedial' : 'Pengayaan'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                      })}
                                   </tbody>
                               </table>
                           </div>
                       </div>
                   )}
-                  
-                  {/* 5. Agenda */}
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
-                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                          <ListTodo className="mr-2 text-[#5AB2FF]" size={18}/> Agenda Kegiatan
-                      </h3>
-                      <div className="space-y-3 flex-1">
-                          {upcomingAgendas.length === 0 ? (
-                              <div className="text-center text-gray-400 text-sm py-8 italic">Tidak ada agenda mendatang.</div>
-                          ) : (
-                              upcomingAgendas.slice(0, 5).map(agenda => (
-                                  <div key={agenda.id} className="flex items-start p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                      <div className={`mt-1.5 w-2.5 h-2.5 rounded-full mr-3 shrink-0 ${agenda.type==='urgent'?'bg-red-500': agenda.type==='warning'?'bg-amber-500':'bg-blue-500'}`}></div>
-                                      <div>
-                                          <h4 className="text-sm font-bold text-gray-800">{agenda.title}</h4>
-                                          <p className="text-xs text-gray-500 mt-1 flex items-center">
-                                              <Calendar size={10} className="mr-1"/> {new Date(agenda.date).toLocaleDateString('id-ID', {weekday: 'long', day: 'numeric', month: 'long'})}
-                                          </p>
-                                      </div>
-                                  </div>
-                              ))
-                          )}
-                      </div>
-                  </div>
               </div>
           )}
 
-          {/* ... (Rest of the tabs: 'attendance', 'liaison', 'profile', 'character' remain identical) ... */}
           {/* --- ATTENDANCE & PERMISSION TAB --- */}
           {activeTab === 'attendance' && (
-              <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Form Pengajuan */}
                   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                       <h3 className="font-bold text-gray-800 mb-4 flex items-center">
@@ -636,7 +759,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
           {/* --- LIAISON BOOK TAB --- */}
           {activeTab === 'liaison' && (
-              <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                       <h3 className="font-bold text-gray-800 mb-4 flex items-center">
                           <MessageSquare size={18} className="mr-2 text-[#5AB2FF]"/> Tulis Pesan ke Wali Kelas
@@ -731,11 +854,27 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
           {/* --- PROFILE TAB (Separate from Character) --- */}
           {activeTab === 'profile' && (
-              <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                  {/* Left Card: Data Pokok */}
+                  <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-fit">
+                      <h3 className="font-bold text-gray-800 text-lg flex items-center mb-4">
+                          <User size={18} className="mr-2 text-indigo-500"/> Data Pokok
+                      </h3>
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                          <div className="space-y-4 text-sm">
+                              <div><strong className="block text-xs text-gray-500">Nama Lengkap</strong> <span className="font-semibold text-gray-800">{student.name}</span></div>
+                              <div><strong className="block text-xs text-gray-500">NIS / NISN</strong> <span className="font-semibold text-gray-800">{student.nis} / {student.nisn || '-'}</span></div>
+                              <div><strong className="block text-xs text-gray-500">Alamat</strong> <span className="font-semibold text-gray-800">{student.address}</span></div>
+                              <div><strong className="block text-xs text-gray-500">No. HP Wali</strong> <span className="font-semibold text-gray-800">{student.parentPhone}</span></div>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Right Card: Editable Data */}
+                  <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                       <div className="flex justify-between items-center mb-6">
                           <h3 className="font-bold text-gray-800 text-lg flex items-center">
-                              <User size={18} className="mr-2 text-indigo-500"/> Data Diri & Kesehatan
+                              <Edit size={18} className="mr-2 text-indigo-500"/> Edit Profil Siswa
                           </h3>
                           {!isEditingProfile ? (
                               <button onClick={() => setIsEditingProfile(true)} className="flex items-center gap-2 bg-white text-indigo-600 font-bold px-4 py-2 rounded-lg border border-indigo-200 hover:bg-indigo-50 shadow-sm text-xs">
@@ -751,46 +890,41 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                           )}
                       </div>
 
-                      {/* Read Only Main Info */}
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
-                          <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 border-b pb-2">Data Pokok (Tidak Dapat Diubah)</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                              <div><strong className="block text-xs text-gray-500">Nama Lengkap</strong> <span className="font-semibold text-gray-800">{student.name}</span></div>
-                              <div><strong className="block text-xs text-gray-500">NIS / NISN</strong> <span className="font-semibold text-gray-800">{student.nis} / {student.nisn || '-'}</span></div>
-                              <div><strong className="block text-xs text-gray-500">Alamat</strong> <span className="font-semibold text-gray-800">{student.address}</span></div>
-                              <div><strong className="block text-xs text-gray-500">No. HP Wali</strong> <span className="font-semibold text-gray-800">{student.parentPhone}</span></div>
-                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                          <div className="md:col-span-2"><h4 className="text-xs font-bold text-indigo-600 uppercase mb-2 border-b border-indigo-100 pb-1">Data Fisik & Kesehatan (Dapat Diedit)</h4></div>
-                          
+                      <div className="space-y-6 text-sm">
                           <div>
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Tinggi Badan (cm)</label>
-                              <input type="number" value={profileData.height || 0} onChange={e => handleProfileChange('height', Number(e.target.value))} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Berat Badan (kg)</label>
-                              <input type="number" value={profileData.weight || 0} onChange={e => handleProfileChange('weight', Number(e.target.value))} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Golongan Darah</label>
-                              <input type="text" value={profileData.bloodType || ''} onChange={e => handleProfileChange('bloodType', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
-                          </div>
-                          <div className="md:col-span-2">
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Riwayat Penyakit / Catatan Kesehatan</label>
-                              <textarea rows={2} value={profileData.healthNotes || ''} onChange={e => handleProfileChange('healthNotes', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"/>
+                              <h4 className="text-xs font-bold text-indigo-600 uppercase mb-2 border-b border-indigo-100 pb-1">Data Fisik & Kesehatan</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mt-2">
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 mb-1">Tinggi Badan (cm)</label>
+                                      <input type="number" value={profileData.height || 0} onChange={e => handleProfileChange('height', Number(e.target.value))} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 mb-1">Berat Badan (kg)</label>
+                                      <input type="number" value={profileData.weight || 0} onChange={e => handleProfileChange('weight', Number(e.target.value))} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 mb-1">Golongan Darah</label>
+                                      <input type="text" value={profileData.bloodType || ''} onChange={e => handleProfileChange('bloodType', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                                  </div>
+                                  <div className="md:col-span-2">
+                                      <label className="block text-xs font-bold text-gray-500 mb-1">Riwayat Penyakit / Catatan Kesehatan</label>
+                                      <textarea rows={2} value={profileData.healthNotes || ''} onChange={e => handleProfileChange('healthNotes', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"/>
+                                  </div>
+                              </div>
                           </div>
 
-                          <div className="md:col-span-2 mt-2"><h4 className="text-xs font-bold text-indigo-600 uppercase mb-2 border-b border-indigo-100 pb-1">Minat & Impian (Dapat Diedit)</h4></div>
-                          
                           <div>
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Hobi</label>
-                              <input type="text" value={profileData.hobbies || ''} onChange={e => handleProfileChange('hobbies', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Cita-cita</label>
-                              <input type="text" value={profileData.ambition || ''} onChange={e => handleProfileChange('ambition', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                              <h4 className="text-xs font-bold text-indigo-600 uppercase mb-2 border-b border-indigo-100 pb-1">Minat & Impian</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mt-2">
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 mb-1">Hobi</label>
+                                      <input type="text" value={profileData.hobbies || ''} onChange={e => handleProfileChange('hobbies', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 mb-1">Cita-cita</label>
+                                      <input type="text" value={profileData.ambition || ''} onChange={e => handleProfileChange('ambition', e.target.value)} disabled={!isEditingProfile} className="w-full border p-2 rounded-lg bg-white disabled:bg-gray-50 disabled:text-gray-500 outline-none focus:ring-2 focus:ring-indigo-500"/>
+                                  </div>
+                              </div>
                           </div>
                       </div>
                   </div>
@@ -856,7 +990,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                       </div>
                       
                       <div className="mt-6">
-                          <label className="text-xs font-bold text-gray-500 uppercase mb-2 block ml-1">Catatan Tambahan (Opsional)</label>
+                          <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Catatan Tambahan (Opsional)</label>
                           <textarea
                               rows={2}
                               value={karakterForm.catatan || ''}

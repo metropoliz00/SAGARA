@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Student, TeacherProfileData, OrganizationStructure, User } from '../../types';
 import { Users, User as UserIcon, GripVertical, Plus, Save, Trash2, PenTool, Loader2, X } from 'lucide-react';
@@ -150,7 +149,13 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
                             onDragStart={(e) => handleDragStart(e, student.id, roleId)}
                             title={student.name}
                         >
-                            <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover"/>
+                            {student.photo ? (
+                                <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover"/>
+                            ) : (
+                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500">
+                                    <UserIcon size={16} />
+                                </div>
+                            )}
                             <p className="text-xs font-bold text-gray-800 mt-1 leading-tight">{student.name.split(' ').slice(0, 2).join(' ')}</p>
                         </div>
                     ) : <span className="text-xs text-gray-400">Tarik Siswa</span>}

@@ -1,4 +1,3 @@
-
 // ... (SHEETS definitions and setupDatabase remain unchanged)
 const SHEETS = {
   USERS: "Users",
@@ -372,6 +371,118 @@ function getSikapAssessments(user){const rows=getData(SHEETS.SIKAP);const data=r
 function saveSikapAssessment(p){const sheet=getSheet(SHEETS.SIKAP);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(p.studentId));const a=p.assessment;const row=[p.studentId,p.classId,a.keimanan,a.kewargaan,a.penalaranKritis,a.kreativitas,a.kolaborasi,a.kemandirian,a.kesehatan,a.komunikasi];if(idx>0)sheet.getRange(idx+1,1,1,row.length).setValues([row]);else sheet.appendRow(row);return response({status:"success"})}
 function getKarakterAssessments(user){const rows=getData(SHEETS.KARAKTER);const data=rows.map(r=>({studentId:String(r[0]),classId:String(r[1]),bangunPagi:String(r[2]),beribadah:String(r[3]),berolahraga:String(r[4]),makanSehat:String(r[5]),gemarBelajar:String(r[6]),bermasyarakat:String(r[7]),tidurAwal:String(r[8]),catatan:String(r[9]),afirmasi:String(r[10])}));return response({status:"success",data})}
 function saveKarakterAssessment(p){const sheet=getSheet(SHEETS.KARAKTER);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(p.studentId));const a=p.assessment;const row=[p.studentId,p.classId,a.bangunPagi,a.beribadah,a.berolahraga,a.makanSehat,a.gemarBelajar,a.bermasyarakat,a.tidurAwal,a.catatan,a.afirmasi];if(idx>0)sheet.getRange(idx+1,1,1,row.length).setValues([row]);else sheet.appendRow(row);return response({status:"success"})}
+
+function getClassConfig(classId) {
+  const config = {};
+  if (!classId && classId !== "__SCHOOL_WIDE__") return response({ status: "success", data: config });
+
+  // 1. Get Schedule
+  const scheduleRows = getData(SHEETS.JADWAL).filter(r => String(r[1]) === classId);
+  config.schedule = scheduleRows.map(r => ({id: String(r[0]), classId: String(r[1]), day: String(r[2]), time: String(r[3]), subject: String(r[4])}));
+
+  // 2. Get Piket
+  const piketRows = getData(SHEETS.PIKET).filter(r => String(r[0]) === classId);
+  config.piket = piketRows.map(r => ({day: String(r[1]), studentIds: parseJSON(r[2]) || []}));
+
+  // 3. Get JSON-based configs
+  const jsonConfigMap = {
+    seats: SHEETS.DENAH,
+    academicCalendar: SHEETS.KALENDER,
+    timeSlots: SHEETS.JAM,
+    kktp: SHEETS.KKTP,
+    organization: SHEETS.STRUKTUR,
+    settings: SHEETS.SETTINGS
+  };
+
+  for (const key in jsonConfigMap) {
+    const sheetName = jsonConfigMap[key];
+    const sheet = getSheet(sheetName);
+    const allData = sheet.getDataRange().getValues();
+    
+    // ** CHANGE: Use school-wide ID for academic calendar **
+    const lookupId = (key === 'academicCalendar') ? '__SCHOOL_WIDE__' : String(classId);
+
+    const row = allData.find(r => String(r[0]) === lookupId);
+    if (row && row[1]) {
+      config[key] = parseJSON(row[1]);
+    }
+  }
+
+  return response({ status: "success", data: config });
+}
+
+function saveClassConfig(payload) {
+  const { key, data, classId: originalClassId } = payload;
+  
+  const jsonConfigMap = {
+    SEATING: { sheetName: SHEETS.DENAH },
+    ACADEMIC_CALENDAR: { sheetName: SHEETS.KALENDER },
+    TIME_SLOTS: { sheetName: SHEETS.JAM },
+    KKTP: { sheetName: SHEETS.KKTP },
+    ORGANIZATION: { sheetName: SHEETS.STRUKTUR },
+    RECAP_SETTINGS: { sheetName: SHEETS.SETTINGS }
+  };
+
+  if (jsonConfigMap[key]) {
+    const sheetName = jsonConfigMap[key].sheetName;
+    const sheet = getSheet(sheetName);
+    const allData = sheet.getDataRange().getValues();
+    
+    // ** CHANGE: Use school-wide ID for academic calendar **
+    const effectiveClassId = (key === 'ACADEMIC_CALENDAR') ? '__SCHOOL_WIDE__' : String(originalClassId);
+
+    if (!effectiveClassId) return response({ status: "error", message: "Class ID is required" });
+
+    const rowIndex = allData.findIndex(r => String(r[0]) === effectiveClassId);
+    const rowData = [effectiveClassId, JSON.stringify(data)];
+    
+    if (rowIndex > 0) {
+      sheet.getRange(rowIndex + 1, 1, 1, rowData.length).setValues([rowData]);
+    } else {
+      sheet.appendRow(rowData);
+    }
+    return response({ status: "success" });
+  }
+
+  if (!originalClassId) return response({ status: "error", message: "Class ID is required for this config type" });
+
+  if (key === "SCHEDULE") {
+    const sheet = getSheet(SHEETS.JADWAL);
+    const allData = sheet.getDataRange().getValues();
+    for (let i = allData.length - 1; i > 0; i--) {
+        if (String(allData[i][1]) === String(originalClassId)) {
+            sheet.deleteRow(i + 1);
+        }
+    }
+    const newRows = data.map(function(item) {
+      return [item.id || Utilities.getUuid(), originalClassId, item.day, item.time, item.subject]
+    });
+    if (newRows.length > 0) {
+        sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+    }
+    return response({ status: "success" });
+  }
+
+  if (key === "PIKET") {
+    const sheet = getSheet(SHEETS.PIKET);
+    const allData = sheet.getDataRange().getValues();
+    for (let i = allData.length - 1; i > 0; i--) {
+        if (String(allData[i][0]) === String(originalClassId)) {
+            sheet.deleteRow(i + 1);
+        }
+    }
+    const newRows = data.map(function(group) {
+      return [originalClassId, group.day, JSON.stringify(group.studentIds)]
+    });
+    if (newRows.length > 0) {
+        sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+    }
+    return response({ status: "success" });
+  }
+
+  return response({ status: "error", message: "Unknown config key: " + key });
+}
+
 function getEmploymentLinks(){const rows=getData(SHEETS.LINKS);const data=rows.map(r=>({id:String(r[0]),title:String(r[1]),url:String(r[2]),icon:String(r[3])}));return response({status:"success",data})}
 function saveEmploymentLink(l){const sheet=getSheet(SHEETS.LINKS);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(l.id));const id=l.id||Utilities.getUuid();const row=[id,l.title,l.url,l.icon];if(idx>0)sheet.getRange(idx+1,1,1,4).setValues([row]);else sheet.appendRow(row);return response({status:"success",id})}
 function deleteEmploymentLink(id){const sheet=getSheet(SHEETS.LINKS);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
