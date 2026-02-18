@@ -10,8 +10,12 @@ interface LoginProps {
 
 // Placeholder - User must replace this in Google Cloud Console
 // NOTE: Google Sign In requires a valid Client ID and configured origin/redirect URI
+<<<<<<< HEAD
 // Explicitly typed as string to prevent TS2367 error when comparing with placeholders
 const GOOGLE_CLIENT_ID: string = "188596791323-rf3gor7ompi1hn7086vp38rkths652te.apps.googleusercontent.com"; 
+=======
+const GOOGLE_CLIENT_ID = "188596791323-rf3gor7ompi1hn7086vp38rkths652te.apps.googleusercontent.com"; 
+>>>>>>> fa6c9371f007aa386052f874f241f11874ba197c
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
@@ -80,6 +84,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   useEffect(() => {
       // Initialize Google Button
+<<<<<<< HEAD
       if ((window as any).google) {
           try {
               // Ensure we don't try to init if ID is clearly invalid/placeholder (optional check)
@@ -88,6 +93,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   return;
               }
 
+=======
+      if ((window as any).google && GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE") {
+          try {
+>>>>>>> fa6c9371f007aa386052f874f241f11874ba197c
               (window as any).google.accounts.id.initialize({
                   client_id: GOOGLE_CLIENT_ID,
                   callback: handleGoogleResponse
@@ -202,7 +211,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                <div className="mt-6 text-center">
                   <h1 className="text-3xl font-extrabold tracking-tight font-sans flex items-center justify-center gap-1">
                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF]">
-                       SAGARA
+                       KELASKU PRO
                      </span>
                   </h1>
                   <div className="h-1 w-12 bg-gradient-to-r from-[#FFF9D0] to-[#CAF4FF] rounded-full mx-auto my-3"></div>
@@ -289,17 +298,28 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <div className="flex-grow border-t border-gray-200"></div>
                 </div>
                 
+<<<<<<< HEAD
                 {/* Only render Google button container if configured (to avoid layout shift if empty) */}
                 {GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE" && (
                     <div className="mt-2 h-12" id="google-btn">
                         {/* Google Button renders here */}
                     </div>
                 )}
+=======
+                <div className="mt-2 h-12" id="google-btn">
+                    {/* Google Button renders here */}
+                    {GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE" && (
+                       <p className="text-[10px] text-center text-gray-400 italic mt-2">
+                          (Google Client ID belum dikonfigurasi)
+                       </p>
+                    )}
+                </div>
+>>>>>>> fa6c9371f007aa386052f874f241f11874ba197c
             </div>
 
             <div className="mt-8 text-center">
                <div className="flex items-center justify-center space-x-2 text-xs text-slate-400">
-                 <span>&copy; 2026 | SAGARA Dev. Meyga</span>
+                 <span>&copy; 2026 | KELASKU PRO Dev. Meyga</span>
                </div>
             </div>
 
