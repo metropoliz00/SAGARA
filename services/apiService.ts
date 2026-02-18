@@ -1,8 +1,9 @@
 
-import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, OrganizationStructure, SchoolAsset } from '../types';
+// ... (Previous imports and isApiConfigured remain the same)
+import { Student, AgendaItem, GradeRecord, GradeData, BehaviorLog, Extracurricular, TeacherProfileData, SchoolProfileData, User, Holiday, InventoryItem, Guest, ScheduleItem, PiketGroup, SikapAssessment, KarakterAssessment, SeatingLayouts, AcademicCalendarData, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, OrganizationStructure, SchoolAsset, BOSTransaction } from '../types';
 
 // PENTING: Menggunakan URL Deployment yang valid dan stabil.
-const API_URL = 'https://script.google.com/macros/s/AKfycbwWaY9sAJ-KRKU4t1WWfsbpWjgQK5Pr0yPeqRV03T5UDbPdfIwPQPjZDKIvgNpnxI70/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz5qmDMX0blcz50K3SlIwLrale8l_U_d_iJtnepVV2nm_g6OuSEy6HVM-r6ABHLs7qx/exec';
 
 const isApiConfigured = () => {
   return API_URL && API_URL.startsWith('http');
@@ -33,15 +34,13 @@ const fetchApi = async (method: string, body: any = null) => {
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") === -1) {
         const text = await response.text();
-        // If we got HTML instead of JSON, it's likely a script error or permission issue
-        console.error("API returned non-JSON response:", text.substring(0, 500)); // Log snippet
+        console.error("API returned non-JSON response:", text.substring(0, 500));
         throw new Error("Server response is not valid JSON. Please check backend deployment.");
     }
 
     const result = await response.json();
     return result;
   } catch (error: any) {
-    // If it's a network error (e.g. Failed to fetch), make message clearer
     if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
         console.warn("Network error or CORS issue accessing API");
         throw new Error("Tidak dapat terhubung ke server (Network/CORS Error).");
@@ -72,7 +71,7 @@ export const apiService = {
     await fetchApi('POST', { action: 'saveUserBatch', payload: { users } });
   },
   deleteUser: async (id: string): Promise<void> => {
-    await fetchApi('POST', { action: 'deleteUser', id }); // ID usually sent at root for delete or payload depending on backend
+    await fetchApi('POST', { action: 'deleteUser', id });
   },
   syncStudentAccounts: async (): Promise<{ status: string; message: string }> => {
     return await fetchApi('POST', { action: 'syncStudentAccounts' });
@@ -330,6 +329,18 @@ export const apiService = {
   },
   deleteSchoolAsset: async (id: string): Promise<void> => {
     await fetchApi('POST', { action: 'deleteSchoolAsset', id });
+  },
+
+  // --- BOS Management ---
+  getBOS: async (): Promise<BOSTransaction[]> => {
+    const res = await fetchApi('POST', { action: 'getBOS' });
+    return res.status === 'success' ? res.data : [];
+  },
+  saveBOS: async (transaction: BOSTransaction): Promise<void> => {
+    await fetchApi('POST', { action: 'saveBOS', payload: transaction });
+  },
+  deleteBOS: async (id: string): Promise<void> => {
+    await fetchApi('POST', { action: 'deleteBOS', id });
   },
 
   // --- Backup/Restore ---

@@ -27,7 +27,8 @@ const SHEETS = {
   STRUKTUR: "StrukturOrganisasi",
   SETTINGS: "ClassSettings",
   DOCS: "SupportDocuments",
-  SCHOOL_ASSETS: "SchoolAssets" // NEW SHEET
+  SCHOOL_ASSETS: "SchoolAssets",
+  BOS: "BOSManagement" // NEW SHEET
 };
 
 const SUBJECT_SHEETS = {
@@ -64,7 +65,7 @@ function setupDatabase() {
     { name: SHEETS.INVENTORY, headers: ["ID", "Class ID", "Nama Barang", "Kondisi", "Jumlah"] },
     { name: SHEETS.GUESTS, headers: ["ID", "Class ID", "Tanggal", "Waktu", "Nama Tamu", "Instansi", "Keperluan"] },
     { name: SHEETS.SIKAP, headers: ["Student ID", "Class ID", "Keimanan", "Kewargaan", "Bernalar Kritis", "Kreatif", "Gotong Royong", "Mandiri", "Kesehatan", "Komunikasi"] },
-    { name: SHEETS.KARAKTER, headers: ["Student ID", "Class ID", "Bangun Pagi", "Beribadah", "Berolahraga", "Makan Sehat", "Gemar Belajar", "Bermasyarakat", "Tidur Awal", "Catatan", "Afirmasi"] },
+    { name: SHEETS.KARAKTER, headers: ["Student ID", "Class ID", "Bangun Pagi", "Beribadah", "Berolahraga", "Makan Sehat", "Gemar Belajar", "Bermasyarakat", "TidurAwal", "Catatan", "Afirmasi"] },
     { name: SHEETS.LINKS, headers: ["ID", "Judul", "URL", "Icon (Base64)"] },
     { name: SHEETS.REPORTS, headers: ["ID", "Class ID", "Tanggal", "Jenis Laporan", "Mata Pelajaran", "Materi/Topik", "Link Dokumen", "Nama Guru"] },
     { name: SHEETS.JURNAL_KELAS, headers: ["ID", "Class ID", "Tanggal", "Hari", "Jam Ke", "Mata Pelajaran", "Materi", "Kegiatan Pembelajaran", "Evaluasi", "Refleksi", "Tindak Lanjut"] },
@@ -80,7 +81,8 @@ function setupDatabase() {
     { name: SHEETS.KKTP, headers: ["Class ID", "Data (JSON)"] },
     { name: SHEETS.STRUKTUR, headers: ["Class ID", "Data (JSON)"] },
     { name: SHEETS.SETTINGS, headers: ["Class ID", "Data (JSON)"] },
-    { name: SHEETS.SCHOOL_ASSETS, headers: ["ID", "Nama Sarana/Prasarana", "Jumlah", "Kondisi", "Lokasi"] } // NEW DEFINITION
+    { name: SHEETS.SCHOOL_ASSETS, headers: ["ID", "Nama Sarana/Prasarana", "Jumlah", "Kondisi", "Lokasi"] },
+    { name: SHEETS.BOS, headers: ["ID", "Tanggal", "Tipe (income/expense)", "Kategori", "Deskripsi", "Jumlah"] } // NEW BOS
   ];
 
   Object.values(SUBJECT_SHEETS).forEach(sheetName => {
@@ -245,10 +247,14 @@ function handleRequest(e, method) {
     if (action === "saveSupportDocument") return saveSupportDocument(params.payload);
     if (action === "deleteSupportDocument") return deleteSupportDocument(params.id, classId);
 
-    // NEW SCHOOL ASSETS ACTIONS
     if (action === "getSchoolAssets") return getSchoolAssets();
     if (action === "saveSchoolAsset") return saveSchoolAsset(params.payload);
     if (action === "deleteSchoolAsset") return deleteSchoolAsset(params.id);
+
+    // BOS API
+    if (action === "getBOS") return getBOS();
+    if (action === "saveBOS") return saveBOS(params.payload);
+    if (action === "deleteBOS") return deleteBOS(params.id);
 
     if (action === "restoreData") {
        if (!user || user.role !== 'admin') return response({ status: "error", message: "Hanya admin yang bisa restore data." });
@@ -264,7 +270,15 @@ function handleRequest(e, method) {
   }
 }
 
-// ... (Existing Functions: login, getUsers, saveUser, etc... )
+// ... (Existing Functions)
+// Add these BOS functions
+
+function getBOS(){const rows=getData(SHEETS.BOS);const data=rows.map(r=>({id:String(r[0]),date:formatDate(r[1]),type:String(r[2]),category:String(r[3]),description:String(r[4]),amount:Number(r[5])}));return response({status:"success",data})}
+function saveBOS(item){const sheet=getSheet(SHEETS.BOS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(item.id));const row=[item.id||Utilities.getUuid(),item.date,item.type,item.category,item.description,item.amount];if(idx>0)sheet.getRange(idx+1,1,1,row.length).setValues([row]);else sheet.appendRow(row);return response({status:"success",id:row[0]})}
+function deleteBOS(id){const sheet=getSheet(SHEETS.BOS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
+return response({status:"error"})}
+
+// ... (Rest of the functions)
 function login(creds){const sheet=getSheet(SHEETS.USERS);const data=sheet.getDataRange().getValues();const inputUser=String(creds.username).trim().toLowerCase();const inputPass=String(creds.password).trim();for(let i=1;i<data.length;i++){const row=data[i];const dbUser=String(row[1]).trim().toLowerCase();const dbPass=String(row[2]).trim();if(dbUser===inputUser&&dbPass===inputPass){return response({status:"success",data:{id:String(row[0]),username:String(row[1]),password:String(row[2]),role:String(row[3]),fullName:String(row[4]),nip:String(row[5]),nuptk:String(row[6]),birthInfo:String(row[7]),education:String(row[8]),position:String(row[9]),rank:String(row[10]),classId:String(row[11]),email:String(row[12]),phone:String(row[13]),address:String(row[14]),photo:String(row[15]),signature:String(row[16]),studentId:String(row[17])}})}}
 return response({status:"error",message:"Username atau Password salah."})}
 
@@ -354,17 +368,12 @@ function getSupportDocuments(classId){const rows=getData(SHEETS.DOCS);const data
 function saveSupportDocument(d){const sheet=getSheet(SHEETS.DOCS);const id=d.id||Utilities.getUuid();const row=[id,d.classId,d.name,d.url];const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(d.id));if(idx>0)sheet.getRange(idx+1,1,1,4).setValues([row]);else sheet.appendRow(row);return response({status:"success"})}
 function deleteSupportDocument(id,classId){const sheet=getSheet(SHEETS.DOCS);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
-
-// --- NEW SCHOOL ASSETS FUNCTIONS ---
 function getSchoolAssets(){const rows=getData(SHEETS.SCHOOL_ASSETS);const data=rows.map(r=>({id:String(r[0]),name:String(r[1]),qty:Number(r[2]),condition:String(r[3]),location:String(r[4]||'')}));return response({status:"success",data})}
 function saveSchoolAsset(item){const sheet=getSheet(SHEETS.SCHOOL_ASSETS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(item.id));const row=[item.id||Utilities.getUuid(),item.name,item.qty,item.condition,item.location||''];if(idx>0)sheet.getRange(idx+1,1,1,row.length).setValues([row]);else sheet.appendRow(row);return response({status:"success",id:row[0]})}
 function deleteSchoolAsset(id){const sheet=getSheet(SHEETS.SCHOOL_ASSETS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
-
 function restoreData(data){return response({status:"success",message:"Restore functionality logic implemented but disabled for safety."})}
 function parseJSON(str){try{return JSON.parse(str)}catch(e){return null}}
-
-// --- PROFILES FUNCTIONALITY ---
 function getProfiles(){
   const sheet = getSheet(SHEETS.PROFILES);
   const data = sheet.getDataRange().getValues();
@@ -388,12 +397,10 @@ function getProfiles(){
   }
   return response({status:"success", data:{school: school}});
 }
-
 function saveProfile(p){
   if(p.type === 'school'){
     const sheet = getSheet(SHEETS.PROFILES);
     const d = p.data;
-    // headers: ["Nama Sekolah", "NIP/NPSN", "Alamat", "Kepala Sekolah", "NIP Kepsek", "Tahun Ajaran", "Semester", "Logo Kab (Base64)", "Logo Sekolah (Base64)", "Running Text", "Developer Info (JSON)", "TTD Kepsek (Base64)"]
     const row = [d.name, d.npsn, d.address, d.headmaster, d.headmasterNip, d.year, d.semester, d.regencyLogo, d.schoolLogo, d.runningText, JSON.stringify(d.developerInfo||{}), d.headmasterSignature||''];
     if(sheet.getLastRow() > 1){
       sheet.getRange(2, 1, 1, row.length).setValues([row]);

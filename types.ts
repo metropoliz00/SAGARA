@@ -277,6 +277,25 @@ export interface OrganizationStructure {
   sections: { id: string; name: string }[];
 }
 
+// NEW: BOS Interface
+export interface BOSTransaction {
+  id: string;
+  date: string;
+  type: 'income' | 'expense';
+  category: 
+    | 'BOS Reguler' 
+    | 'Standar Isi' 
+    | 'Standar Proses' 
+    | 'Standar Kompetensi Lulusan' 
+    | 'Standar Pendidik dan Tenaga Kependidikan' 
+    | 'Standar Sarana dan Prasarana' 
+    | 'Standar Pengelolaan' 
+    | 'Standar Pembiayaan' 
+    | 'Standar Penilaian Pendidikan';
+  description: string;
+  amount: number;
+}
+
 export const SIKAP_INDICATORS = {
   keimanan: 'Keimanan & Ketakwaan',
   kewargaan: 'Kewargaan',
@@ -349,4 +368,5 @@ export type ViewState =
   | 'backup-restore' 
   | 'support-docs' 
   | 'supervisor-overview'
-  | 'school-assets';
+  | 'school-assets'
+  | 'bos-admin';
