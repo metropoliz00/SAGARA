@@ -148,9 +148,11 @@ const App: React.FC = () => {
 
   const canSelectClass = useMemo(() => {
     if (!currentUser) return false;
+    const pos = (currentUser.position || '').toLowerCase();
     return currentUser.role === 'admin' || 
            currentUser.role === 'supervisor' || 
-           (currentUser.role === 'guru' && String(currentUser.classId).toUpperCase() === 'ALL');
+           (currentUser.role === 'guru' && String(currentUser.classId).toUpperCase() === 'ALL') ||
+           (currentUser.role === 'guru' && (pos.includes('pai') || pos.includes('agama') || pos.includes('pjok') || pos.includes('olahraga') || pos.includes('inggris')));
   }, [currentUser]);
 
   useEffect(() => {
@@ -393,7 +395,7 @@ const App: React.FC = () => {
           if (isDemoMode) {
               setPermissionRequests(prev => prev.map(p => p.id === id ? { ...p, status: action === 'approve' ? 'Approved' : 'Rejected' } : p));
               if (action === 'approve' && req) {
-                  setAllAttendanceRecords(prev => [...prev, { studentId: req.studentId, classId: req.classId, date: req.date, status: req.type, notes: req.reason }]);
+                  setAllAttendanceRecords(prev => [...prev, { studentId: req.studentId, classId: req.classId, date: req.date, status: req.type, reason: req.reason }]);
               }
               handleShowNotification(`Ijin berhasil di${action === 'approve' ? 'terima' : 'tolak'} (Demo).`, 'success');
           } else {
