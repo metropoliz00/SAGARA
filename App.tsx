@@ -825,6 +825,7 @@ const App: React.FC = () => {
                   onSaveBatch={handleSaveJournalAndAutoReport}
                   schoolProfile={schoolProfile}
                   teacherProfile={teacherProfile}
+                  currentUser={currentUser}
                />;
       case 'counseling':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }

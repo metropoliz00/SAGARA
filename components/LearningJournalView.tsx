@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { LearningJournalEntry, ScheduleItem, SchoolProfileData, TeacherProfileData } from '../types';
+import { LearningJournalEntry, ScheduleItem, SchoolProfileData, TeacherProfileData, User } from '../types';
 import { apiService } from '../services/apiService';
 import { 
   Save, Calendar, Printer, Plus, Trash2, Loader2, 
@@ -15,12 +15,13 @@ interface LearningJournalViewProps {
   onSaveBatch?: (entries: Partial<LearningJournalEntry>[]) => Promise<void>;
   schoolProfile?: SchoolProfileData;
   teacherProfile?: TeacherProfileData;
+  currentUser?: User | null; // New prop
 }
 
 const WEEKDAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 const LearningJournalView: React.FC<LearningJournalViewProps> = ({ 
-  classId, isReadOnly, targetDate, onSaveBatch, schoolProfile, teacherProfile 
+  classId, isReadOnly, targetDate, onSaveBatch, schoolProfile, teacherProfile, currentUser 
 }) => {
   // State
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -139,11 +140,60 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
       setDraftData(activeRows);
   }, [activeRows]);
 
+  const isRowEditable = (row: Partial<LearningJournalEntry>): boolean => {
+    if (isReadOnly) return false; // Global override
+    if (!currentUser) return false;
+
+    // Admin & Supervisor can edit anything
+    if (currentUser.role === 'admin' || currentUser.role === 'supervisor') {
+        return true;
+    }
+
+    // Subject-specific teachers
+    if (currentUser.role === 'guru') {
+        const pos = (currentUser.position || '').toLowerCase();
+        const rowSubject = (row.subject || '').toLowerCase();
+
+        const isPaiTeacher = pos.includes('pai') || pos.includes('agama');
+        const isPjokTeacher = pos.includes('pjok') || pos.includes('olahraga');
+        const isSubjectTeacher = isPaiTeacher || isPjokTeacher;
+
+        if (!isSubjectTeacher) return true; // Class teacher can edit all
+
+        // For a subject teacher:
+        // 1. Can edit if row has no subject (new row) or if subject matches specialty
+        if (!row.subject) return true;
+        if (isPaiTeacher && rowSubject.includes('pai')) return true;
+        if (isPjokTeacher && rowSubject.includes('pjok')) return true;
+
+        return false; // Subject teacher, but subject doesn't match
+    }
+
+    return true; // Default case
+  };
+
   const updateDraft = (index: number, field: keyof LearningJournalEntry, value: string) => {
-      if (isReadOnly) return;
-      const newData = [...draftData];
-      newData[index] = { ...newData[index], [field]: value };
-      setDraftData(newData);
+    const newData = [...draftData];
+    if (!isRowEditable(newData[index])) return;
+    
+    const updatedRow = { ...newData[index], [field]: value };
+    newData[index] = updatedRow;
+
+    const contentFields: (keyof LearningJournalEntry)[] = ['topic', 'activities', 'evaluation', 'reflection', 'followUp'];
+
+    // LOGIKA BARU: Jika satu kolom materi diisi (topik, kegiatan, dll.), 
+    // maka semua baris dengan mata pelajaran yang sama pada hari itu akan terisi otomatis.
+    if (updatedRow.subject && contentFields.includes(field)) {
+        for (let i = 0; i < newData.length; i++) {
+            // Update baris lain dengan mapel yang sama
+            if (newData[i].subject === updatedRow.subject) {
+                // Buat objek baru untuk menghindari mutasi langsung & masalah referensi
+                newData[i] = { ...newData[i], [field]: value };
+            }
+        }
+    }
+
+    setDraftData(newData);
   };
 
   const addManualRow = () => {
@@ -168,8 +218,9 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
   };
 
   const removeRow = async (index: number) => {
-      if (isReadOnly) return;
       const row = draftData[index];
+      if (!isRowEditable(row)) return;
+
       if (row.id && !row.id.startsWith('temp-') && !row.id.startsWith('manual-')) {
           if (confirm("Hapus jurnal tersimpan ini?")) {
               await apiService.deleteLearningJournal(row.id, classId);
@@ -335,7 +386,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
             </div>
 
             {viewMode === 'daily' && (
-                <div className="flex gap-2">
+                <div className="flex gap-2"> 
                     {!isReadOnly && (
                         <button onClick={addManualRow} className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg hover:bg-indigo-50 font-bold text-sm transition-colors">
                             <Plus size={16}/> Tambah Baris
@@ -379,6 +430,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                         ) : (
                             draftData.map((row, idx) => {
                                 const isBreak = row.subject?.toLowerCase().includes('istirahat');
+                                const disabled = !isRowEditable(row);
                                 return (
                                 <tr key={row.id || idx} className={`transition-colors print:break-inside-avoid ${isBreak ? 'bg-orange-50/60' : 'hover:bg-indigo-50/20'}`}>
                                     <td className="p-3 border text-center text-gray-500">{idx + 1}</td>
@@ -388,7 +440,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                             onChange={e => updateDraft(idx, 'timeSlot', e.target.value)}
                                             className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-300 font-medium"
                                             placeholder="07.00 - ..."
-                                            disabled={isReadOnly}
+                                            disabled={disabled}
                                         />
                                     </td>
                                     <td className="p-3 border font-semibold">
@@ -399,7 +451,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                                 onChange={e => updateDraft(idx, 'subject', e.target.value)}
                                                 className={`w-full bg-transparent outline-none text-gray-800 placeholder-gray-300 font-bold ${isBreak ? 'text-orange-700' : ''}`}
                                                 placeholder="Mapel..."
-                                                disabled={isReadOnly}
+                                                disabled={disabled}
                                             />
                                         </div>
                                     </td>
@@ -410,7 +462,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                             className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
                                             placeholder="Tulis materi..."
                                             rows={2}
-                                            disabled={isReadOnly}
+                                            disabled={disabled}
                                         />
                                     </td>
                                     <td className="p-3 border">
@@ -420,7 +472,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                             className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
                                             placeholder="Deskripsi kegiatan..."
                                             rows={3}
-                                            disabled={isReadOnly}
+                                            disabled={disabled}
                                         />
                                     </td>
                                     <td className="p-3 border">
@@ -430,7 +482,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                             className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
                                             placeholder="Hasil..."
                                             rows={2}
-                                            disabled={isReadOnly}
+                                            disabled={disabled}
                                         />
                                     </td>
                                     <td className="p-3 border">
@@ -440,7 +492,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                             className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
                                             placeholder="Catatan..."
                                             rows={2}
-                                            disabled={isReadOnly}
+                                            disabled={disabled}
                                         />
                                     </td>
                                     <td className="p-3 border">
@@ -450,12 +502,12 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                             className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
                                             placeholder="Rencana..."
                                             rows={2}
-                                            disabled={isReadOnly}
+                                            disabled={disabled}
                                         />
                                     </td>
                                     {!isReadOnly && (
                                         <td className="p-3 border text-center no-print align-middle">
-                                            <button onClick={() => removeRow(idx)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                            <button onClick={() => removeRow(idx)} className={`transition-colors ${disabled ? 'text-gray-200 cursor-not-allowed' : 'text-gray-300 hover:text-red-500'}`} disabled={disabled}>
                                                 <Trash2 size={16} />
                                             </button>
                                         </td>
