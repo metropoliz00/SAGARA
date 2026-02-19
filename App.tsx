@@ -2,7 +2,7 @@
 // ... (imports remain the same)
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
+import DashboardContainer from './components/DashboardContainer';
 import StudentList from './components/StudentList';
 import ClassroomAdmin from './components/ClassroomAdmin';
 import TeacherProfile from './components/TeacherProfile';
@@ -20,7 +20,6 @@ import LearningReportsView from './components/LearningReportsView';
 import LearningJournalView from './components/LearningJournalView'; 
 import StudentMonitor from './components/StudentMonitor'; 
 import LiaisonBookView from './components/LiaisonBookView'; 
-import StudentPortal from './components/StudentPortal'; 
 import BackupRestore from './components/BackupRestore';
 import SupportDocumentsView from './components/SupportDocumentsView';
 import SupervisorOverview from './components/SupervisorOverview'; 
@@ -30,7 +29,7 @@ import CustomModal from './components/CustomModal';
 import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, InventoryItem, SchoolAsset, BOSTransaction } from './types';
 import { MOCK_SUBJECTS, MOCK_STUDENTS, MOCK_EXTRACURRICULARS } from './constants';
 import { apiService } from './services/apiService';
-import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X } from 'lucide-react';
+import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X, XCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   // -- STATE PERSISTENCE INIT --
@@ -463,7 +462,7 @@ const App: React.FC = () => {
 
   // Support Docs
   const handleSaveSupportDocument = async (doc: Omit<SupportDocument, 'id'> | SupportDocument) => { if (isDemoMode) { const newDoc = { ...doc, id: (doc as any).id || `doc-${Date.now()}` } as SupportDocument; setSupportDocuments(prev => { const exists = prev.find(d => d.id === newDoc.id); if (exists) return prev.map(d => d.id === newDoc.id ? newDoc : d); return [newDoc, ...prev]; }); handleShowNotification('Dokumen disimpan (Demo).', 'success'); return; } await apiService.saveSupportDocument(doc); handleShowNotification('Dokumen berhasil disimpan.', 'success'); await fetchData(); };
-  const handleDeleteSupportDocument = async (id: string) => { showConfirm('Hapus dokumen ini?', async () => { if (isDemoMode) { setSupportDocuments(prev => prev.filter(d => d.id !== id)); handleShowNotification('Dokumen dihapus (Demo).', 'success'); return; } await apiService.deleteSupportDocument(id, activeClassId); handleShowNotification('Dokumen berhasil dihapus.', 'success'); await fetchData(); }); };
+  const handleDeleteSupportDocument = async (id: string) => { showConfirm('Hapus dokumen ini?', async () => { if (isDemoMode) { setSupportDocuments(prev => prev.filter(d => d.id !== id)); handleShowNotification('Dokumen dihapus (Demo).', 'success'); return; } await apiService.deleteSupportDocument(id, activeClassId); handleShowNotification('Dokumen berhasil dihapus!', 'success'); await fetchData(); }); };
 
   // School Assets
   const handleSaveSchoolAsset = async (asset: SchoolAsset) => { if (isDemoMode) { setSchoolAssets(prev => { const exists = prev.find(a => a.id === asset.id); if (exists) return prev.map(a => a.id === asset.id ? asset : a); return [...prev, { ...asset, id: asset.id || `asset-${Date.now()}` }]; }); handleShowNotification('Data aset disimpan (Demo).', 'success'); return; } await apiService.saveSchoolAsset(asset); handleShowNotification('Data sarana prasarana berhasil disimpan.', 'success'); await fetchData(); };
@@ -648,68 +647,42 @@ const App: React.FC = () => {
 
     switch (currentView) {
       case 'dashboard':
-        if (isStudentRole) {
-            if (!myStudentData) return (
-                <div className="p-8 text-center text-gray-500 flex flex-col items-center justify-center h-full">
-                    <AlertCircle size={48} className="text-[#A0DEFF] mb-4"/>
-                    <h3 className="text-lg font-bold text-gray-700">Data siswa tidak ditemukan.</h3>
-                    <p className="max-w-md mt-2 text-sm">
-                        Pastikan akun Anda terhubung dengan data siswa yang benar. 
-                        Hubungi operator sekolah untuk memverifikasi "Student ID" pada akun Anda.
-                    </p>
-                </div>
-            );
-            return <StudentPortal 
-                      student={myStudentData}
-                      allAttendance={allAttendanceRecords}
-                      grades={grades}
-                      liaisonLogs={liaisonLogs}
-                      agendas={filteredAgendas}
-                      behaviorLogs={filteredCounseling.filter(c => c.studentId === myStudentData.id)}
-                      permissionRequests={permissionRequests.filter(p => p.studentId === myStudentData.id)}
-                      karakterAssessments={karakterAssessments.filter(k => k.studentId === myStudentData.id)}
-                      onSavePermission={handleSavePermissionRequest}
-                      onSaveLiaison={handleSaveLiaison}
-                      onSaveKarakter={handleSaveKarakter}
-                      onUpdateStudent={handleUpdateStudent}
-                   />;
-        }
-        
-        if (isSupervisor) {
-            return <SupervisorOverview
-                  students={students} 
-                  users={users}       
-                  attendanceRecords={allAttendanceRecords}
-                  grades={grades}
-                  liaisonLogs={liaisonLogs}
-                  permissionRequests={permissionRequests}
-                  counselingLogs={counselingLogs}
-                  extracurriculars={extracurriculars}
-                  inventory={inventory}
-                  schoolAssets={schoolAssets}
-                  bosTransactions={bosTransactions}
-               />;
-        }
-
-        const teachers = users.filter(u => u.role === 'guru');
-        return <Dashboard 
-                  students={filteredStudents} 
-                  agendas={filteredAgendas} 
-                  holidays={filteredHolidays} 
-                  allAttendanceRecords={filteredAttendance} 
-                  teacherName={teacherProfile.name} 
-                  teachingClass={activeClassId}
-                  onChangeView={setCurrentView} 
-                  grades={filteredGrades}
-                  subjects={MOCK_SUBJECTS}
-                  adminCompleteness={adminPercentage}
-                  employmentLinks={employmentLinks}
-                  pendingPermissions={pendingPermissions} 
-                  onOpenPermissionModal={() => setIsPermissionModalOpen(true)} 
-                  schoolProfile={schoolProfile} 
-               />;
+        return <DashboardContainer
+            isStudentRole={isStudentRole}
+            isSupervisor={isSupervisor}
+            myStudentData={myStudentData}
+            allAttendanceRecords={allAttendanceRecords}
+            grades={grades}
+            liaisonLogs={liaisonLogs}
+            // FIX: Remove 'agendas' prop and rename 'behaviorLogs' to 'filteredCounseling' to match the component's props interface.
+            filteredCounseling={filteredCounseling}
+            permissionRequests={permissionRequests}
+            karakterAssessments={karakterAssessments}
+            onSavePermission={handleSavePermissionRequest}
+            onSaveLiaison={handleSaveLiaison}
+            onSaveKarakter={handleSaveKarakter}
+            onUpdateStudent={handleUpdateStudent}
+            students={students}
+            users={users}
+            extracurriculars={extracurriculars}
+            inventory={inventory}
+            schoolAssets={schoolAssets}
+            bosTransactions={bosTransactions}
+            filteredStudents={filteredStudents}
+            filteredAgendas={filteredAgendas}
+            holidays={filteredHolidays}
+            filteredAttendance={filteredAttendance}
+            teacherProfile={teacherProfile}
+            activeClassId={activeClassId}
+            onChangeView={setCurrentView}
+            adminCompleteness={adminPercentage}
+            employmentLinks={employmentLinks}
+            pendingPermissions={pendingPermissions}
+            onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
+            schoolProfile={schoolProfile}
+        />;
       case 'supervisor-overview':
-        if (!isSupervisor) { setCurrentView('dashboard'); return null; }
+        if (!isSupervisor && !isAdminRole) { setCurrentView('dashboard'); return null; }
         return <SupervisorOverview
                   students={students}
                   users={users}
@@ -805,6 +778,7 @@ const App: React.FC = () => {
                   schoolProfile={schoolProfile}
                   classId={activeClassId}
                   isReadOnly={isGlobalReadOnly}
+                  userRole={currentUser?.role}
                 />;
       case 'grades':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
@@ -947,21 +921,41 @@ const App: React.FC = () => {
                   onRestore={handleRestoreData} 
                />;
       default:
-        return <Dashboard 
-                  students={filteredStudents} 
-                  agendas={filteredAgendas} 
-                  holidays={filteredHolidays} 
-                  allAttendanceRecords={filteredAttendance} 
-                  teacherName={teacherProfile.name} 
-                  onChangeView={setCurrentView} 
-                  grades={filteredGrades}
-                  subjects={MOCK_SUBJECTS}
-                  adminCompleteness={adminPercentage}
-                  employmentLinks={employmentLinks}
-                  pendingPermissions={pendingPermissions} 
-                  onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
-                  schoolProfile={schoolProfile}
-               />;
+        // Fallback to Dashboard Container
+        return <DashboardContainer
+            isStudentRole={isStudentRole}
+            isSupervisor={isSupervisor}
+            myStudentData={myStudentData}
+            allAttendanceRecords={allAttendanceRecords}
+            grades={grades}
+            liaisonLogs={liaisonLogs}
+            // FIX: Remove 'agendas' prop and rename 'behaviorLogs' to 'filteredCounseling' to match the component's props interface.
+            filteredCounseling={filteredCounseling}
+            permissionRequests={permissionRequests}
+            karakterAssessments={karakterAssessments}
+            onSavePermission={handleSavePermissionRequest}
+            onSaveLiaison={handleSaveLiaison}
+            onSaveKarakter={handleSaveKarakter}
+            onUpdateStudent={handleUpdateStudent}
+            students={students}
+            users={users}
+            extracurriculars={extracurriculars}
+            inventory={inventory}
+            schoolAssets={schoolAssets}
+            bosTransactions={bosTransactions}
+            filteredStudents={filteredStudents}
+            filteredAgendas={filteredAgendas}
+            holidays={filteredHolidays}
+            filteredAttendance={filteredAttendance}
+            teacherProfile={teacherProfile}
+            activeClassId={activeClassId}
+            onChangeView={setCurrentView}
+            adminCompleteness={adminPercentage}
+            employmentLinks={employmentLinks}
+            pendingPermissions={pendingPermissions}
+            onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
+            schoolProfile={schoolProfile}
+        />;
     }
   };
 
@@ -997,10 +991,15 @@ const App: React.FC = () => {
                 <Menu size={24} />
               </button>
             )}
-            <div className="flex flex-col lg:hidden">
-              <h1 className="text-xl font-extrabold tracking-tight flex items-center">
-                 <span className="text-gradient-brand italic">SAGARA</span>
-              </h1>
+            <div className="flex items-center gap-2 lg:hidden">
+                <img 
+                    src="https://image2url.com/r2/default/images/1770790148258-99f209ea-fd45-44cf-9576-9c5205ef8b20.png" 
+                    alt="Logo SAGARA"
+                    className="h-8 w-8 object-contain"
+                />
+                <h1 className="text-xl font-extrabold tracking-tight flex items-center">
+                    <span className="text-gradient-brand">SAGARA</span>
+                </h1>
             </div>
 
             {canSelectClass && (
@@ -1120,76 +1119,72 @@ const App: React.FC = () => {
       </div>
 
       {isPermissionModalOpen && !isStudentRole && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm no-print">
-              <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-                  <div className="p-4 border-b bg-[#CAF4FF]/30 flex justify-between items-center">
-                      <h3 className="font-bold text-gray-800 flex items-center">
-                          <Bell size={18} className="mr-2 text-[#5AB2FF]" />
-                          Permintaan Ijin Siswa
-                      </h3>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsPermissionModalOpen(false)}>
+              <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                  <div className="p-5 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                      <h3 className="font-bold text-lg text-gray-800">Permintaan Ijin / Sakit</h3>
                       <button onClick={() => setIsPermissionModalOpen(false)} className="p-1 hover:bg-gray-200 rounded-full"><X size={20}/></button>
                   </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {pendingPermissions.length === 0 ? (
-                          <div className="text-center text-gray-400 py-8">
-                              Tidak ada permintaan ijin baru.
-                          </div>
-                      ) : (
-                          pendingPermissions.map(req => (
-                              <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <span className="font-bold text-gray-800">
-                                          {req.studentName || 'Siswa'} 
-                                          <span className="text-xs font-normal text-gray-500 ml-1">({req.classId})</span>
-                                      </span>
-                                      <span className="text-xs text-gray-500">{new Date(req.date).toLocaleDateString('id-ID')}</span>
-                                  </div>
-                                  <p className="text-sm text-gray-600 mb-2">
-                                      <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded mr-2 ${
-                                          req.type === 'sick' ? 'bg-amber-100 text-amber-700' : 
-                                          req.type === 'dispensation' ? 'bg-teal-100 text-teal-700' : 
-                                          'bg-blue-100 text-blue-700'
-                                      }`}>
-                                          {req.type === 'sick' ? 'Sakit' : req.type === 'dispensation' ? 'Dispensasi' : 'Ijin'}
-                                      </span>
-                                      {req.reason}
-                                  </p>
-                                  <div className="flex gap-2 justify-end mt-3 border-t pt-2">
-                                      <button 
-                                        onClick={() => handleProcessPermission(req.id, 'reject')} 
-                                        disabled={!!processingPermissionId}
-                                        className="text-xs px-3 py-1.5 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
-                                      >
-                                          Tolak
-                                      </button>
-                                      <button 
-                                        onClick={() => handleProcessPermission(req.id, 'approve')} 
-                                        disabled={!!processingPermissionId}
-                                        className="text-xs px-3 py-1.5 bg-[#5AB2FF] text-white rounded-lg hover:bg-[#A0DEFF] shadow-sm flex items-center disabled:opacity-50"
-                                      >
-                                          {processingPermissionId === req.id && <Loader2 size={12} className="animate-spin mr-1"/>}
-                                          Terima & Catat
-                                      </button>
-                                  </div>
-                              </div>
-                          ))
-                      )}
+                  <div className="overflow-y-auto p-0">
+                      <table className="w-full text-sm text-left">
+                          <thead className="bg-blue-50 text-blue-800 text-xs uppercase font-bold sticky top-0">
+                              <tr>
+                                  <th className="p-4">Siswa</th>
+                                  <th className="p-4">Tanggal</th>
+                                  <th className="p-4">Alasan</th>
+                                  <th className="p-4 text-center">Aksi</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                              {pendingPermissions.length === 0 ? (
+                                  <tr><td colSpan={4} className="p-6 text-center text-gray-400">Tidak ada permintaan baru.</td></tr>
+                              ) : (
+                                  pendingPermissions.map(req => (
+                                      <tr key={req.id} className="hover:bg-gray-50">
+                                          <td className="p-4">
+                                              <span className="font-bold block">{req.studentName}</span>
+                                              <span className="text-xs text-gray-500">Kelas {req.classId}</span>
+                                          </td>
+                                          <td className="p-4 whitespace-nowrap">{new Date(req.date).toLocaleDateString('id-ID')}</td>
+                                          <td className="p-4 text-gray-600 italic">{req.reason}</td>
+                                          <td className="p-4 flex justify-center gap-2">
+                                              <button 
+                                                  onClick={() => handleProcessPermission(req.id, 'approve')} 
+                                                  disabled={processingPermissionId === req.id}
+                                                  className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
+                                                  title="Terima"
+                                              >
+                                                  {processingPermissionId === req.id ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>}
+                                              </button>
+                                              <button 
+                                                  onClick={() => handleProcessPermission(req.id, 'reject')}
+                                                  disabled={processingPermissionId === req.id}
+                                                  className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                                                  title="Tolak"
+                                              >
+                                                  <XCircle size={16}/>
+                                              </button>
+                                          </td>
+                                      </tr>
+                                  ))
+                              )}
+                          </tbody>
+                      </table>
                   </div>
               </div>
           </div>
       )}
 
+      <Notification notification={notification} onClear={() => setNotification(null)} />
+      
       <CustomModal 
         isOpen={modalConfig.isOpen}
         type={modalConfig.type}
         title={modalConfig.title}
         message={modalConfig.message}
         onConfirm={modalConfig.onConfirm}
-        onCancel={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onCancel={() => setModalConfig(prev => ({...prev, isOpen: false}))}
       />
-
-      <Notification notification={notification} onClear={() => setNotification(null)} />
     </div>
   );
 };

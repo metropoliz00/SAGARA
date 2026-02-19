@@ -1,4 +1,4 @@
-// ... (imports remain the same)
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Student, GradeRecord, LiaisonLog, AgendaItem, BehaviorLog, PermissionRequest, KarakterAssessment, KARAKTER_INDICATORS, KarakterIndicatorKey } from '../types';
 import { MOCK_SUBJECTS } from '../constants';
@@ -353,12 +353,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
   const currentKktp = kktpMap[selectedSubjectId] || MOCK_SUBJECTS.find(s => s.id === selectedSubjectId)?.kkm || 75;
 
+  // Updated with short labels for mobile
   const scoreItems = [
-      { key: 'sum1', label: 'Sumatif 1' },
-      { key: 'sum2', label: 'Sumatif 2' },
-      { key: 'sum3', label: 'Sumatif 3' },
-      { key: 'sum4', label: 'Sumatif 4' },
-      { key: 'sas', label: 'SAS' },
+      { key: 'sum1', label: 'Sumatif 1', short: 'S1' },
+      { key: 'sum2', label: 'Sumatif 2', short: 'S2' },
+      { key: 'sum3', label: 'Sumatif 3', short: 'S3' },
+      { key: 'sum4', label: 'Sumatif 4', short: 'S4' },
+      { key: 'sas', label: 'SAS', short: 'SAS' },
   ];
 
   const average = selectedGradeData.average;
@@ -372,7 +373,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] z-0"></div>
           
-          <div className="relative z-10 flex justify-between items-center mb-6">
+          <div className="relative z-10 flex flex-col md:flex-row justify-center md:justify-between items-center mb-6 gap-4">
             <div className="flex items-center space-x-3 bg-white/70 backdrop-blur-sm px-4 py-2 rounded-xl shadow-sm border border-gray-100">
                 <Calendar size={24} className="text-[#5AB2FF] shrink-0" />
                 <div>
@@ -492,7 +493,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                   
                   {/* Split view for Grades and Agenda */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* 3. Academic Summary (Nilai Sumatif) - UPDATED */}
+                      {/* 3. Academic Summary (Nilai Sumatif) - UPDATED 1 ROW MOBILE */}
                       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                               <h3 className="font-bold text-gray-800 flex items-center">
@@ -512,7 +513,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                          {/* Grid Layout for compact row on mobile */}
+                          <div className="grid grid-cols-6 gap-1 sm:gap-3">
                               {scoreItems.map(item => {
                                   const score = selectedGradeData[item.key as keyof typeof selectedGradeData] as number;
                                   const isSas = item.key === 'sas';
@@ -530,42 +532,47 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                                   const failLabel = 'text-red-500';
 
                                   return (
-                                      <div key={item.key} className={`p-3 rounded-xl text-center flex flex-col justify-center border transition-all ${
+                                      <div key={item.key} className={`p-1 sm:p-3 rounded-lg sm:rounded-xl text-center flex flex-col justify-center border transition-all ${
                                           !hasScore ? defaultBg : isBelowKktp ? failBg : successBg
                                       }`}>
                                           <span className={`text-[10px] font-bold uppercase mb-1 ${
                                               !hasScore ? 'text-gray-400' : isBelowKktp ? failLabel : successLabel
                                           }`}>
-                                              {item.label}
+                                              <span className="sm:hidden">{item.short}</span>
+                                              <span className="hidden sm:inline">{item.label}</span>
                                           </span>
-                                          <span className={`text-xl font-bold ${
+                                          <span className={`text-sm sm:text-xl font-bold ${
                                               !hasScore ? 'text-gray-300' : isBelowKktp ? failText : successText
                                           }`}>
                                               {hasScore ? score : '-'}
                                           </span>
                                           {hasScore && (
-                                              <span className={`text-[9px] font-bold mt-1 ${isBelowKktp ? 'text-red-500' : 'text-emerald-600'}`}>
+                                              <span className={`hidden sm:block text-[9px] font-bold mt-1 ${isBelowKktp ? 'text-red-500' : 'text-emerald-600'}`}>
                                                   {isBelowKktp ? 'Remedial' : 'Pengayaan'}
                                               </span>
                                           )}
                                       </div>
                                   );
                               })}
-                          </div>
-                          
-                          <div className={`mt-4 p-4 rounded-xl flex justify-between items-center shadow-md transition-colors ${
-                            !hasAverage ? 'bg-indigo-600 text-white' :
-                            isAverageBelowKktp ? 'bg-red-500 text-white' : 'bg-emerald-600 text-white'
-                        }`}>
-                              <div>
-                                  <span className="font-medium text-sm text-white/80">Nilai Rata-rata Akhir</span>
+                              
+                              {/* Final Grade Card Integrated into Row */}
+                              <div className={`p-1 sm:p-3 rounded-lg sm:rounded-xl text-center flex flex-col justify-center border transition-all ${
+                                !hasAverage ? 'bg-gray-50 border-gray-100' :
+                                isAverageBelowKktp ? 'bg-red-600 text-white border-red-600' : 'bg-emerald-600 text-white border-emerald-600'
+                              }`}>
+                                  <span className={`text-[10px] font-bold uppercase mb-1 ${!hasAverage ? 'text-gray-400' : 'text-white/80'}`}>
+                                      <span className="sm:hidden">NA</span>
+                                      <span className="hidden sm:inline">Nilai Akhir</span>
+                                  </span>
+                                  <span className={`text-base sm:text-2xl font-black ${!hasAverage ? 'text-gray-300' : 'text-white'}`}>
+                                      {hasAverage ? average : '-'}
+                                  </span>
                                   {hasAverage && (
-                                      <span className="block text-xs font-bold text-white mt-1">
+                                      <span className="hidden sm:block text-[9px] font-bold mt-1 text-white/90">
                                           {isAverageBelowKktp ? 'Perlu Perbaikan' : 'Tercapai'}
                                       </span>
                                   )}
                               </div>
-                              <span className="text-3xl font-black">{hasAverage ? average : '-'}</span>
                           </div>
                       </div>
 

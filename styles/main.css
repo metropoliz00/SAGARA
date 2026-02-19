@@ -45,15 +45,17 @@
         background: var(--color-ocean-blue); 
       }
 
-      /* Scan Line Animation */
+      /* Scan Line Animation - UPDATED for Full Screen */
       @keyframes scan {
-        0% { top: 10%; opacity: 0; }
-        10% { opacity: 1; }
-        90% { opacity: 1; }
-        100% { top: 90%; opacity: 0; }
+        0% { top: 0%; opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { top: 100%; opacity: 0.5; }
       }
       .animate-scan {
-        animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        animation: scan 3s linear infinite;
+        position: absolute;
+        left: 0;
+        width: 100%;
       }
 
       /* NEW: Soft float animation for logo */

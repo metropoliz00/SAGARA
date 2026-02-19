@@ -257,7 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
 
         {/* Summary Widgets - Themed */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. Total Siswa (Ocean Blue Gradient) */}
             <div onClick={() => onChangeView('students')} className="bg-gradient-to-br from-[#5AB2FF] to-[#A0DEFF] text-white p-5 rounded-2xl shadow-lg shadow-blue-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
                 <div className="flex justify-between items-start">

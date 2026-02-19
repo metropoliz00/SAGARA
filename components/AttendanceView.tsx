@@ -28,6 +28,7 @@ interface AttendanceViewProps {
   schoolProfile?: SchoolProfileData;
   classId: string;
   isReadOnly?: boolean;
+  userRole?: string;
 }
 
 type AttendanceStatus = 'present' | 'sick' | 'permit' | 'alpha' | 'dispensation';
@@ -52,9 +53,10 @@ const STATUS_TEXT: { [key in AttendanceStatus]: string } = {
 const AttendanceView: React.FC<AttendanceViewProps> = ({ 
   students, allStudents, isDemoMode, allAttendanceRecords, holidays, 
   onRefreshData, onAddHoliday, onUpdateHoliday, onDeleteHoliday, onShowNotification,
-  teacherProfile, schoolProfile, classId, isReadOnly = false
+  teacherProfile, schoolProfile, classId, isReadOnly = false, userRole
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('rekap');
+  const canManageHolidays = userRole === 'admin' && !isReadOnly;
   
   const toLocalISOString = (date: Date): string => {
     const offset = date.getTimezoneOffset() * 60000;
@@ -87,6 +89,8 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   // Replaced Modal state with Inline Form state
   const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+  const [isHolidayRange, setIsHolidayRange] = useState(false);
+  const [holidayEndDate, setHolidayEndDate] = useState(toLocalISOString(new Date()));
   const [holidayForm, setHolidayForm] = useState<Partial<Holiday>>({
       date: toLocalISOString(new Date()),
       description: '',
@@ -384,22 +388,43 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
           type: 'nasional',
           id: ''
       });
+      setIsHolidayRange(false);
+      setHolidayEndDate(toLocalISOString(new Date()));
   };
 
   const handleEditHolidayClick = (holiday: Holiday) => {
       setHolidayForm({ ...holiday });
+      setIsHolidayRange(false); // Disable range when editing
   };
   
   const handleSaveHolidayInline = async () => {
-    if (isReadOnly) return;
+    if (!canManageHolidays) return;
     if (!holidayForm.date || !holidayForm.description) {
       onShowNotification("Mohon lengkapi tanggal dan keterangan.", 'warning');
       return;
     }
+
+    // Validate range if enabled
+    if (!holidayForm.id && isHolidayRange && holidayEndDate < holidayForm.date!) {
+         onShowNotification("Tanggal akhir tidak boleh sebelum tanggal awal.", 'warning');
+         return;
+    }
+
     setIsSavingHoliday(true);
     try {
       if (!holidayForm.id) {
-        await onAddHoliday([{ classId: "__SCHOOL_WIDE__", date: holidayForm.date, description: holidayForm.description, type: holidayForm.type as Holiday['type'] }]);
+        if (isHolidayRange) {
+            const dateList = getDaysArray(holidayForm.date!, holidayEndDate);
+            const batchHolidays = dateList.map(d => ({
+                classId: "__SCHOOL_WIDE__",
+                date: d,
+                description: holidayForm.description!,
+                type: holidayForm.type as Holiday['type']
+            }));
+            await onAddHoliday(batchHolidays);
+        } else {
+            await onAddHoliday([{ classId: "__SCHOOL_WIDE__", date: holidayForm.date!, description: holidayForm.description!, type: holidayForm.type as Holiday['type'] }]);
+        }
       } else {
         await onUpdateHoliday({ ...holidayForm, classId: "__SCHOOL_WIDE__" } as Holiday);
       }
@@ -408,7 +433,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
   };
 
   const handleDeleteHolidayClick = (id: string) => {
-     if (isReadOnly) return;
+     if (!canManageHolidays) return;
      setConfirmModal({
          isOpen: true,
          message: "Hapus hari libur ini?",
@@ -586,7 +611,8 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                   });
               }
               const html5QrCode = new (window as any).Html5Qrcode("reader");
-              const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+              // Use wider aspect ratio or larger box for full frame feel
+              const config = { fps: 10, qrbox: { width: 300, height: 300 } };
               
               html5QrCode.start(
                   { facingMode: cameraFacingMode }, 
@@ -736,7 +762,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                                         status === 'sick' ? <span className="text-amber-600 font-bold">S{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
                                                         status === 'permit' ? <span className="text-blue-600 font-bold">I{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
                                                         status === 'alpha' ? <span className="text-rose-600 font-bold">A{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> : 
-                                                        status === 'dispensation' ? <span className="text-purple-600 font-bold">D{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
+                                                        status === 'dispensation' ? <span className="text-emerald-600 font-bold">D{hasNote && <sup className="text-rose-500 font-bold">*</sup>}</span> :
                                                         <span className="opacity-0 group-hover:opacity-30 text-gray-400">.</span>)}
                                                     </td>
                                                 );
@@ -1022,67 +1048,99 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
        {viewMode === 'holiday' && !isReadOnly && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-1 space-y-6">
-                  <div className="bg-white p-6 rounded-xl border border-gray-200 h-fit shadow-sm sticky top-6">
-                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                          {holidayForm.id ? <Edit size={18} className="mr-2 text-[#5AB2FF]"/> : <Plus size={18} className="mr-2 text-[#5AB2FF]"/>}
-                          {holidayForm.id ? 'Edit Data Libur' : 'Tambah Hari Libur'}
-                      </h3>
-                      
-                      <div className="space-y-4">
-                          <div>
-                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tanggal</label>
-                              <input 
-                                type="date" 
-                                value={holidayForm.date} 
-                                onChange={(e) => setHolidayForm({...holidayForm, date: e.target.value})}
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                              />
-                          </div>
+                  {canManageHolidays && (
+                      <div className="bg-white p-6 rounded-xl border border-gray-200 h-fit shadow-sm sticky top-6">
+                          <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                              {holidayForm.id ? <Edit size={18} className="mr-2 text-[#5AB2FF]"/> : <Plus size={18} className="mr-2 text-[#5AB2FF]"/>}
+                              {holidayForm.id ? 'Edit Data Libur' : 'Tambah Hari Libur'}
+                          </h3>
                           
-                          <div>
-                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Keterangan</label>
-                              <input 
-                                type="text" 
-                                value={holidayForm.description} 
-                                onChange={(e) => setHolidayForm({...holidayForm, description: e.target.value})}
-                                placeholder="Contoh: HUT RI ke-79"
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                              />
-                          </div>
-
-                          <div>
-                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tipe Libur</label>
-                              <select 
-                                value={holidayForm.type} 
-                                onChange={(e) => setHolidayForm({...holidayForm, type: e.target.value as Holiday['type']})}
-                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                              >
-                                  {Object.entries(HOLIDAY_TYPE_LEGEND).map(([key, val]) => (
-                                      <option key={key} value={key}>{val.label}</option>
-                                  ))}
-                              </select>
-                          </div>
-
-                          <div className="flex gap-2 pt-2">
-                              {holidayForm.id && (
-                                  <button 
-                                    onClick={resetHolidayForm}
-                                    className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50"
-                                  >
-                                      Batal
-                                  </button>
+                          <div className="space-y-4">
+                              {!holidayForm.id && (
+                                  <label className="flex items-center gap-2 cursor-pointer mb-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                                    <div className="relative">
+                                        <input type="checkbox" checked={isHolidayRange} onChange={e=>setIsHolidayRange(e.target.checked)} className="sr-only peer"/>
+                                        <div className="w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-[#5AB2FF] transition-colors"></div>
+                                        <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+                                    </div>
+                                    <span className="text-xs font-bold text-gray-600">Input Rentang Tanggal</span>
+                                  </label>
                               )}
-                              <button 
-                                onClick={handleSaveHolidayInline}
-                                disabled={isSavingHoliday}
-                                className={`flex-1 flex items-center justify-center py-2.5 bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white rounded-lg text-sm font-bold shadow-md disabled:opacity-50 ${!holidayForm.id ? 'w-full' : ''}`}
-                              >
-                                  {isSavingHoliday ? <Loader2 className="animate-spin mr-2" size={16}/> : <Save className="mr-2" size={16}/>}
-                                  Simpan
-                              </button>
+
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{isHolidayRange ? 'Dari Tanggal' : 'Tanggal'}</label>
+                                  <input 
+                                    type="date" 
+                                    value={holidayForm.date} 
+                                    onChange={(e) => setHolidayForm({...holidayForm, date: e.target.value})}
+                                    className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  />
+                              </div>
+
+                              {isHolidayRange && (
+                                  <div className="animate-fade-in-up">
+                                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Sampai Tanggal</label>
+                                      <input 
+                                        type="date" 
+                                        value={holidayEndDate} 
+                                        onChange={(e) => setHolidayEndDate(e.target.value)}
+                                        className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                      />
+                                  </div>
+                              )}
+                              
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Keterangan</label>
+                                  <input 
+                                    type="text" 
+                                    value={holidayForm.description} 
+                                    onChange={(e) => setHolidayForm({...holidayForm, description: e.target.value})}
+                                    placeholder="Contoh: HUT RI ke-79"
+                                    className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  />
+                              </div>
+
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tipe Libur</label>
+                                  <select 
+                                    value={holidayForm.type} 
+                                    onChange={(e) => setHolidayForm({...holidayForm, type: e.target.value as Holiday['type']})}
+                                    className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                  >
+                                      {Object.entries(HOLIDAY_TYPE_LEGEND).map(([key, val]) => (
+                                          <option key={key} value={key}>{val.label}</option>
+                                      ))}
+                                  </select>
+                              </div>
+
+                              <div className="flex gap-2 pt-2">
+                                  {holidayForm.id && (
+                                      <button 
+                                        onClick={resetHolidayForm}
+                                        className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50"
+                                      >
+                                          Batal
+                                      </button>
+                                  )}
+                                  <button 
+                                    onClick={handleSaveHolidayInline}
+                                    disabled={isSavingHoliday}
+                                    className={`flex-1 flex items-center justify-center py-2.5 bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white rounded-lg text-sm font-bold shadow-md disabled:opacity-50 ${!holidayForm.id ? 'w-full' : ''}`}
+                                  >
+                                      {isSavingHoliday ? <Loader2 className="animate-spin mr-2" size={16}/> : <Save className="mr-2" size={16}/>}
+                                      Simpan
+                                  </button>
+                              </div>
                           </div>
                       </div>
-                  </div>
+                  )}
+
+                  {!canManageHolidays && (
+                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 text-blue-800 text-sm shadow-sm flex items-start">
+                           <AlertTriangle size={20} className="mr-2 shrink-0 mt-0.5" />
+                           <p>Pengaturan hari libur sekolah hanya dapat dilakukan oleh Administrator. Data ini berlaku untuk semua kelas.</p>
+                       </div>
+                  )}
 
                    <div className="bg-white p-6 rounded-xl border border-gray-200 h-fit shadow-sm">
                         <h3 className="font-bold text-gray-800 mb-3 text-sm uppercase">Keterangan Warna</h3>
@@ -1104,7 +1162,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                   </div>
                   <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
                       {holidays.length === 0 ? (
-                          <div className="p-8 text-center text-gray-400 italic">Belum ada data libur. Silakan tambah data.</div>
+                          <div className="p-8 text-center text-gray-400 italic">Belum ada data libur.</div>
                       ) : (
                           holidays.map(h => (
                             <div key={h.id} className="p-4 flex justify-between items-center group hover:bg-[#CAF4FF]/30 transition-colors">
@@ -1118,10 +1176,12 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
                                         <span className={`text-[10px] px-2 py-0.5 rounded-full text-white font-bold ${getHolidayPillColor(h.type)}`}>{h.type}</span>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => handleEditHolidayClick(h)} className="p-2 text-gray-400 hover:text-[#5AB2FF] rounded-full hover:bg-white"><Edit size={16}/></button>
-                                    <button onClick={() => handleDeleteHolidayClick(h.id)} className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-white"><Trash2 size={16}/></button>
-                                </div>
+                                {canManageHolidays && (
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handleEditHolidayClick(h)} className="p-2 text-gray-400 hover:text-[#5AB2FF] rounded-full hover:bg-white"><Edit size={16}/></button>
+                                        <button onClick={() => handleDeleteHolidayClick(h.id)} className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-white"><Trash2 size={16}/></button>
+                                    </div>
+                                )}
                             </div>
                           ))
                       )}
@@ -1194,7 +1254,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
            </div>
        )}
 
-       {/* --- RESTORED QR SCANNER UI --- */}
+       {/* --- NEW FULL FRAME SCANNER UI --- */}
        {!isReadOnly && (
         <>
             <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end space-y-3 no-print">
@@ -1218,48 +1278,53 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
             </div>
 
             {isScannerOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative">
-                        <div className="p-4 bg-gray-900 text-white flex justify-between items-center">
-                            <h3 className="font-bold flex items-center"><Scan className="mr-2"/> Scan Kartu Siswa</h3>
-                            <button onClick={() => setIsScannerOpen(false)} className="p-1 hover:bg-white/20 rounded-full"><X/></button>
+                <div className="fixed inset-0 z-[60] bg-black flex flex-col animate-fade-in">
+                    {/* Header / Controls */}
+                    <div className="p-4 flex justify-between items-center z-20 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent">
+                        <button 
+                            onClick={() => setCameraFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
+                            className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-all border border-white/10"
+                        >
+                            <Camera size={24} />
+                        </button>
+                        <h3 className="font-bold text-white tracking-wider flex items-center gap-2 drop-shadow-md">
+                            <Scan size={20} /> SCAN QR
+                        </h3>
+                        <button 
+                            onClick={() => setIsScannerOpen(false)} 
+                            className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-all border border-white/10"
+                        >
+                            <X size={24}/>
+                        </button>
+                    </div>
+                    
+                    {/* Main Scanner Area - Full Screen/Square */}
+                    <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
+                        <div id="reader" className="w-full h-full object-cover"></div>
+                        
+                        {/* Visual Feedback Line (Full Width) */}
+                        <div className="absolute inset-0 pointer-events-none flex flex-col justify-center">
+                             <div className="w-full h-0.5 bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-scan"></div>
                         </div>
                         
-                        <div className="relative bg-black h-80">
-                            <div id="reader" className="w-full h-full"></div>
-                            {/* Scan Line Overlay */}
-                            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                                <div className="w-64 h-64 border-2 border-white/50 rounded-lg relative">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-red-500 shadow-[0_0_10px_red] animate-scan"></div>
+                        {/* Result Feedback Overlay */}
+                        {lastScannedStudent && (
+                            <div className="absolute bottom-20 left-4 right-4 mx-auto max-w-sm bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-2xl animate-fade-in-up z-20 flex items-center border border-emerald-100">
+                                <div className="bg-emerald-100 p-3 rounded-full mr-4 text-emerald-600">
+                                    <CheckCircle size={32} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-emerald-600 font-bold uppercase tracking-wide">Berhasil Scan</p>
+                                    <p className="font-bold text-gray-900 text-lg">{lastScannedStudent.name}</p>
+                                    <p className="text-sm text-gray-500">{lastScannedStudent.time}</p>
                                 </div>
                             </div>
-                        </div>
+                        )}
+                    </div>
 
-                        <div className="p-4 bg-white">
-                            <div className="flex justify-center gap-4 mb-4">
-                                <button 
-                                    onClick={() => setCameraFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
-                                    className="flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-full text-sm font-bold text-gray-700 hover:bg-gray-200"
-                                >
-                                    <Camera size={16}/> <span>Ganti Kamera</span>
-                                </button>
-                            </div>
-                            
-                            {lastScannedStudent && (
-                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center animate-fade-in-up">
-                                    <div className="bg-emerald-100 p-2 rounded-full mr-3 text-emerald-600">
-                                        <CheckCircle size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-emerald-600 font-bold uppercase">Berhasil Scan</p>
-                                        <p className="font-bold text-gray-800">{lastScannedStudent.name}</p>
-                                        <p className="text-xs text-gray-500">{lastScannedStudent.time}</p>
-                                    </div>
-                                </div>
-                            )}
-                            
-                            <p className="text-center text-xs text-gray-400 mt-4">Arahkan kamera ke QR Code pada kartu pelajar siswa.</p>
-                        </div>
+                    {/* Hint Text */}
+                    <div className="p-6 bg-black text-center z-20 pb-8">
+                        <p className="text-white/70 text-sm">Arahkan kamera ke QR Code Siswa</p>
                     </div>
                 </div>
             )}
