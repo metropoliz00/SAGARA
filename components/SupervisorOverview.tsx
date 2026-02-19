@@ -235,7 +235,7 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                 <div className="flex justify-between items-start mb-2">
                     <div>
                         <p className="text-xs font-bold text-gray-500 uppercase mb-1">SiLPA Tahun Lalu</p>
-                        <p className="text-xs text-gray-400">Tahun Anggaran {new Date().getFullYear()}</p>
+                        <p className="text-xs text-gray-400">Sisa anggaran thn. {new Date().getFullYear() - 1}</p>
                     </div>
                     <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Coins size={20}/></div>
                 </div>
@@ -262,7 +262,6 @@ const SupervisorOverview: React.FC<SupervisorOverviewProps> = ({
                     <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Wallet size={20}/></div>
                 </div>
                 <h3 className="text-2xl font-black">{formatCurrency(bosOverview.balance)}</h3>
-                <p className="text-[10px] opacity-80 mt-1">*Tidak termasuk SiLPA</p>
             </div>
         </div>
 

@@ -256,8 +256,6 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
               <div>
                   <p className="text-xs font-bold text-gray-500 uppercase mb-1">Total Pemasukan ({periodLabel})</p>
                   <h3 className="text-2xl font-black text-emerald-600">{formatCurrency(periodIncomeTotal)}</h3>
-                  {/* Small note about SiLPA exclusion */}
-                  <span className="text-[10px] text-gray-400 font-medium">*Tidak termasuk SiLPA</span>
               </div>
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><TrendingUp size={24}/></div>
           </div>
@@ -272,7 +270,6 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
               <div>
                   <p className="text-xs font-bold uppercase mb-1 opacity-80">Sisa Saldo Tunai (Global)</p>
                   <h3 className="text-2xl font-black">{formatCurrency(currentBalance)}</h3>
-                  <span className="text-[10px] opacity-75 font-medium">*Real Cash Flow (Tanpa SiLPA)</span>
               </div>
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm"><Wallet size={24}/></div>
           </div>
@@ -349,7 +346,7 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
                       </div>
                       <div>
                           <h5 className="font-bold text-gray-700 text-sm uppercase">SiLPA Tahun Lalu</h5>
-                          <p className="text-xs text-gray-500 print:hidden">Saldo awal tahun anggaran {filterYear}</p>
+                          <p className="text-xs text-gray-500 print:hidden">Sisa anggaran thn. {filterYear - 1}</p>
                       </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -370,9 +367,8 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
 
               {/* REPORT TABLE */}
               <div className="mb-8">
-                  <h4 className="font-bold text-gray-800 mb-3 border-l-4 border-indigo-500 pl-3 flex items-center justify-between">
-                      <span>Rekapitulasi {viewMode === 'annual' ? 'Per Standar (Setahun)' : 'Per Standar (Sebulan)'}</span>
-                      {viewMode === 'annual' && <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">Akumulasi Tahun {filterYear}</span>}
+                  <h4 className="font-bold text-gray-800 mb-3 border-l-4 border-indigo-500 pl-3">
+                      Rekapitulasi Per Standar {viewMode === 'annual' ? `(Tahun ${filterYear})` : `(${MONTHS[filterMonth - 1]})`}
                   </h4>
                   <div className="overflow-x-auto border border-gray-200 rounded-lg">
                       <table className="w-full text-sm text-left">
