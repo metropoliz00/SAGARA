@@ -619,7 +619,7 @@ const App: React.FC = () => {
   const isSupervisor = currentUser.role === 'supervisor';
 
   const myStudentData = isStudentRole 
-    ? students.find(s => String(s.id).trim() === String(currentUser.studentId).trim()) 
+    ? (students.find(s => String(s.id).trim() === String(currentUser.studentId).trim()) || null)
     : null;
 
   const renderContent = () => {
