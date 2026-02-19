@@ -231,6 +231,110 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
     }
   };
 
+  // --- NEW FILE OPERATIONS ---
+  const handleExport = () => {
+    let data: any[], fileName: string, sheetName: string;
+
+    switch(activeTab) {
+        case 'inventory':
+            if (inventory.length === 0) return onShowNotification('Tidak ada data inventaris untuk diekspor.', 'warning');
+            data = inventory.map(({ id, classId, ...rest }) => rest);
+            fileName = `inventaris_kelas_${classId}.xlsx`;
+            sheetName = "Inventaris";
+            break;
+        case 'guestbook':
+            if (guests.length === 0) return onShowNotification('Tidak ada data buku tamu untuk diekspor.', 'warning');
+            data = guests.map(({ id, classId, ...rest }) => ({
+                Tanggal: rest.date,
+                Waktu: rest.time,
+                "Nama Tamu": rest.name,
+                Instansi: rest.agency,
+                Keperluan: rest.purpose
+            }));
+            fileName = `buku_tamu_kelas_${classId}.xlsx`;
+            sheetName = "Buku Tamu";
+            break;
+        default:
+            // FIX: The `onShowNotification` function only accepts 'success', 'error', or 'warning' as the type. Changed 'info' to 'warning'.
+            onShowNotification('Ekspor tidak tersedia untuk tab ini.', 'warning');
+            return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, fileName);
+  };
+
+  const handleDownloadTemplate = () => {
+      let headers: string[], example: any[], fileName: string;
+
+      switch(activeTab) {
+          case 'inventory':
+              headers = ["Nama Barang", "Jumlah", "Kondisi (Baik/Rusak)"];
+              example = ["Papan Tulis", 1, "Baik"];
+              fileName = "template_inventaris.xlsx";
+              break;
+          case 'guestbook':
+              headers = ["Tanggal (YYYY-MM-DD)", "Waktu (HH:mm)", "Nama Tamu", "Instansi/Asal", "Keperluan"];
+              example = ["2024-07-20", "10:30", "Orang Tua Siswa", "Wali Murid", "Konsultasi nilai"];
+              fileName = "template_buku_tamu.xlsx";
+              break;
+          default:
+              onShowNotification('Template tidak tersedia untuk tab ini.', 'warning');
+              return;
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Template");
+      XLSX.writeFile(wb, fileName);
+  };
+
+  const handleImportClick = () => {
+      if (['inventory', 'guestbook'].includes(activeTab)) {
+          fileInputRef.current?.click();
+      } else {
+          onShowNotification('Import tidak tersedia untuk tab ini.', 'warning');
+      }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        setIsLoading(true);
+        try {
+            const bstr = evt.target?.result;
+            const wb = XLSX.read(bstr, { type: 'binary' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+            if (activeTab === 'inventory') {
+                for (const row of data) {
+                    const newItem: InventoryItem = { id: `inv-${Date.now()}-${Math.random()}`, classId: classId, name: row['Nama Barang'] || '', qty: Number(row['Jumlah'] || 1), condition: (row['Kondisi'] === 'Rusak') ? 'Rusak' : 'Baik' };
+                    if (newItem.name) await handleSaveInventory(newItem);
+                }
+            } else if (activeTab === 'guestbook') {
+                for (const row of data) {
+                     const newGuest: Guest = { id: `gst-${Date.now()}-${Math.random()}`, classId: classId, date: row['Tanggal (YYYY-MM-DD)'] || new Date().toISOString().split('T')[0], time: row['Waktu (HH:mm)'] || new Date().toLocaleTimeString('id-ID'), name: row['Nama Tamu'] || '', agency: row['Instansi/Asal'] || '', purpose: row['Keperluan'] || '' };
+                     if (newGuest.name) await handleSaveGuest(newGuest);
+                }
+            }
+            onShowNotification(`Import data selesai.`, 'success');
+            await fetchClassroomData();
+        } catch (err) {
+            onShowNotification("Gagal memproses file. Pastikan format sesuai template.", 'error');
+        } finally {
+            setIsLoading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   // --- Utility Functions ---
   const handlePrint = () => {
     window.print();
@@ -279,10 +383,10 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
              <button onClick={fetchClassroomData} title="Refresh Data" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-indigo-600">
                 <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
              </button>
-             <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls, .csv" />
-             <button title="Download Template" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Download size={18} /></button>
-             <button title="Import" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Upload size={18} /></button>
-             <button title="Export Excel" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><FileSpreadsheet size={18} /></button>
+             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx, .xls, .csv" />
+             <button onClick={handleDownloadTemplate} title="Download Template" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Download size={18} /></button>
+             <button onClick={handleImportClick} title="Import" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Upload size={18} /></button>
+             <button onClick={handleExport} title="Export Excel" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><FileSpreadsheet size={18} /></button>
              <button onClick={handlePrint} title="Cetak" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Printer size={18} /></button>
            </div>
         </div>

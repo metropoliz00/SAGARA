@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Student, TeacherProfileData, SchoolProfileData } from '../types';
 import * as XLSX from 'xlsx';
@@ -451,9 +450,9 @@ const StudentList: React.FC<StudentListProps> = ({
            </div>
            
            {!isReadOnly && <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx, .xls, .csv" />}
-           {!isReadOnly && <button onClick={handleDownloadTemplate} className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><Download size={16} /> <span className="hidden sm:inline">Template</span></button>}
+           {!isReadOnly && <button onClick={handleDownloadTemplate} className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><FileSpreadsheet size={16} /> <span className="hidden sm:inline">Template</span></button>}
            {!isReadOnly && <button onClick={handleImportClick} className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><Upload size={16} /> <span className="hidden sm:inline">Import</span></button>}
-           <button onClick={handleExport} className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><FileSpreadsheet size={16} /> <span className="hidden sm:inline">Export</span></button>
+           <button onClick={handleExport} className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><Download size={16} /> <span className="hidden sm:inline">Export</span></button>
            <button onClick={handlePrint} className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><Printer size={16} /> <span>Cetak</span></button>
            {!isReadOnly && <button onClick={() => { setIsAddModalOpen(true); setAddModalTab('biodata'); }} className="flex items-center space-x-2 bg-[#5AB2FF] hover:bg-[#A0DEFF] text-white px-4 py-2 rounded-lg transition-colors shadow-md"><Plus size={18} /><span>Tambah</span></button>}
         </div>
@@ -489,8 +488,8 @@ const StudentList: React.FC<StudentListProps> = ({
                             ) : ( student.gender === 'L' ? '👦' : '👧' )}
                          </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                         <h3 className="font-bold text-gray-800 truncate text-lg group-hover:text-[#5AB2FF] transition-colors">{student.name}</h3>
+                      <div className="flex-1 min-w-0 min-h-16">
+                         <h3 className={`font-bold text-gray-800 group-hover:text-[#5AB2FF] transition-colors ${student.name.length > 22 ? 'text-base leading-tight' : 'text-lg'}`}>{student.name}</h3>
                          <div className="flex flex-wrap gap-1.5 mt-2">
                             <span className="bg-white/80 text-gray-600 text-[10px] px-2 py-0.5 rounded font-mono border border-gray-200 shadow-sm flex items-center" title="NIS">
                                 NIS: {student.nis}
@@ -546,16 +545,28 @@ const StudentList: React.FC<StudentListProps> = ({
            <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#CAF4FF]/50 text-gray-700 font-medium border-b border-[#A0DEFF]">
-                <tr><th className="px-4 py-3">NIS</th><th className="px-4 py-3">Nama</th><th className="px-4 py-3">L/P</th><th className="px-4 py-3">Alamat</th><th className="px-4 py-3 text-right">Aksi</th></tr>
+                <tr>
+                    <th className="px-4 py-3">NIS</th>
+                    <th className="px-4 py-3">NISN</th>
+                    <th className="px-4 py-3">Nama</th>
+                    <th className="px-4 py-3 text-center">L/P</th>
+                    <th className="px-4 py-3">Tempat Lahir</th>
+                    <th className="px-4 py-3">Tanggal Lahir</th>
+                    <th className="px-4 py-3">Agama</th>
+                    <th className="px-4 py-3">Alamat</th>
+                </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredStudents.map((student, index) => (
                   <tr key={student.id} className={`hover:bg-[#CAF4FF]/20 cursor-pointer ${index % 2 === 0 ? 'bg-white' : 'bg-[#CAF4FF]/10'}`} onClick={() => setSelectedStudent(student)}>
-                    <td className="px-4 py-3 font-mono text-gray-500">{student.nis}</td>
-                    <td className="px-4 py-3 font-medium flex items-center">{student.photo && !isPhotoError(student.photo) && <img src={student.photo} className="w-8 h-8 rounded-full mr-3 object-cover"/>}{student.name}</td>
-                    <td className="px-4 py-3">{student.gender}</td>
-                    <td className="px-4 py-3 truncate max-w-[200px]">{student.address}</td>
-                    <td className="px-4 py-3 text-right"><button className="text-[#5AB2FF] hover:bg-[#CAF4FF] px-3 py-1 rounded text-xs border border-[#A0DEFF]">Detail</button></td>
+                    <td className="px-4 py-3 font-mono text-gray-500 whitespace-nowrap">{student.nis}</td>
+                    <td className="px-4 py-3 font-mono text-gray-500 whitespace-nowrap">{student.nisn || '-'}</td>
+                    <td className="px-4 py-3 font-medium flex items-center whitespace-nowrap">{student.photo && !isPhotoError(student.photo) && <img src={student.photo} className="w-8 h-8 rounded-full mr-3 object-cover"/>}{student.name}</td>
+                    <td className="px-4 py-3 text-center">{student.gender}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{student.birthPlace || '-'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{student.birthDate}</td>
+                    <td className="px-4 py-3">{student.religion || '-'}</td>
+                    <td className="px-4 py-3 truncate max-w-[150px]">{student.address}</td>
                   </tr>
                 ))}
               </tbody>

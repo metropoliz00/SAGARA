@@ -27,8 +27,9 @@ const SHEETS = {
   STRUKTUR: "StrukturOrganisasi",
   SETTINGS: "ClassSettings",
   DOCS: "SupportDocuments",
+  LEARNING_DOCUMENTATION: "LearningDocumentation",
   SCHOOL_ASSETS: "SchoolAssets",
-  BOS: "BOSManagement" // NEW SHEET
+  BOS: "BOSManagement" // NEW BOS
 };
 
 const SUBJECT_SHEETS = {
@@ -68,10 +69,11 @@ function setupDatabase() {
     { name: SHEETS.KARAKTER, headers: ["Student ID", "Class ID", "Bangun Pagi", "Beribadah", "Berolahraga", "Makan Sehat", "Gemar Belajar", "Bermasyarakat", "TidurAwal", "Catatan", "Afirmasi"] },
     { name: SHEETS.LINKS, headers: ["ID", "Judul", "URL", "Icon (Base64)"] },
     { name: SHEETS.REPORTS, headers: ["ID", "Class ID", "Tanggal", "Jenis Laporan", "Mata Pelajaran", "Materi/Topik", "Link Dokumen", "Nama Guru"] },
-    { name: SHEETS.JURNAL_KELAS, headers: ["ID", "Class ID", "Tanggal", "Hari", "Jam Ke", "Mata Pelajaran", "Materi", "Kegiatan Pembelajaran", "Evaluasi", "Refleksi", "Tindak Lanjut"] },
+    { name: SHEETS.JURNAL_KELAS, headers: ["ID", "Class ID", "Tanggal", "Hari", "Jam Ke", "Mata Pelajaran", "Materi", "Kegiatan Pembelajaran", "Evaluasi", "Refleksi", "Tindak Lanjut", "Model", "Pendekatan", "Metode"] },
     { name: SHEETS.LIAISON, headers: ["ID", "Class ID", "Student ID", "Tanggal", "Pengirim", "Pesan", "Status", "Kategori", "Response"] },
     { name: SHEETS.PERMISSIONS, headers: ["ID", "Class ID", "Student ID", "Tanggal", "Tipe", "Alasan", "Status"] },
     { name: SHEETS.DOCS, headers: ["ID", "Class ID", "Nama File", "URL"] },
+    { name: SHEETS.LEARNING_DOCUMENTATION, headers: ["ID", "Class ID", "Nama Kegiatan", "Link Foto"] },
     // Config Sheets
     { name: SHEETS.JADWAL, headers: ["ID", "Class ID", "Hari", "Jam", "Mata Pelajaran"] },
     { name: SHEETS.PIKET, headers: ["Class ID", "Hari", "Student IDs (JSON)"] },
@@ -235,6 +237,10 @@ function handleRequest(e, method) {
     if (action === "saveLearningJournalBatch") return saveLearningJournalBatch(params.payload);
     if (action === "deleteLearningJournal") return deleteLearningJournal(params.id, classId);
 
+    if (action === "getLearningDocumentation") return getLearningDocumentation(classId);
+    if (action === "saveLearningDocumentation") return saveLearningDocumentation(params.payload);
+    if (action === "deleteLearningDocumentation") return deleteLearningDocumentation(params.id, classId);
+
     if (action === "getLiaisonLogs") return getLiaisonLogs(user);
     if (action === "saveLiaisonLog") return saveLiaisonLog(params.payload);
     if (action === "updateLiaisonStatus") return updateLiaisonStatus(params.payload);
@@ -269,6 +275,45 @@ function handleRequest(e, method) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function getLearningDocumentation(classId) {
+  const rows = getData(SHEETS.LEARNING_DOCUMENTATION);
+  const data = rows.filter(r => String(r[1]) === classId).map(r => ({
+    id: String(r[0]),
+    classId: String(r[1]),
+    namaKegiatan: String(r[2]),
+    linkFoto: String(r[3])
+  }));
+  return response({ status: "success", data: data });
+}
+
+function saveLearningDocumentation(doc) {
+  const sheet = getSheet(SHEETS.LEARNING_DOCUMENTATION);
+  const id = doc.id || Utilities.getUuid();
+  const row = [id, doc.classId, doc.namaKegiatan, doc.linkFoto];
+  
+  const allData = sheet.getDataRange().getValues();
+  const rowIndex = allData.findIndex(r => String(r[0]) === String(doc.id));
+  
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex + 1, 1, 1, row.length).setValues([row]);
+  } else {
+    sheet.appendRow(row);
+  }
+  return response({ status: "success", id: id });
+}
+
+function deleteLearningDocumentation(id, classId) {
+  const sheet = getSheet(SHEETS.LEARNING_DOCUMENTATION);
+  const allData = sheet.getDataRange().getValues();
+  const rowIndex = allData.findIndex(r => String(r[0]) === String(id) && String(r[1]) === String(classId));
+  
+  if (rowIndex > 0) {
+    sheet.deleteRow(rowIndex + 1);
+    return response({ status: "success" });
+  }
+  return response({ status: "error", message: "Document not found." });
 }
 
 // ... (Existing Functions)
@@ -533,8 +578,8 @@ function getLearningReports(classId){const rows=getData(SHEETS.REPORTS);const da
 function saveLearningReport(r){const sheet=getSheet(SHEETS.REPORTS);const id=r.id||Utilities.getUuid();const row=[id,r.classId,r.date,r.type,r.subject,r.topic,r.documentLink,r.teacherName];sheet.appendRow(row);return response({status:"success",id})}
 function deleteLearningReport(id,classId){const sheet=getSheet(SHEETS.REPORTS);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
-function getLearningJournal(classId){const rows=getData(SHEETS.JURNAL_KELAS);const data=rows.filter(r=>String(r[1])===classId).map(r=>({id:String(r[0]),classId:String(r[1]),date:formatDate(r[2]),day:String(r[3]),timeSlot:String(r[4]),subject:String(r[5]),topic:String(r[6]),activities:String(r[7]),evaluation:String(r[8]),reflection:String(r[9]),followUp:String(r[10])}));return response({status:"success",data})}
-function saveLearningJournalBatch(p){const sheet=getSheet(SHEETS.JURNAL_KELAS);const newRows=p.entries.map(e=>[e.id||Utilities.getUuid(),e.classId,e.date,e.day,e.timeSlot,e.subject,e.topic,e.activities,e.evaluation,e.reflection,e.followUp]);if(newRows.length>0)sheet.getRange(sheet.getLastRow()+1,1,newRows.length,newRows[0].length).setValues(newRows);return response({status:"success"})}
+function getLearningJournal(classId){const rows=getData(SHEETS.JURNAL_KELAS);const data=rows.filter(r=>String(r[1])===classId).map(r=>({id:String(r[0]),classId:String(r[1]),date:formatDate(r[2]),day:String(r[3]),timeSlot:String(r[4]),subject:String(r[5]),topic:String(r[6]),activities:String(r[7]),evaluation:String(r[8]),reflection:String(r[9]),followUp:String(r[10]),model:r[11]||'',pendekatan:r[12]||'',metode:r[13]||''}));return response({status:"success",data})}
+function saveLearningJournalBatch(p){const sheet=getSheet(SHEETS.JURNAL_KELAS);const newRows=p.entries.map(e=>[e.id||Utilities.getUuid(),e.classId,e.date,e.day,e.timeSlot,e.subject,e.topic,e.activities,e.evaluation,e.reflection,e.followUp,e.model||'',e.pendekatan||'',e.metode||'']);if(newRows.length>0)sheet.getRange(sheet.getLastRow()+1,1,newRows.length,newRows[0].length).setValues(newRows);return response({status:"success"})}
 function deleteLearningJournal(id,classId){const sheet=getSheet(SHEETS.JURNAL_KELAS);const all=sheet.getDataRange().getValues();const idx=all.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
 function getPermissionRequests(user){const rows=getData(SHEETS.PERMISSIONS);const data=rows.map(r=>({id:String(r[0]),classId:String(r[1]),studentId:String(r[2]),date:formatDate(r[3]),type:String(r[4]),reason:String(r[5]),status:String(r[6])}));return response({status:"success",data})}

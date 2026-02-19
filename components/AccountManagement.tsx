@@ -247,9 +247,9 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ users, students, 
                 </button>
             )}
 
-            <button onClick={handleDownloadTemplate} className="p-2 bg-white border rounded-lg hover:bg-gray-50 text-gray-600" title="Template"><Download size={18} /></button>
+            <button onClick={handleExport} className="p-2 bg-white border rounded-lg hover:bg-gray-50 text-gray-600" title="Export"><Download size={18} /></button>
             <button onClick={() => fileInputRef.current?.click()} className="p-2 bg-white border rounded-lg hover:bg-gray-50 text-gray-600" title="Import"><Upload size={18} /></button>
-            <button onClick={handleExport} className="p-2 bg-white border rounded-lg hover:bg-gray-50 text-gray-600" title="Export"><FileSpreadsheet size={18} /></button>
+            <button onClick={handleDownloadTemplate} className="p-2 bg-white border rounded-lg hover:bg-gray-50 text-gray-600" title="Template"><FileSpreadsheet size={18} /></button>
             
             <button onClick={() => openModal()} className="flex items-center gap-2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700">
                 <Plus size={18} /> <span className="hidden sm:inline">Tambah Akun</span>

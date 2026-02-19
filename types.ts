@@ -208,6 +208,16 @@ export interface LearningJournalEntry {
   evaluation: string;
   reflection: string;
   followUp: string;
+  model?: string;
+  pendekatan?: string;
+  metode?: string;
+}
+
+export interface LearningDocumentation {
+  id: string;
+  classId: string;
+  namaKegiatan: string;
+  linkFoto: string;
 }
 
 export interface LiaisonLog {
@@ -364,7 +374,8 @@ export type ViewState =
   | 'accounts' 
   | 'employment-links' 
   | 'learning-reports' 
-  | 'learning-journal' 
+  | 'learning-journal'
+  | 'learning-documentation'
   | 'student-monitor' 
   | 'liaison-book' 
   | 'backup-restore' 

@@ -6,7 +6,7 @@ import { AlertCircle } from 'lucide-react';
 import { 
     ViewState, Student, AgendaItem, BehaviorLog, GradeRecord, 
     TeacherProfileData, SchoolProfileData, User, Holiday, KarakterAssessment, 
-    EmploymentLink, LiaisonLog, PermissionRequest, InventoryItem, SchoolAsset, BOSTransaction, Extracurricular
+    EmploymentLink, LiaisonLog, PermissionRequest, InventoryItem, SchoolAsset, BOSTransaction, Extracurricular, LearningDocumentation
 } from '../types';
 import { MOCK_SUBJECTS } from '../constants';
 
@@ -42,6 +42,7 @@ interface DashboardContainerProps {
   pendingPermissions: PermissionRequest[];
   onOpenPermissionModal: () => void;
   schoolProfile: SchoolProfileData;
+  learningDocumentation?: LearningDocumentation[];
 }
 
 const DashboardContainer: React.FC<DashboardContainerProps> = ({
@@ -76,6 +77,7 @@ const DashboardContainer: React.FC<DashboardContainerProps> = ({
   pendingPermissions,
   onOpenPermissionModal,
   schoolProfile,
+  learningDocumentation
 }) => {
   if (isStudentRole) {
     if (!myStudentData) {
@@ -104,6 +106,7 @@ const DashboardContainer: React.FC<DashboardContainerProps> = ({
         onSaveLiaison={onSaveLiaison}
         onSaveKarakter={onSaveKarakter}
         onUpdateStudent={onUpdateStudent}
+        learningDocumentation={learningDocumentation || []}
       />
     );
   }
@@ -143,6 +146,7 @@ const DashboardContainer: React.FC<DashboardContainerProps> = ({
       pendingPermissions={pendingPermissions} 
       onOpenPermissionModal={onOpenPermissionModal} 
       schoolProfile={schoolProfile} 
+      learningDocumentation={learningDocumentation || []}
     />
   );
 };

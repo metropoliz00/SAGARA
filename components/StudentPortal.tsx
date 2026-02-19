@@ -1,6 +1,5 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { Student, GradeRecord, LiaisonLog, AgendaItem, BehaviorLog, PermissionRequest, KarakterAssessment, KARAKTER_INDICATORS, KarakterIndicatorKey } from '../types';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Student, GradeRecord, LiaisonLog, AgendaItem, BehaviorLog, PermissionRequest, KarakterAssessment, KARAKTER_INDICATORS, KarakterIndicatorKey, LearningDocumentation } from '../types';
 import { MOCK_SUBJECTS } from '../constants';
 import { 
   User, Calendar, Send, FileText, CheckCircle, XCircle, 
@@ -8,7 +7,8 @@ import {
   Star, HeartHandshake, ListTodo,
   MapPin, CheckSquare, X, Medal, Heart, MessageCircle, Trophy,
   Edit, Save, Loader2, PlusCircle, History, MessageSquare,
-  ClipboardList, Bell, Activity, Sparkles, GraduationCap, ChevronDown
+  ClipboardList, Bell, Activity, Sparkles, GraduationCap, ChevronDown,
+  Camera, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
 
@@ -25,13 +25,14 @@ interface StudentPortalProps {
   onSavePermission: (date: string, records: any[]) => Promise<void>;
   onSaveKarakter: (studentId: string, assessment: Omit<KarakterAssessment, 'studentId' | 'classId'>) => Promise<void>;
   onUpdateStudent: (student: Student) => Promise<void>;
+  learningDocumentation?: LearningDocumentation[];
 }
 
 type PortalTab = 'dashboard' | 'attendance' | 'liaison' | 'profile' | 'character';
 
 const StudentPortal: React.FC<StudentPortalProps> = ({
   student, allAttendance, grades, liaisonLogs, agendas, behaviorLogs, permissionRequests, karakterAssessments,
-  onSaveLiaison, onSavePermission, onSaveKarakter, onUpdateStudent
+  onSaveLiaison, onSavePermission, onSaveKarakter, onUpdateStudent, learningDocumentation = []
 }) => {
   const [activeTab, setActiveTab] = useState<PortalTab>('dashboard');
   
@@ -65,6 +66,11 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
 
   // -- STATE FOR CLOCK --
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Carousel State
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselTimeoutRef = useRef<number | null>(null);
+  const imagesForCarousel = useMemo(() => learningDocumentation.filter(doc => doc.linkFoto && doc.linkFoto.startsWith('http')), [learningDocumentation]);
 
   // -- EFFECTS --
   useEffect(() => {
@@ -118,6 +124,20 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
       };
       checkConfig();
   }, [student.classId]);
+  
+  // Carousel Logic
+  useEffect(() => {
+    const resetTimeout = () => {
+      if (carouselTimeoutRef.current) clearTimeout(carouselTimeoutRef.current);
+    };
+    resetTimeout();
+    if (imagesForCarousel.length > 1) {
+      carouselTimeoutRef.current = window.setTimeout(
+        () => setCarouselIndex((prev) => (prev + 1) % imagesForCarousel.length), 5000
+      );
+    }
+    return () => resetTimeout();
+  }, [carouselIndex, imagesForCarousel.length]);
 
   // -- HANDLERS --
 
@@ -212,6 +232,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   const handleKarakterChange = (key: KarakterIndicatorKey, value: string) => {
       setKarakterForm(prev => ({ ...prev, [key]: value }));
   };
+
+  const goToPreviousSlide = () => setCarouselIndex((prev) => (prev - 1 + imagesForCarousel.length) % imagesForCarousel.length);
+  const goToNextSlide = () => setCarouselIndex((prev) => (prev + 1) % imagesForCarousel.length);
 
   // -- COMPUTED DATA --
 
@@ -661,6 +684,54 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                           </div>
                       </div>
                   )}
+
+                  {/* Carousel Dokumentasi */}
+                  {imagesForCarousel.length > 0 && (
+                      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm animate-fade-in-up">
+                        <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                            <Camera className="mr-2 text-indigo-500" size={20}/> Dokumentasi Kegiatan Kelas
+                        </h3>
+                        <div className="relative w-full h-72 bg-gray-100 rounded-xl shadow-inner border border-gray-200 overflow-hidden group">
+                          <div className="w-full h-full flex overflow-hidden">
+                            {imagesForCarousel.map((image) => (
+                                <div 
+                                    key={image.id}
+                                    className="w-full h-full flex-shrink-0 transition-transform duration-700 ease-in-out"
+                                    style={{ transform: `translateX(-${carouselIndex * 100}%)` }}
+                                >
+                                    <img src={image.linkFoto} alt={image.namaKegiatan} className="w-full h-full object-contain" />
+                                </div>
+                            ))}
+                          </div>
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+
+                          <div className="absolute bottom-4 left-4 text-white drop-shadow-lg max-w-[calc(100%-60px)]">
+                              <p className="font-bold text-md truncate">{imagesForCarousel[carouselIndex]?.namaKegiatan}</p>
+                          </div>
+
+                          {imagesForCarousel.length > 1 && (
+                              <>
+                                  <button onClick={(e) => { e.stopPropagation(); goToPreviousSlide(); }} className="absolute top-1/2 left-3 -translate-y-1/2 bg-white/60 p-1.5 rounded-full text-gray-800 hover:bg-white transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm">
+                                      <ChevronLeft size={20} />
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); goToNextSlide(); }} className="absolute top-1/2 right-3 -translate-y-1/2 bg-white/60 p-1.5 rounded-full text-gray-800 hover:bg-white transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm">
+                                      <ChevronRight size={20} />
+                                  </button>
+                                  <div className="absolute bottom-3 right-3 flex gap-1.5">
+                                      {imagesForCarousel.map((_, i) => (
+                                          <div 
+                                              key={i} 
+                                              onClick={(e) => { e.stopPropagation(); setCarouselIndex(i); }} 
+                                              className={`w-2 h-2 rounded-full cursor-pointer transition-all ${carouselIndex === i ? 'bg-white scale-125' : 'bg-white/50'}`}
+                                          ></div>
+                                      ))}
+                                  </div>
+                              </>
+                          )}
+                        </div>
+                      </div>
+                    )}
               </div>
           )}
 

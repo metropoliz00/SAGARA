@@ -1,4 +1,3 @@
-
 // ... (imports remain the same)
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
@@ -18,6 +17,7 @@ import AccountManagement from './components/AccountManagement';
 import EmploymentLinksAdmin from './components/EmploymentLinksAdmin';
 import LearningReportsView from './components/LearningReportsView'; 
 import LearningJournalView from './components/LearningJournalView'; 
+import LearningDocumentationView from './components/LearningDocumentationView';
 import StudentMonitor from './components/StudentMonitor'; 
 import LiaisonBookView from './components/LiaisonBookView'; 
 import BackupRestore from './components/BackupRestore';
@@ -26,7 +26,7 @@ import SupervisorOverview from './components/SupervisorOverview';
 import SchoolAssetsAdmin from './components/SchoolAssetsAdmin'; 
 import BOSManagement from './components/BOSManagement'; // NEW IMPORT
 import CustomModal from './components/CustomModal'; 
-import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, InventoryItem, SchoolAsset, BOSTransaction } from './types';
+import { ViewState, Student, AgendaItem, Extracurricular, BehaviorLog, GradeRecord, TeacherProfileData, SchoolProfileData, User, Holiday, SikapAssessment, KarakterAssessment, EmploymentLink, LearningReport, LiaisonLog, PermissionRequest, LearningJournalEntry, SupportDocument, InventoryItem, SchoolAsset, BOSTransaction, LearningDocumentation } from './types';
 import { MOCK_SUBJECTS, MOCK_STUDENTS, MOCK_EXTRACURRICULARS } from './constants';
 import { apiService } from './services/apiService';
 import { Menu, Loader2, RefreshCw, AlertCircle, CheckCircle, WifiOff, ChevronDown, UserCog, LogOut, Filter, Bell, X, XCircle } from 'lucide-react';
@@ -66,6 +66,7 @@ const App: React.FC = () => {
   const [karakterAssessments, setKarakterAssessments] = useState<KarakterAssessment[]>([]);
   const [employmentLinks, setEmploymentLinks] = useState<EmploymentLink[]>([]);
   const [learningReports, setLearningReports] = useState<LearningReport[]>([]);
+  const [learningDocumentation, setLearningDocumentation] = useState<LearningDocumentation[]>([]);
   const [liaisonLogs, setLiaisonLogs] = useState<LiaisonLog[]>([]);
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]); 
   const [supportDocuments, setSupportDocuments] = useState<SupportDocument[]>([]);
@@ -211,6 +212,11 @@ const App: React.FC = () => {
         return strA.localeCompare(strB);
     });
   }, [students, users]);
+  
+  const activeClassId = useMemo(() => {
+    if (!currentUser) return '';
+    return canSelectClass ? selectedClassId : String(currentUser.classId || '');
+  }, [currentUser, selectedClassId, canSelectClass]);
 
   useEffect(() => {
     if (currentUser) {
@@ -231,14 +237,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const fetchAdminStats = async () => {
-        if (!selectedClassId || String(selectedClassId).toLowerCase() === 'all' || isDemoMode) {
+        if (!activeClassId || String(activeClassId).toLowerCase() === 'all' || isDemoMode) {
             setAdminPercentage(0);
             return;
         }
         try {
             const [inv, config] = await Promise.all([
-                apiService.getInventory(selectedClassId),
-                apiService.getClassConfig(selectedClassId)
+                apiService.getInventory(activeClassId),
+                apiService.getClassConfig(activeClassId)
             ]);
             let score = 0;
             if (config.schedule && config.schedule.length > 0) score++;
@@ -257,7 +263,7 @@ const App: React.FC = () => {
         }
     };
     fetchAdminStats();
-  }, [selectedClassId, isDemoMode]); 
+  }, [activeClassId, isDemoMode]); 
 
   const { isGlobalReadOnly, allowedSubjects } = useMemo(() => {
     if (!currentUser) return { isGlobalReadOnly: true, allowedSubjects: [] };
@@ -278,11 +284,6 @@ const App: React.FC = () => {
       const s2 = String(id2 || '').trim().toLowerCase();
       return s1 === s2;
   };
-
-  const activeClassId = useMemo(() => {
-    if (!currentUser) return '';
-    return canSelectClass ? selectedClassId : String(currentUser.classId || '');
-  }, [currentUser, selectedClassId, canSelectClass]);
 
   const filteredStudents = useMemo(() => students.filter(s => isClassMatch(s.classId, activeClassId)), [students, activeClassId]);
   const filteredAgendas = useMemo(() => agendas.filter(a => isClassMatch(a.classId, activeClassId)), [agendas, activeClassId]);
@@ -305,6 +306,7 @@ const App: React.FC = () => {
   const filteredKarakter = useMemo(() => karakterAssessments.filter(k => isClassMatch(k.classId, activeClassId)), [karakterAssessments, activeClassId]);
   const filteredHolidays = holidays;
   const filteredReports = useMemo(() => learningReports.filter(r => isClassMatch(r.classId, activeClassId)), [learningReports, activeClassId]);
+  const filteredLearningDocumentation = useMemo(() => learningDocumentation.filter(d => isClassMatch(d.classId, activeClassId)), [learningDocumentation, activeClassId]);
   const filteredSupportDocuments = useMemo(() => supportDocuments.filter(d => isClassMatch(d.classId, activeClassId)), [supportDocuments, activeClassId]);
   
   const filteredLiaison = useMemo(() => {
@@ -325,6 +327,29 @@ const App: React.FC = () => {
   }, [permissionRequests, activeClassId, currentUser]);
 
   // ... (Existing Handlers: Auto Report, Restore, Permission, Student, Agenda, etc.) ...
+  
+  // -- LEARNING DOCUMENTATION HANDLERS --
+  const handleSaveLearningDocumentation = async (doc: Omit<LearningDocumentation, 'id'> | LearningDocumentation) => {
+    if (isDemoMode) {
+      handleShowNotification('Dokumentasi disimpan (Demo).', 'success');
+      return;
+    }
+    await apiService.saveLearningDocumentation(doc);
+    handleShowNotification('Dokumentasi berhasil disimpan.', 'success');
+    await fetchData();
+  };
+
+  const handleDeleteLearningDocumentation = async (id: string) => {
+    showConfirm('Hapus dokumentasi ini?', async () => {
+      if (isDemoMode) {
+        handleShowNotification('Dokumentasi dihapus (Demo).', 'success');
+        return;
+      }
+      await apiService.deleteLearningDocumentation(id, activeClassId);
+      handleShowNotification('Dokumentasi berhasil dihapus!', 'success');
+      await fetchData();
+    });
+  };
   
   // --- BOS HANDLERS ---
   const handleSaveBOS = async (transaction: BOSTransaction) => {
@@ -427,7 +452,8 @@ const App: React.FC = () => {
   const handleToggleAgenda = async (id: string) => { const updatedAgendas = agendas.map(item => item.id === id ? { ...item, completed: !item.completed } : item); setAgendas(updatedAgendas); if (!isDemoMode) { const item = updatedAgendas.find(a => a.id === id); if(item) await apiService.updateAgenda(item); } };
   const handleDeleteAgenda = async (id: string) => { showConfirm('Hapus agenda ini?', async () => { setAgendas(agendas.filter(item => item.id !== id)); if (!isDemoMode) await apiService.deleteAgenda(id); }); };
   const handleAddExtracurricular = async (item: Extracurricular) => { const itemWithClass = { ...item, classId: activeClassId }; setExtracurriculars(prev => [...prev, itemWithClass]); if (!isDemoMode) { await apiService.createExtracurricular(itemWithClass); handleShowNotification("Ekskul berhasil ditambahkan", 'success'); } };
-  const handleUpdateExtracurricular = async (updatedItem: Extracurricular) => { const itemWithClass = { ...updatedItem, classId: activeClassId }; setExtracurriculars(prev => prev.map(ex => ex.id === itemWithClass.id ? itemWithClass : ex)); if(!isDemoMode) await apiService.updateExtracurricular(itemWithClass); };
+  // FIX: Use `updatedItem` which is passed as an argument, instead of `editingActivity` which is not defined in this scope.
+  const handleUpdateExtracurricular = async (updatedItem: Extracurricular) => { const itemWithClass = { ...updatedItem, classId: updatedItem.classId || activeClassId }; setExtracurriculars(prev => prev.map(ex => ex.id === itemWithClass.id ? itemWithClass : ex)); if(!isDemoMode) await apiService.updateExtracurricular(itemWithClass); };
   
   // General & Logs
   const handleSaveGrade = async (studentId: string, subjectId: string, gradeData: any, classId: string) => { if(!isDemoMode) await apiService.saveGrade(studentId, subjectId, gradeData, classId); };
@@ -471,6 +497,7 @@ const App: React.FC = () => {
   const handleDeleteSchoolAsset = async (id: string) => { if (isDemoMode) { setSchoolAssets(prev => prev.filter(a => a.id !== id)); handleShowNotification('Data aset dihapus (Demo).', 'success'); return; } await apiService.deleteSchoolAsset(id); handleShowNotification('Data sarana prasarana berhasil dihapus!', 'success'); await fetchData(); };
   
   const fetchData = async () => {
+    if (!currentUser) return;
     setLoading(true);
     setError(null);
     setIsDemoMode(false);
@@ -487,6 +514,8 @@ const App: React.FC = () => {
     }
 
     try {
+      const classIdToFetch = activeClassId;
+
       const promises = [
         currentUser?.role === 'admin' || currentUser?.role === 'supervisor' ? apiService.getUsers(currentUser) : Promise.resolve([]),
         apiService.getStudents(currentUser),
@@ -500,7 +529,8 @@ const App: React.FC = () => {
         apiService.getSikapAssessments(currentUser),
         apiService.getKarakterAssessments(currentUser),
         apiService.getEmploymentLinks(),
-        apiService.getLearningReports(selectedClassId),
+        apiService.getLearningReports(classIdToFetch),
+        apiService.getLearningDocumentation(classIdToFetch),
         apiService.getLiaisonLogs(currentUser), 
         apiService.getPermissionRequests(currentUser),
         apiService.getSupportDocuments(currentUser),
@@ -527,7 +557,11 @@ const App: React.FC = () => {
           promises.push(Promise.resolve([]));
       }
 
-      const [fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, fLiaison, fPermissions, fSupportDocs, fInventory, fSchoolAssets, fBOS] = await Promise.all(promises);
+      const [
+          fUsers, fStudents, fAgendas, fGrades, fCounseling, fExtracurriculars, 
+          fProfiles, fHolidays, fAttendance, fSikap, fKarakter, fLinks, fReports, 
+          fLearningDocs, fLiaison, fPermissions, fSupportDocs, fInventory, fSchoolAssets, fBOS
+      ] = await Promise.all(promises);
       
       setUsers(fUsers as User[]);
       setStudents(fStudents as Student[]);
@@ -540,6 +574,7 @@ const App: React.FC = () => {
       setKarakterAssessments(fKarakter as KarakterAssessment[]);
       setEmploymentLinks(fLinks as EmploymentLink[]);
       setLearningReports(fReports as LearningReport[]);
+      setLearningDocumentation(fLearningDocs as LearningDocumentation[]);
       setLiaisonLogs(fLiaison as LiaisonLog[]);
       setSupportDocuments(fSupportDocs as SupportDocument[]);
       
@@ -610,7 +645,7 @@ const App: React.FC = () => {
     if (currentUser) {
        fetchData();
     }
-  }, [currentUser]);
+  }, [currentUser, activeClassId]);
 
   if (!currentUser) {
       return <Login onLoginSuccess={setCurrentUser} />;
@@ -656,7 +691,6 @@ const App: React.FC = () => {
             allAttendanceRecords={allAttendanceRecords}
             grades={grades}
             liaisonLogs={liaisonLogs}
-            // FIX: Remove 'agendas' prop and rename 'behaviorLogs' to 'filteredCounseling' to match the component's props interface.
             filteredCounseling={filteredCounseling}
             permissionRequests={permissionRequests}
             karakterAssessments={karakterAssessments}
@@ -672,8 +706,8 @@ const App: React.FC = () => {
             bosTransactions={bosTransactions}
             filteredStudents={filteredStudents}
             filteredAgendas={filteredAgendas}
-            holidays={filteredHolidays}
             filteredAttendance={filteredAttendance}
+            holidays={filteredHolidays}
             teacherProfile={teacherProfile}
             activeClassId={activeClassId}
             onChangeView={setCurrentView}
@@ -682,6 +716,16 @@ const App: React.FC = () => {
             pendingPermissions={pendingPermissions}
             onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
             schoolProfile={schoolProfile}
+            learningDocumentation={filteredLearningDocumentation}
+        />;
+      case 'learning-documentation':
+        if (isStudentRole) { setCurrentView('dashboard'); return null; }
+        return <LearningDocumentationView 
+          documentation={filteredLearningDocumentation}
+          onSave={handleSaveLearningDocumentation}
+          onDelete={handleDeleteLearningDocumentation}
+          onShowNotification={handleShowNotification}
+          classId={activeClassId}
         />;
       case 'supervisor-overview':
         if (!isSupervisor && !isAdminRole) { setCurrentView('dashboard'); return null; }
@@ -934,7 +978,6 @@ const App: React.FC = () => {
             allAttendanceRecords={allAttendanceRecords}
             grades={grades}
             liaisonLogs={liaisonLogs}
-            // FIX: Remove 'agendas' prop and rename 'behaviorLogs' to 'filteredCounseling' to match the component's props interface.
             filteredCounseling={filteredCounseling}
             permissionRequests={permissionRequests}
             karakterAssessments={karakterAssessments}
@@ -950,8 +993,8 @@ const App: React.FC = () => {
             bosTransactions={bosTransactions}
             filteredStudents={filteredStudents}
             filteredAgendas={filteredAgendas}
-            holidays={filteredHolidays}
             filteredAttendance={filteredAttendance}
+            holidays={filteredHolidays}
             teacherProfile={teacherProfile}
             activeClassId={activeClassId}
             onChangeView={setCurrentView}
@@ -960,6 +1003,7 @@ const App: React.FC = () => {
             pendingPermissions={pendingPermissions}
             onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
             schoolProfile={schoolProfile}
+            learningDocumentation={filteredLearningDocumentation}
         />;
     }
   };

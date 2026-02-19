@@ -1,15 +1,14 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, RadialBarChart, RadialBar, Legend 
 } from 'recharts';
-import { Student, AgendaItem, Holiday, ViewState, GradeRecord, Subject, EmploymentLink, PermissionRequest, SchoolProfileData } from '../types';
+import { Student, AgendaItem, Holiday, ViewState, GradeRecord, Subject, EmploymentLink, PermissionRequest, SchoolProfileData, LearningDocumentation } from '../types';
 import { 
   Users, UserCheck, Calendar, FileText, TrendingUp, 
   Plus, Bell, ChevronRight, CheckCircle, AlertCircle, 
   GraduationCap, BookOpen, Clock, CalendarRange,
-  Activity, XCircle, ExternalLink, Link as LinkIcon, Mail, Info
+  Activity, XCircle, ExternalLink, Link as LinkIcon, Mail, Info, Camera, ChevronLeft
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -27,16 +26,23 @@ interface DashboardProps {
   pendingPermissions?: PermissionRequest[];
   onOpenPermissionModal?: () => void;
   schoolProfile?: SchoolProfileData; // Added schoolProfile prop
+  learningDocumentation?: LearningDocumentation[];
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   students, agendas, holidays, allAttendanceRecords, 
   teacherName, teachingClass, onChangeView, grades, subjects, adminCompleteness = 0,
-  employmentLinks = [], pendingPermissions = [], onOpenPermissionModal, schoolProfile
+  employmentLinks = [], pendingPermissions = [], onOpenPermissionModal, schoolProfile,
+  learningDocumentation = []
 }) => {
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showRunningText, setShowRunningText] = useState(false); // State for delayed running text
+
+  // Carousel State
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselTimeoutRef = useRef<number | null>(null);
+  const imagesForCarousel = useMemo(() => learningDocumentation.filter(doc => doc.linkFoto && doc.linkFoto.startsWith('http')), [learningDocumentation]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentDate(new Date()), 1000);
@@ -51,6 +57,23 @@ const Dashboard: React.FC<DashboardProps> = ({
         clearTimeout(textTimer);
     };
   }, []);
+
+  // Carousel Logic
+  useEffect(() => {
+    const resetTimeout = () => {
+      if (carouselTimeoutRef.current) clearTimeout(carouselTimeoutRef.current);
+    };
+    resetTimeout();
+    if (imagesForCarousel.length > 1) {
+      carouselTimeoutRef.current = window.setTimeout(
+        () => setCarouselIndex((prev) => (prev + 1) % imagesForCarousel.length), 5000
+      );
+    }
+    return () => resetTimeout();
+  }, [carouselIndex, imagesForCarousel.length]);
+
+  const goToPreviousSlide = () => setCarouselIndex((prev) => (prev - 1 + imagesForCarousel.length) % imagesForCarousel.length);
+  const goToNextSlide = () => setCarouselIndex((prev) => (prev + 1) % imagesForCarousel.length);
 
   const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(currentDate);
   const formattedTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(currentDate).replace(/\./g, ':');
@@ -410,6 +433,53 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
+            {imagesForCarousel.length > 0 && (
+                <div 
+                    className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                    onClick={() => onChangeView('learning-documentation')}
+                >
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Camera size={18} className="mr-2 text-indigo-500"/> Dokumentasi Pembelajaran</h3>
+                    <div className="relative w-full h-64 bg-gray-100 rounded-xl shadow-inner border border-gray-200 overflow-hidden group">
+                        <div className="w-full h-full flex overflow-hidden">
+                            {imagesForCarousel.map((image) => (
+                                <div 
+                                    key={image.id}
+                                    className="w-full h-full flex-shrink-0 transition-transform duration-700 ease-in-out"
+                                    style={{ transform: `translateX(-${carouselIndex * 100}%)` }}
+                                >
+                                    <img src={image.linkFoto} alt={image.namaKegiatan} className="w-full h-full object-contain" />
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+
+                        <div className="absolute bottom-4 left-4 text-white drop-shadow-lg max-w-[calc(100%-60px)]">
+                            <p className="font-bold text-md truncate">{imagesForCarousel[carouselIndex]?.namaKegiatan}</p>
+                        </div>
+
+                        {imagesForCarousel.length > 1 && (
+                            <>
+                                <button onClick={(e) => { e.stopPropagation(); goToPreviousSlide(); }} className="absolute top-1/2 left-3 -translate-y-1/2 bg-white/60 p-1.5 rounded-full text-gray-800 hover:bg-white transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm">
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); goToNextSlide(); }} className="absolute top-1/2 right-3 -translate-y-1/2 bg-white/60 p-1.5 rounded-full text-gray-800 hover:bg-white transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm">
+                                    <ChevronRight size={20} />
+                                </button>
+                                <div className="absolute bottom-3 right-3 flex gap-1.5">
+                                    {imagesForCarousel.map((_, i) => (
+                                        <div 
+                                            key={i} 
+                                            onClick={(e) => { e.stopPropagation(); setCarouselIndex(i); }} 
+                                            className={`w-2 h-2 rounded-full cursor-pointer transition-all ${carouselIndex === i ? 'bg-white scale-125' : 'bg-white/50'}`}
+                                        ></div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
             </div>
 
             {/* Side Lists with Alternating Colors */}

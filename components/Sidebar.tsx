@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, CalendarCheck, GraduationCap, School, LogOut, X, ChevronRight, 
   UserCog, HeartHandshake, Tent, BookText, Smile, Link2, FileText, Contact, BookOpen, 
-  UserCheck, Database, NotebookPen, Files, Activity, Building, Wallet
+  UserCheck, Database, NotebookPen, Files, Activity, Building, Wallet, Camera
 } from 'lucide-react';
 import { ViewState, User } from '../types';
 
@@ -44,6 +43,7 @@ const menuGroups = [
       { id: 'attitude', label: 'DPL & 7KAIH', icon: Smile, roles: ['admin', 'guru', 'supervisor'] },
       { id: 'learning-journal', label: 'Jurnal Pembelajaran', icon: NotebookPen, roles: ['admin', 'guru', 'supervisor'] },
       { id: 'learning-reports', label: 'Laporan Pembelajaran', icon: FileText, roles: ['admin', 'guru', 'supervisor'] },
+      { id: 'learning-documentation', label: 'Dokumentasi Pembelajaran', icon: Camera, roles: ['admin', 'guru', 'supervisor'] },
     ]
   },
   {
@@ -113,7 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onChangeVie
           onChangeView(item.id as ViewState);
           onClose();
         }}
-        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
+        className={`w-full flex items-center justify-between text-left px-4 py-3.5 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
           isActive 
             ? 'bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white shadow-lg shadow-[#5AB2FF]/30 translate-x-1' 
             : 'text-slate-500 hover:bg-[#FFF9D0]/50 hover:text-[#5AB2FF] hover:translate-x-1'

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { LearningJournalEntry, ScheduleItem, SchoolProfileData, TeacherProfileData, User } from '../types';
 import { apiService } from '../services/apiService';
@@ -19,6 +18,11 @@ interface LearningJournalViewProps {
 }
 
 const WEEKDAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const MODEL_OPTIONS = ['Problem-Based Learning (PBL)', 'Project-Based Learning (PjBL)', 'Inquiry', 'Discovery Learning', 'Lainnya'];
+const PENDEKATAN_OPTIONS = ['Pendekatan kontekstual', 'konstruktivisme', 'saintifik', 'gamifiaksi', 'lainnya'];
+const METODE_OPTIONS = ['Tanya jawab', 'Ceramah', 'Diskusi kelompok', 'Demosntrasi', 'Simulasi/bermain peran', 'presentasi', 'lainnya'];
+const EVALUASI_OPTIONS = ['Formatif', 'Sumatif'];
+
 
 const LearningJournalView: React.FC<LearningJournalViewProps> = ({ 
   classId, isReadOnly, targetDate, onSaveBatch, schoolProfile, teacherProfile, currentUser 
@@ -98,6 +102,10 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
       }
       return days;
   }, [currentMonday]);
+  
+  const generateActivitiesString = (pendekatan?: string, model?: string, metode?: string) => {
+      return `Pendahuluan (apersepsi), kegiatan inti (${pendekatan || '-'}, ${model || '-'}, ${metode || '-'}), dan penutup (evaluasi/kesimpulan).`;
+  };
 
   // Logic to merge Schedule with Entries for a SPECIFIC date
   const getRowsForDate = (targetDate: string) => {
@@ -107,7 +115,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
     // Subjects scheduled for that day
     const scheduledToday = schedule.filter(s => s.day === dayName);
     
-    const rows: Partial<LearningJournalEntry>[] = [...existingEntries];
+    const rows: Partial<LearningJournalEntry>[] = existingEntries.map(e => ({...e}));
 
     scheduledToday.forEach(sch => {
         const covered = existingEntries.some(e => e.subject === sch.subject && e.timeSlot === sch.time);
@@ -120,10 +128,13 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                 timeSlot: sch.time,
                 subject: sch.subject,
                 topic: '',
-                activities: '',
-                evaluation: '',
+                activities: generateActivitiesString(PENDEKATAN_OPTIONS[0], MODEL_OPTIONS[0], METODE_OPTIONS[0]),
+                evaluation: 'Formatif',
                 reflection: '',
-                followUp: ''
+                followUp: '',
+                pendekatan: PENDEKATAN_OPTIONS[0],
+                model: MODEL_OPTIONS[0],
+                metode: METODE_OPTIONS[0],
             });
         }
     });
@@ -176,19 +187,26 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
     const newData = [...draftData];
     if (!isRowEditable(newData[index])) return;
     
-    const updatedRow = { ...newData[index], [field]: value };
+    let updatedRow = { ...newData[index], [field]: value };
     newData[index] = updatedRow;
 
-    const contentFields: (keyof LearningJournalEntry)[] = ['topic', 'activities', 'evaluation', 'reflection', 'followUp'];
+    const pbmFields: (keyof LearningJournalEntry)[] = ['model', 'pendekatan', 'metode'];
 
-    // LOGIKA BARU: Jika satu kolom materi diisi (topik, kegiatan, dll.), 
-    // maka semua baris dengan mata pelajaran yang sama pada hari itu akan terisi otomatis.
+    // If a PBM field changed, update activities string for this row
+    if (pbmFields.includes(field)) {
+        updatedRow.activities = generateActivitiesString(updatedRow.pendekatan, updatedRow.model, updatedRow.metode);
+    }
+    
+    // Auto-fill logic
+    const contentFields: (keyof LearningJournalEntry)[] = ['topic', 'activities', 'evaluation', 'reflection', 'followUp', 'model', 'pendekatan', 'metode'];
     if (updatedRow.subject && contentFields.includes(field)) {
         for (let i = 0; i < newData.length; i++) {
-            // Update baris lain dengan mapel yang sama
             if (newData[i].subject === updatedRow.subject) {
-                // Buat objek baru untuk menghindari mutasi langsung & masalah referensi
                 newData[i] = { ...newData[i], [field]: value };
+                if (pbmFields.includes(field)) {
+                    const thisRow = newData[i];
+                    newData[i].activities = generateActivitiesString(thisRow.pendekatan, thisRow.model, thisRow.metode);
+                }
             }
         }
     }
@@ -199,6 +217,10 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
   const addManualRow = () => {
       if (isReadOnly) return;
       const dayName = getDayName(currentDate);
+      const defaultPendekatan = PENDEKATAN_OPTIONS[0];
+      const defaultModel = MODEL_OPTIONS[0];
+      const defaultMetode = METODE_OPTIONS[0];
+
       setDraftData([
           ...draftData,
           {
@@ -209,10 +231,13 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
               subject: '',
               timeSlot: '',
               topic: '',
-              activities: '',
-              evaluation: '',
+              activities: generateActivitiesString(defaultPendekatan, defaultModel, defaultMetode),
+              evaluation: 'Formatif',
               reflection: '',
-              followUp: ''
+              followUp: '',
+              pendekatan: defaultPendekatan,
+              model: defaultModel,
+              metode: defaultMetode,
           }
       ]);
   };
@@ -410,23 +435,22 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                     <p className="text-sm">Hari/Tanggal: {getDayName(currentDate)}, {new Date(currentDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
                 </div>
 
-                <table className="w-full text-sm text-left border-collapse min-w-[1000px]">
+                <table className="w-full text-sm text-left border-collapse min-w-[1200px]">
                     <thead>
                         <tr className="bg-gray-50 text-gray-700 font-bold uppercase text-xs print:bg-white print:border-b print:text-black">
                             <th className="p-3 border text-center w-10">No</th>
                             <th className="p-3 border w-32 min-w-[120px]">Jam</th>
                             <th className="p-3 border w-48">Mata Pelajaran</th>
                             <th className="p-3 border w-48">Materi / Topik</th>
-                            <th className="p-3 border min-w-[200px]">Kegiatan Pembelajaran</th>
-                            <th className="p-3 border w-32">Evaluasi</th>
-                            <th className="p-3 border w-32">Refleksi</th>
-                            <th className="p-3 border w-32">Tindak Lanjut</th>
+                            <th className="p-3 border min-w-[300px]">Kegiatan Pembelajaran</th>
+                            <th className="p-3 border w-40">Evaluasi</th>
+                            <th className="p-3 border w-40">Refleksi & Tindak Lanjut</th>
                             {!isReadOnly && <th className="p-3 border w-10 text-center no-print"></th>}
                         </tr>
                     </thead>
                     <tbody className="align-top">
                         {draftData.length === 0 ? (
-                            <tr><td colSpan={9} className="p-8 text-center text-gray-400 italic">Tidak ada jadwal atau jurnal untuk hari ini.</td></tr>
+                            <tr><td colSpan={8} className="p-8 text-center text-gray-400 italic">Tidak ada jadwal atau jurnal untuk hari ini.</td></tr>
                         ) : (
                             draftData.map((row, idx) => {
                                 const isBreak = row.subject?.toLowerCase().includes('istirahat');
@@ -434,84 +458,26 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                 return (
                                 <tr key={row.id || idx} className={`transition-colors print:break-inside-avoid ${isBreak ? 'bg-orange-50/60' : 'hover:bg-indigo-50/20'}`}>
                                     <td className="p-3 border text-center text-gray-500">{idx + 1}</td>
+                                    <td className="p-3 border"><input value={row.timeSlot || ''} onChange={e => updateDraft(idx, 'timeSlot', e.target.value)} className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-300 font-medium" placeholder="07.00 - ..." disabled={disabled}/></td>
+                                    <td className="p-3 border font-semibold"><div className="flex items-center">{isBreak && <Coffee size={14} className="mr-2 text-orange-600 no-print"/>}<input value={row.subject || ''} onChange={e => updateDraft(idx, 'subject', e.target.value)} className={`w-full bg-transparent outline-none text-gray-800 placeholder-gray-300 font-bold ${isBreak ? 'text-orange-700' : ''}`} placeholder="Mapel..." disabled={disabled}/></div></td>
+                                    <td className="p-3 border"><textarea value={row.topic || ''} onChange={e => updateDraft(idx, 'topic', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Tulis materi..." rows={2} disabled={disabled}/></td>
                                     <td className="p-3 border">
-                                        <input 
-                                            value={row.timeSlot || ''}
-                                            onChange={e => updateDraft(idx, 'timeSlot', e.target.value)}
-                                            className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-300 font-medium"
-                                            placeholder="07.00 - ..."
-                                            disabled={disabled}
-                                        />
-                                    </td>
-                                    <td className="p-3 border font-semibold">
-                                        <div className="flex items-center">
-                                            {isBreak && <Coffee size={14} className="mr-2 text-orange-600 no-print"/>}
-                                            <input 
-                                                value={row.subject || ''}
-                                                onChange={e => updateDraft(idx, 'subject', e.target.value)}
-                                                className={`w-full bg-transparent outline-none text-gray-800 placeholder-gray-300 font-bold ${isBreak ? 'text-orange-700' : ''}`}
-                                                placeholder="Mapel..."
-                                                disabled={disabled}
-                                            />
+                                        <div className="space-y-2">
+                                            <div><label className="text-[10px] font-bold text-gray-400">Pendekatan</label><select value={row.pendekatan || ''} onChange={e => updateDraft(idx, 'pendekatan', e.target.value)} disabled={disabled} className="w-full bg-transparent text-xs outline-none p-1 border-b"><option value="">-Pilih-</option>{PENDEKATAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                                            <div><label className="text-[10px] font-bold text-gray-400">Model</label><select value={row.model || ''} onChange={e => updateDraft(idx, 'model', e.target.value)} disabled={disabled} className="w-full bg-transparent text-xs outline-none p-1 border-b"><option value="">-Pilih-</option>{MODEL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                                            <div><label className="text-[10px] font-bold text-gray-400">Metode</label><select value={row.metode || ''} onChange={e => updateDraft(idx, 'metode', e.target.value)} disabled={disabled} className="w-full bg-transparent text-xs outline-none p-1 border-b"><option value="">-Pilih-</option>{METODE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                                            <textarea value={row.activities || ''} readOnly className="mt-2 w-full bg-gray-50/50 p-1 text-[10px] text-gray-500 rounded border-none outline-none resize-none" rows={3}/>
                                         </div>
                                     </td>
                                     <td className="p-3 border">
-                                        <textarea 
-                                            value={row.topic || ''}
-                                            onChange={e => updateDraft(idx, 'topic', e.target.value)}
-                                            className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
-                                            placeholder="Tulis materi..."
-                                            rows={2}
-                                            disabled={disabled}
-                                        />
+                                        <select value={row.evaluation || ''} onChange={e => updateDraft(idx, 'evaluation', e.target.value)} disabled={disabled} className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-300 font-medium p-1 border-b">
+                                            {EVALUASI_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                        </select>
                                     </td>
                                     <td className="p-3 border">
-                                        <textarea 
-                                            value={row.activities || ''}
-                                            onChange={e => updateDraft(idx, 'activities', e.target.value)}
-                                            className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
-                                            placeholder="Deskripsi kegiatan..."
-                                            rows={3}
-                                            disabled={disabled}
-                                        />
+                                        <textarea value={row.reflection || ''} onChange={e => updateDraft(idx, 'reflection', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Refleksi & Tindak Lanjut..." rows={5} disabled={disabled}/>
                                     </td>
-                                    <td className="p-3 border">
-                                        <textarea 
-                                            value={row.evaluation || ''}
-                                            onChange={e => updateDraft(idx, 'evaluation', e.target.value)}
-                                            className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
-                                            placeholder="Hasil..."
-                                            rows={2}
-                                            disabled={disabled}
-                                        />
-                                    </td>
-                                    <td className="p-3 border">
-                                        <textarea 
-                                            value={row.reflection || ''}
-                                            onChange={e => updateDraft(idx, 'reflection', e.target.value)}
-                                            className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
-                                            placeholder="Catatan..."
-                                            rows={2}
-                                            disabled={disabled}
-                                        />
-                                    </td>
-                                    <td className="p-3 border">
-                                        <textarea 
-                                            value={row.followUp || ''}
-                                            onChange={e => updateDraft(idx, 'followUp', e.target.value)}
-                                            className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]"
-                                            placeholder="Rencana..."
-                                            rows={2}
-                                            disabled={disabled}
-                                        />
-                                    </td>
-                                    {!isReadOnly && (
-                                        <td className="p-3 border text-center no-print align-middle">
-                                            <button onClick={() => removeRow(idx)} className={`transition-colors ${disabled ? 'text-gray-200 cursor-not-allowed' : 'text-gray-300 hover:text-red-500'}`} disabled={disabled}>
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </td>
-                                    )}
+                                    {!isReadOnly && (<td className="p-3 border text-center no-print align-middle"><button onClick={() => removeRow(idx)} className={`transition-colors ${disabled ? 'text-gray-200 cursor-not-allowed' : 'text-gray-300 hover:text-red-500'}`} disabled={disabled}><Trash2 size={16} /></button></td>)}
                                 </tr>
                             )})
                         )}
