@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { LiaisonLog, Student } from '../types';
-import { Search, CheckCircle, XCircle, Clock, Filter, BookOpen, CheckSquare, MessageCircle, Send, Loader2 } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Clock, Filter, BookOpen, CheckSquare, MessageCircle, Send, Loader2, ChevronDown } from 'lucide-react';
 import { apiService } from '../services/apiService';
 
 interface LiaisonBookViewProps {
@@ -12,11 +12,16 @@ interface LiaisonBookViewProps {
   classId: string;
 }
 
-const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpdateStatus, classId }) => {
+const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onReply, onUpdateStatus, classId }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'Pending' | 'Diterima' | 'Ditolak' | 'Selesai'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
+
+  // --- State for New Message Form ---
+  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
+  const [newMessage, setNewMessage] = useState({ studentId: '', category: 'Informasi', message: '' });
+  const [isSubmittingNew, setIsSubmittingNew] = useState(false);
 
   // Enrich logs with student names
   const enrichedLogs = useMemo(() => {
@@ -45,37 +50,60 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
       }
   };
 
-  const handleSendReply = async (id: string) => {
-      const message = replyText[id];
-      if (!message || !message.trim()) return;
+  const handleSendReply = async (log: LiaisonLog) => {
+    const message = replyText[log.id];
+    if (!message || !message.trim()) return;
 
-      setSendingReply(id);
-      try {
-          // Assuming apiService has been updated to handle replies
-          // Or we simulate it by updating the log if backend doesn't support specific reply endpoint yet
-          // For this implementation, let's assume we call a method to update the response.
-          await apiService.replyLiaisonLog(id, message); 
-          
-          // Optimistic update or refresh needed. 
-          // Since we can't easily refresh prop 'logs' from here without parent callback,
-          // we might just clear the text and maybe update status.
-          // Ideally onReply or onUpdateStatus triggers a refresh in App.tsx
-          
-          // Also mark as 'Diterima' if it was 'Pending'
-          const log = logs.find(l => l.id === id);
-          if (log && log.status === 'Pending') {
-              await onUpdateStatus([id], 'Diterima');
-          }
-          
-          setReplyText(prev => ({ ...prev, [id]: '' }));
-          alert('Balasan terkirim.');
-          // Trigger refresh (this depends on parent re-rendering with new data)
-          window.location.reload(); // Simple refresh to fetch new state
-      } catch (e) {
-          alert('Gagal mengirim balasan.');
-      } finally {
-          setSendingReply(null);
-      }
+    setSendingReply(log.id);
+    try {
+        // A reply is a new message from the teacher
+        await onReply({
+            classId: log.classId,
+            studentId: log.studentId,
+            date: new Date().toISOString().split('T')[0],
+            sender: 'Guru',
+            category: `Balasan: ${log.category || 'Pesan'}`,
+            message,
+            status: 'Diterima'
+        });
+        
+        // Mark the original message as 'Selesai'
+        await onUpdateStatus([log.id], 'Selesai');
+        
+        // Clear input
+        setReplyText(prev => ({ ...prev, [log.id]: '' }));
+        // No need to reload, App.tsx will refresh the state via props.
+    } catch (e) {
+        alert('Gagal mengirim balasan.');
+    } finally {
+        setSendingReply(null);
+    }
+  };
+
+  const handleNewMessageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.studentId || !newMessage.message) {
+      alert('Mohon pilih siswa dan isi pesan.');
+      return;
+    }
+    setIsSubmittingNew(true);
+    try {
+      await onReply({
+        classId,
+        studentId: newMessage.studentId,
+        date: new Date().toISOString().split('T')[0],
+        sender: 'Guru',
+        category: newMessage.category,
+        message: newMessage.message,
+        status: 'Diterima' // A message from teacher is considered 'Diterima' by default.
+      });
+      setNewMessage({ studentId: '', category: 'Informasi', message: '' });
+      setIsNewMessageOpen(false);
+    } catch (err) {
+      alert('Gagal mengirim pesan baru.');
+    } finally {
+      setIsSubmittingNew(false);
+    }
   };
 
   const getStatusBadge = (status?: string) => {
@@ -124,6 +152,69 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
                     </select>
                 </div>
             </div>
+        </div>
+
+        {/* NEW: New Message Form */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm no-print">
+          <button
+            onClick={() => setIsNewMessageOpen(!isNewMessageOpen)}
+            className="w-full flex justify-between items-center font-bold text-gray-700"
+          >
+            <span>Tulis Pesan Baru ke Wali Murid</span>
+            <ChevronDown className={`transition-transform ${isNewMessageOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {isNewMessageOpen && (
+            <form onSubmit={handleNewMessageSubmit} className="mt-4 pt-4 border-t space-y-3 animate-fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">Untuk Siswa</label>
+                    <select 
+                        value={newMessage.studentId} 
+                        onChange={e => setNewMessage(p => ({...p, studentId: e.target.value}))}
+                        className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        required
+                    >
+                        <option value="">-- Pilih Siswa --</option>
+                        {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">Kategori Pesan</label>
+                    <select 
+                        value={newMessage.category}
+                        onChange={e => setNewMessage(p => ({...p, category: e.target.value}))}
+                        className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                        <option value="Informasi">Informasi</option>
+                        <option value="Peringatan">Peringatan</option>
+                        <option value="Tugas">Tugas</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                  </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">Isi Pesan</label>
+                <textarea 
+                  rows={3}
+                  value={newMessage.message}
+                  onChange={e => setNewMessage(p => ({...p, message: e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                  placeholder="Tulis pesan untuk wali murid..."
+                  required
+                />
+              </div>
+              <div className="flex justify-end">
+                <button 
+                  type="submit" 
+                  disabled={isSubmittingNew}
+                  className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center disabled:opacity-70"
+                >
+                  {isSubmittingNew ? <Loader2 size={16} className="animate-spin mr-2"/> : <Send size={16} className="mr-2"/>}
+                  Kirim Pesan
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Ticket Grid */}
@@ -181,8 +272,8 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
                                 <span className="text-[10px] text-gray-400 italic">Dari: {log.sender}</span>
                             </div>
 
-                            {/* REPLY INPUT - Only if not finished */}
-                            {log.status !== 'Selesai' && log.status !== 'Ditolak' && (
+                            {/* REPLY INPUT - Only if from parent and not finished */}
+                            {log.sender === 'Wali Murid' && log.status !== 'Selesai' && log.status !== 'Ditolak' && (
                                 <div className="mt-4 pt-3 border-t border-gray-100">
                                     <label className="text-xs font-bold text-gray-500 mb-1 block">Beri Respon / Balasan:</label>
                                     <div className="flex gap-2">
@@ -194,7 +285,7 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onUpd
                                             placeholder="Tulis balasan untuk wali murid..."
                                         />
                                         <button 
-                                            onClick={() => handleSendReply(log.id)}
+                                            onClick={() => handleSendReply(log)}
                                             disabled={sendingReply === log.id || !replyText[log.id]}
                                             className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-fit self-end"
                                             title="Kirim Balasan"

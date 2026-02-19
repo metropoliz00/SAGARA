@@ -466,7 +466,7 @@ const App: React.FC = () => {
 
   // School Assets
   const handleSaveSchoolAsset = async (asset: SchoolAsset) => { if (isDemoMode) { setSchoolAssets(prev => { const exists = prev.find(a => a.id === asset.id); if (exists) return prev.map(a => a.id === asset.id ? asset : a); return [...prev, { ...asset, id: asset.id || `asset-${Date.now()}` }]; }); handleShowNotification('Data aset disimpan (Demo).', 'success'); return; } await apiService.saveSchoolAsset(asset); handleShowNotification('Data sarana prasarana berhasil disimpan.', 'success'); await fetchData(); };
-  const handleDeleteSchoolAsset = async (id: string) => { if (isDemoMode) { setSchoolAssets(prev => prev.filter(a => a.id !== id)); handleShowNotification('Data aset dihapus (Demo).', 'success'); return; } await apiService.deleteSchoolAsset(id); handleShowNotification('Data sarana prasarana berhasil dihapus.', 'success'); await fetchData(); };
+  const handleDeleteSchoolAsset = async (id: string) => { if (isDemoMode) { setSchoolAssets(prev => prev.filter(a => a.id !== id)); handleShowNotification('Data aset dihapus (Demo).', 'success'); return; } await apiService.deleteSchoolAsset(id); handleShowNotification('Data sarana prasarana berhasil dihapus!', 'success'); await fetchData(); };
   
   const fetchData = async () => {
     setLoading(true);
@@ -821,6 +821,8 @@ const App: React.FC = () => {
                   isReadOnly={isGlobalReadOnly}
                   targetDate={journalTargetDate}
                   onSaveBatch={handleSaveJournalAndAutoReport}
+                  schoolProfile={schoolProfile}
+                  teacherProfile={teacherProfile}
                />;
       case 'counseling':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }

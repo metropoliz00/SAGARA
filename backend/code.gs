@@ -279,6 +279,47 @@ function saveBOS(item){const sheet=getSheet(SHEETS.BOS);const data=sheet.getData
 function deleteBOS(id){const sheet=getSheet(SHEETS.BOS);const data=sheet.getDataRange().getValues();const idx=data.findIndex(r=>String(r[0])===String(id));if(idx>0){sheet.deleteRow(idx+1);return response({status:"success"})}
 return response({status:"error"})}
 
+function getLiaisonLogs(user) {
+    const rows = getData(SHEETS.LIAISON);
+    const data = rows.map(r => ({
+        id: String(r[0]), classId: String(r[1]), studentId: String(r[2]), date: formatDate(r[3]),
+        sender: String(r[4]), message: String(r[5]), status: String(r[6]), category: String(r[7]), response: String(r[8])
+    }));
+    return response({ status: "success", data: data });
+}
+
+function saveLiaisonLog(p) {
+    const sheet = getSheet(SHEETS.LIAISON);
+    const id = Utilities.getUuid();
+    // ["ID", "Class ID", "Student ID", "Tanggal", "Pengirim", "Pesan", "Status", "Kategori", "Response"]
+    sheet.appendRow([id, p.classId, p.studentId, p.date, p.sender, p.message, p.status, p.category, p.response || '']);
+    return response({ status: "success", id: id });
+}
+
+function updateLiaisonStatus(p) {
+    const sheet = getSheet(SHEETS.LIAISON);
+    const data = sheet.getDataRange().getValues();
+    p.ids.forEach(id => {
+        const idx = data.findIndex(r => String(r[0]) === String(id));
+        if (idx > 0) {
+            sheet.getRange(idx + 1, 7).setValue(p.status); // Status is column 7 (G)
+        }
+    });
+    return response({ status: "success" });
+}
+
+function replyLiaisonLog(p) {
+    const sheet = getSheet(SHEETS.LIAISON);
+    const data = sheet.getDataRange().getValues();
+    const idx = data.findIndex(r => String(r[0]) === String(p.id));
+    if (idx > 0) {
+        sheet.getRange(idx + 1, 9).setValue(p.response); // Response is column 9 (I)
+        sheet.getRange(idx + 1, 7).setValue('Diterima'); // Also update status to show it's been seen
+        return response({ status: "success" });
+    }
+    return response({ status: "error", message: "Log not found" });
+}
+
 // ... (Rest of the functions)
 function login(creds){const sheet=getSheet(SHEETS.USERS);const data=sheet.getDataRange().getValues();const inputUser=String(creds.username).trim().toLowerCase();const inputPass=String(creds.password).trim();for(let i=1;i<data.length;i++){const row=data[i];const dbUser=String(row[1]).trim().toLowerCase();const dbPass=String(row[2]).trim();if(dbUser===inputUser&&dbPass===inputPass){return response({status:"success",data:{id:String(row[0]),username:String(row[1]),password:String(row[2]),role:String(row[3]),fullName:String(row[4]),nip:String(row[5]),nuptk:String(row[6]),birthInfo:String(row[7]),education:String(row[8]),position:String(row[9]),rank:String(row[10]),classId:String(row[11]),email:String(row[12]),phone:String(row[13]),address:String(row[14]),photo:String(row[15]),signature:String(row[16]),studentId:String(row[17])}})}}
 return response({status:"error",message:"Username atau Password salah."})}

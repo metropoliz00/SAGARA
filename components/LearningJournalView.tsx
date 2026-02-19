@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { LearningJournalEntry, ScheduleItem } from '../types';
+import { LearningJournalEntry, ScheduleItem, SchoolProfileData, TeacherProfileData } from '../types';
 import { apiService } from '../services/apiService';
 import { 
   Save, Calendar, Printer, Plus, Trash2, Loader2, 
@@ -13,11 +13,15 @@ interface LearningJournalViewProps {
   isReadOnly?: boolean;
   targetDate?: string | null;
   onSaveBatch?: (entries: Partial<LearningJournalEntry>[]) => Promise<void>;
+  schoolProfile?: SchoolProfileData;
+  teacherProfile?: TeacherProfileData;
 }
 
 const WEEKDAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-const LearningJournalView: React.FC<LearningJournalViewProps> = ({ classId, isReadOnly, targetDate, onSaveBatch }) => {
+const LearningJournalView: React.FC<LearningJournalViewProps> = ({ 
+  classId, isReadOnly, targetDate, onSaveBatch, schoolProfile, teacherProfile 
+}) => {
   // State
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -201,7 +205,47 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({ classId, isRe
       }
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    const printContent = document.getElementById("print-area")?.innerHTML;
+    if (!printContent) return;
+  
+    const newWindow = window.open("", "", "width=1200,height=800");
+  
+    newWindow?.document.write(`
+      <html>
+        <head>
+          <title>Jurnal Harian Pembelajaran - Kelas ${classId}</title>
+          <style>
+            body { font-family: 'Times New Roman', Times, serif; padding: 20px; font-size: 10pt; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid black; padding: 4px; text-align: left; vertical-align: top; }
+            th { text-align: center; font-weight: bold; }
+            .print-header { text-align: center; margin-bottom: 20px; line-height: 1.2; font-weight: bold; }
+            .print-header h2, .print-header p { margin: 0; padding: 0; text-transform: uppercase; }
+            .print-footer { margin-top: 30px; width: 100%; font-size: 11pt; }
+            .signature-box { width: 45%; text-align: center; }
+            .signature-box p { margin: 0; line-height: 1.4; }
+            .signature-left { float: left; }
+            .signature-right { float: right; }
+            .signature-space { height: 60px; }
+            .underline { text-decoration: underline; font-weight: bold; }
+            .clearfix::after { content: ""; clear: both; display: table; }
+            @page { size: A4 landscape; margin: 1.5cm; }
+          </style>
+        </head>
+        <body>
+          ${printContent}
+        </body>
+      </html>
+    `);
+  
+    newWindow?.document.close();
+    setTimeout(() => {
+        newWindow?.focus();
+        newWindow?.print();
+        newWindow?.close();
+    }, 500);
+  };
 
   // Navigation Handlers
   const handlePrev = () => {
@@ -491,6 +535,57 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({ classId, isRe
                 <span>* Mata pelajaran otomatis terisi sesuai jadwal hari ini ({getDayName(currentDate)}). Anda dapat menambah baris manual jika diperlukan.</span>
             </div>
         )}
+
+        {/* Hidden Div for Printing */}
+        <div id="print-area" style={{ display: 'none' }}>
+            <div className="print-header">
+                <h2>JURNAL HARIAN PEMBELAJARAN</h2>
+                <p>KELAS {classId}</p>
+                <p>TAHUN AJARAN {schoolProfile?.year}</p>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Jam</th>
+                        <th>Mata Pelajaran</th>
+                        <th>Kegiatan Pembelajaran</th>
+                        <th>Evaluasi</th>
+                        <th>Refleksi</th>
+                        <th>Tindak Lanjut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {draftData.map((row, idx) => (
+                    <tr key={idx}>
+                        <td style={{textAlign: 'center'}}>{idx + 1}</td>
+                        <td>{row.timeSlot}</td>
+                        <td>{row.subject}</td>
+                        <td>{row.activities}</td>
+                        <td>{row.evaluation}</td>
+                        <td>{row.reflection}</td>
+                        <td>{row.followUp}</td>
+                    </tr>
+                    ))}
+                </tbody>
+            </table>
+            <div className="print-footer clearfix">
+                <div className="signature-box signature-left">
+                    <p>Mengetahui,</p>
+                    <p>Kepala {schoolProfile?.name}</p>
+                    <div className="signature-space"></div>
+                    <p className="underline">{schoolProfile?.headmaster}</p>
+                    <p>NIP. {schoolProfile?.headmasterNip}</p>
+                </div>
+                <div className="signature-box signature-right">
+                    <p>Remen, {new Date(currentDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                    <p>Guru Kelas {classId}</p>
+                    <div className="signature-space"></div>
+                    <p className="underline">{teacherProfile?.name}</p>
+                    <p>NIP. {teacherProfile?.nip}</p>
+                </div>
+            </div>
+      </div>
     </div>
   );
 };
