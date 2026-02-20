@@ -420,6 +420,8 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                background: white !important;
+                color: black !important;
             }
             
             body { font-family: 'Times New Roman', serif; padding: 20px !important; }
@@ -448,11 +450,21 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
             .w-full { width: 100% !important; }
             .overflow-x-auto { overflow: visible !important; }
             
+            /* Force visibility */
+            * { visibility: visible !important; }
+            .hidden { display: block !important; }
+            
             /* Adjust grid for A4 */
             @media print {
+                html, body {
+                    zoom: 85%; /* Try to fit content */
+                }
                 .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
                 .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
                 .lg\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+                
+                /* Hide duplicate titles inside components */
+                .print-only h2 { display: none !important; }
             }
           </style>
         </head>
@@ -462,7 +474,9 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
             <p>KELAS: ${className}</p>
             <p>TAHUN AJARAN: ${academicYear}</p>
           </div>
-          ${clone.innerHTML}
+          <div style="display: block !important; width: 100% !important;">
+            ${clone.innerHTML}
+          </div>
           <div class="print-footer">
             <div class="footer-section">
                 <p>Mengetahui,</p>
@@ -473,21 +487,26 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
             </div>
             <div class="footer-section">
                 <p>Remen, ${date}</p>
-                <p>Guru Kelas</p>
+                <p>Guru Kelas ${className}</p>
                 <div class="signature-space"></div>
                 <p class="name">${teacherName}</p>
                 <p>NIP. ${teacherNIP}</p>
             </div>
           </div>
+          <script>
+             // Wait for resources to load
+             window.onload = function() {
+                 setTimeout(function() {
+                     window.print();
+                     window.close();
+                 }, 1000);
+             };
+          </script>
         </body>
       </html>
     `);
 
     newWindow?.document.close();
-    // Allow styles to load before printing
-    setTimeout(() => {
-        newWindow?.print();
-    }, 500);
   };
 
   return (
