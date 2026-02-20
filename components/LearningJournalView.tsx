@@ -4,7 +4,7 @@ import { apiService } from '../services/apiService';
 import { 
   Save, Calendar, Printer, Plus, Trash2, Loader2, 
   ChevronLeft, ChevronRight, NotebookPen, RefreshCw,
-  LayoutList, CalendarRange, Coffee, Copy
+  LayoutList, CalendarRange, Coffee
 } from 'lucide-react';
 
 interface LearningJournalViewProps {
@@ -126,11 +126,8 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
       return days;
   }, [currentMonday]);
   
-  const generateActivitiesString = (pendekatan?: string, model?: string, metode?: string[], metodeLainnya?: string) => {
-            let metodeStr = metode && metode.length > 0 ? metode.join(', ') : '-';
-      if (metode?.includes('Lainnya') && metodeLainnya) {
-        metodeStr = metode.filter(m => m !== 'Lainnya').concat(metodeLainnya).join(', ');
-      }
+  const generateActivitiesString = (pendekatan?: string, model?: string, metode?: string[]) => {
+      const metodeStr = metode && metode.length > 0 ? metode.join(', ') : '-';
       return `Pendahuluan (apersepsi), kegiatan inti (${pendekatan || '-'}, ${model || '-'}, ${metodeStr}), dan penutup (evaluasi/kesimpulan).`;
   };
 
@@ -162,7 +159,6 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                 pendekatan: PENDEKATAN_OPTIONS[0],
                 model: MODEL_OPTIONS[0],
                 metode: [METODE_OPTIONS[0]],
-                metodeLainnya: '',
             });
         }
     });
@@ -219,8 +215,8 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
 
     const pbmFields: (keyof LearningJournalEntry)[] = ['model', 'pendekatan', 'metode'];
 
-    if (pbmFields.includes(field) || field === 'metodeLainnya') {
-      updatedRow.activities = generateActivitiesString(updatedRow.pendekatan, updatedRow.model, updatedRow.metode, updatedRow.metodeLainnya);
+    if (pbmFields.includes(field)) {
+        updatedRow.activities = generateActivitiesString(updatedRow.pendekatan, updatedRow.model, updatedRow.metode);
     }
 
     // Auto-fill logic for the same subject
@@ -247,10 +243,6 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
       ? currentMetode.filter(m => m !== metode)
       : [...currentMetode, metode];
     updateDraft(index, 'metode', newMetode);
-
-    if (metode === 'Lainnya' && !newMetode.includes('Lainnya')) {
-      updateDraft(index, 'metodeLainnya', '');
-    }
   };
 
   const addManualRow = () => {
@@ -277,7 +269,6 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
               pendekatan: defaultPendekatan,
               model: defaultModel,
               metode: [defaultMetode],
-              metodeLainnya: '',
           }
       ]);
   };
@@ -397,6 +388,41 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
     setDraftData(newData);
   };
 
+  const handleCopyYesterday = () => {
+    if (isReadOnly) return;
+
+    const yesterday = new Date(currentDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    const yesterdaySavedEntries = entries.filter(e => e.date === yesterdayStr);
+
+    if (yesterdaySavedEntries.length === 0) {
+      alert('Tidak ada data jurnal tersimpan dari hari kemarin untuk disalin.');
+      return;
+    }
+
+    const todayScheduledRows = getRowsForDate(currentDate);
+
+    const newDraft = todayScheduledRows.map(todayRow => {
+      const correspondingYesterdayEntry = yesterdaySavedEntries.find(
+        yesterdayEntry => yesterdayEntry.subject === todayRow.subject && yesterdayEntry.timeSlot === todayRow.timeSlot
+      );
+
+      if (correspondingYesterdayEntry) {
+        const { id, date, day, ...dataToCopy } = correspondingYesterdayEntry;
+        return {
+          ...todayRow, // Keep today's date, day, id
+          ...dataToCopy, // Copy topic, activities, etc.
+        };
+      }
+      return todayRow; // Keep today's scheduled row as is if no match
+    });
+
+    setDraftData(newDraft);
+    alert(`Berhasil menyalin data dari jurnal kemarin.`);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {contextMenu && (
@@ -480,11 +506,6 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
             {viewMode === 'daily' && (
                 <div className="flex gap-2"> 
                     {!isReadOnly && (
-                        <button onClick={handleCopyYesterday} className="flex items-center gap-2 bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 font-bold text-sm transition-colors">
-                            <Copy size={16}/> Salin Jurnal Kemarin
-                        </button>
-                    )}
-                    {!isReadOnly && (
                         <button onClick={addManualRow} className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg hover:bg-indigo-50 font-bold text-sm transition-colors">
                             <Plus size={16}/> Tambah Baris
                         </button>
@@ -556,16 +577,6 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                                         </label>
                                                     ))}
                                                 </div>
-                                                {(row.metode || []).includes('Lainnya') && (
-                                                    <input 
-                                                        type="text"
-                                                        value={row.metodeLainnya || ''}
-                                                        onChange={(e) => updateDraft(idx, 'metodeLainnya', e.target.value)}
-                                                        disabled={disabled}
-                                                        className="mt-1 w-full bg-transparent text-xs outline-none p-1 border-b"
-                                                        placeholder="Tulis metode lainnya..."
-                                                    />
-                                                )}
                                             </div>
                                             <textarea value={row.activities || ''} readOnly className="mt-2 w-full bg-gray-50/50 p-1 text-[10px] text-gray-500 rounded border-none outline-none resize-none" rows={3}/>
                                         </div>
