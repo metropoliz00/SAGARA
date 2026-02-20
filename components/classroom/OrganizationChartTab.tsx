@@ -196,7 +196,7 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
                     {/* Level 1: Guru */}
                     <div className="flex justify-center mb-4">
                         <div className="flex flex-col items-center">
-                            <span className="text-xs font-bold text-gray-400 uppercase">Guru Kelas</span>
+                            <span className="text-xs font-bold text-gray-400 uppercase">Guru Kelas {classId}</span>
                             <div className="w-40 h-24 mt-1 rounded-lg flex items-center justify-center p-2 text-center bg-amber-100 border-2 border-amber-200 shadow-lg">
                                 <div className="flex flex-col items-center" title={classTeacher?.name || 'Belum ada guru'}>
                                     {classTeacher?.photo ? (
