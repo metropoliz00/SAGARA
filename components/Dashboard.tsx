@@ -90,26 +90,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       return (allAttendanceRecords as any[]).filter(record => studentIds.includes(record.studentId));
   }, [allAttendanceRecords, students]);
 
-  const monthlyStats = useMemo(() => {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-    const monthlyRecords = classAttendanceRecords.filter(record => {
-        const recordDate = new Date(record.date + 'T00:00:00');
-        return recordDate.getFullYear() === currentYear && (recordDate.getMonth() + 1) === currentMonth;
-    });
-    return {
-        present: new Set(monthlyRecords.filter(r => r.status === 'present').map(r => r.studentId)).size,
-        sick: new Set(monthlyRecords.filter(r => r.status === 'sick').map(r => r.studentId)).size,
-        permit: new Set(monthlyRecords.filter(r => r.status === 'permit').map(r => r.studentId)).size,
-        alpha: new Set(monthlyRecords.filter(r => r.status === 'alpha').map(r => r.studentId)).size,
-    };
-  }, [classAttendanceRecords]);
-
-  const totalPresent = monthlyStats.present;
-  const totalSick = monthlyStats.sick;
-  const totalPermit = monthlyStats.permit;
-  const totalAlpha = monthlyStats.alpha;
-
   const todayStats = useMemo(() => {
     const todayStr = getLocalISODate(new Date());
     const todayRecords = classAttendanceRecords.filter(r => r.date === todayStr);
@@ -144,14 +124,14 @@ const Dashboard: React.FC<DashboardProps> = ({
       const alphaCount = new Set(dayRecords.filter(r => r.status === 'alpha').map(r => r.studentId)).size;
 
       // Calculate percentage based on total students.
-      const presentPercent = Math.round((presentCount / totalClassStudents) * 100);
       const sickPercent = Math.round((sickCount / totalClassStudents) * 100);
       const permitPercent = Math.round((permitCount / totalClassStudents) * 100);
       const alphaPercent = Math.round((alphaCount / totalClassStudents) * 100);
+      const presentPercent = 100 - (sickPercent + permitPercent + alphaPercent);
 
       weekData.push({
         name: daysShort[targetDate.getDay()],
-        H: presentCount,
+        H: totalClassStudents - (sickCount + permitCount + alphaCount),
         S: sickCount,
         I: permitCount,
         A: alphaCount,
@@ -205,13 +185,18 @@ const Dashboard: React.FC<DashboardProps> = ({
         const permitCount = new Set(dayRecords.filter(r => r.status === 'permit').map(r => r.studentId)).size;
         const alphaCount = new Set(dayRecords.filter(r => r.status === 'alpha').map(r => r.studentId)).size;
 
+        const sickPercent = Math.round((sickCount / totalClassStudents) * 100);
+        const permitPercent = Math.round((permitCount / totalClassStudents) * 100);
+        const alphaPercent = Math.round((alphaCount / totalClassStudents) * 100);
+        const presentPercent = 100 - (sickPercent + permitPercent + alphaPercent);
+
         data.push({
             name: `${i}`,
-            Hadir: Math.round((presentCount / totalClassStudents) * 100),
-            Sakit: Math.round((sickCount / totalClassStudents) * 100),
-            Izin: Math.round((permitCount / totalClassStudents) * 100),
-            Alpha: Math.round((alphaCount / totalClassStudents) * 100),
-            rawH: presentCount,
+            Hadir: presentPercent,
+            Sakit: sickPercent,
+            Izin: permitPercent,
+            Alpha: alphaPercent,
+            rawH: totalClassStudents - (sickCount + permitCount + alphaCount),
             rawS: sickCount,
             rawI: permitCount,
             rawA: alphaCount
@@ -410,14 +395,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <p className="text-sm font-medium text-slate-600 mb-1">Kehadiran Hari Ini</p>
                     <div className="flex items-end gap-2">
                         <h3 className="text-3xl font-bold">
-                        {totalStudents > 0 ? Math.round((todayStats.present / totalStudents) * 100) : 0}%
+                        {totalStudents > 0 ? (100 - (Math.round((todayStats.sick / totalStudents) * 100) + Math.round((todayStats.permit / totalStudents) * 100) + Math.round((todayStats.alpha / totalStudents) * 100))) : 0}%
                         </h3>
                     </div>
                     </div>
                     <div className="p-2 bg-slate-800/10 rounded-lg"><UserCheck size={20} className="text-slate-700" /></div>
                 </div>
                 <div className="mt-4 flex space-x-1 text-[10px] font-bold text-white">
-                    <div className="flex-1 bg-emerald-500 rounded-l-md py-1 text-center truncate shadow-sm">H: {todayStats.present}</div>
+                    <div className="flex-1 bg-emerald-500 rounded-l-md py-1 text-center truncate shadow-sm">H: {totalStudents - (todayStats.sick + todayStats.permit + todayStats.alpha)}</div>
                     <div className="w-10 bg-amber-400 py-1 text-center shadow-sm">S: {todayStats.sick}</div>
                     <div className="w-10 bg-indigo-500 py-1 text-center shadow-sm">I: {todayStats.permit}</div>
                     <div className="w-8 bg-rose-500 rounded-r-md py-1 text-center shadow-sm">A: {todayStats.alpha}</div>
