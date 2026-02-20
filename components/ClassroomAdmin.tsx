@@ -350,7 +350,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
                Administrasi Kelas Digital
                {isLoading && <Loader2 className="animate-spin ml-2 text-indigo-500" size={18} />}
            </h2>
-           <p className="text-gray-500">Buku administrasi dengan sistem digital terintegrasi.</p>
+           <p className="text-gray-500">Buku administrasi dengan sistem digital terintegrasi</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
            <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm mr-2">
