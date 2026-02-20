@@ -161,12 +161,32 @@ const Dashboard: React.FC<DashboardProps> = ({
       return variants[index % variants.length];
   };
 
-  const monthlyChartData = [
-    { name: 'Hadir', value: totalPresent, color: '#10B981' },
-    { name: 'Sakit', value: totalSick, color: '#F59E0B' },
-    { name: 'Izin', value: totalPermit, color: '#6366F1' },
-    { name: 'Alpha', value: totalAlpha, color: '#EF4444' },
-  ].filter(d => d.value > 0);
+  const monthlyLineChartData = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const data = [];
+
+    const monthlyRecords = (allAttendanceRecords as any[]).filter(record => {
+        const recordDate = new Date(record.date + 'T00:00:00');
+        return recordDate.getFullYear() === year && recordDate.getMonth() === month;
+    });
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const dayRecords = monthlyRecords.filter(r => r.date === dateStr);
+        
+        data.push({
+            name: `${i}`,
+            Hadir: dayRecords.filter(r => r.status === 'present').length,
+            Sakit: dayRecords.filter(r => r.status === 'sick').length,
+            Izin: dayRecords.filter(r => r.status === 'permit').length,
+            Alpha: dayRecords.filter(r => r.status === 'alpha').length,
+        });
+    }
+    return data;
+  }, [allAttendanceRecords]);
 
   const curriculumProgress = useMemo(() => {
     if (!subjects || !grades || students.length === 0) return [];
@@ -444,35 +464,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Rekap Absensi Bulan Ini</h3>
                 <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={monthlyChartData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                outerRadius={100}
-                                fill="#8884d8"
-                                dataKey="value"
-                                nameKey="name"
-                                label={({ cx, cy, midAngle, innerRadius, outerRadius, value, index }) => {
-                                    const RADIAN = Math.PI / 180;
-                                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                                    return (
-                                        <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={14} fontWeight="bold">
-                                            {`${value}`}
-                                        </text>
-                                    );
-                                }}
-                            >
-                                {monthlyChartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
+                        <AreaChart data={monthlyLineChartData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
+                            <XAxis dataKey="name" tick={{fill: '#9CA3AF', fontSize: 12}}/>
+                            <YAxis tick={{fill: '#9CA3AF', fontSize: 12}} allowDecimals={false}/>
                             <Tooltip />
                             <Legend iconType="circle"/>
-                        </PieChart>
+                            <Area type="monotone" dataKey="Hadir" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.1} strokeWidth={2}/>
+                            <Area type="monotone" dataKey="Sakit" stackId="1" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.1} strokeWidth={2}/>
+                            <Area type="monotone" dataKey="Izin" stackId="1" stroke="#6366F1" fill="#6366F1" fillOpacity={0.1} strokeWidth={2}/>
+                            <Area type="monotone" dataKey="Alpha" stackId="1" stroke="#EF4444" fill="#EF4444" fillOpacity={0.1} strokeWidth={2}/>
+                        </AreaChart>
                     </ResponsiveContainer>
                 </div>
             </div>
