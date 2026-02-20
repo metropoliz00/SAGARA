@@ -326,8 +326,8 @@ const StudentList: React.FC<StudentListProps> = ({
                 <div className="flex flex-wrap gap-2 justify-end">
                     <div className="bg-white p-1 rounded-lg border border-gray-200 flex shadow-sm mr-2">
                         <button onClick={() => setViewType('dashboard')} className="p-2 rounded-md transition-all bg-[#5AB2FF] text-white shadow-sm" title="Dashboard"><PieChartIcon size={18} /></button>
-                        <button onClick={() => setViewType('grid')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Tampilan Grid"><LayoutGrid size={18} /></button>
                         <button onClick={() => setViewType('list')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Tampilan Tabel"><ListIcon size={18} /></button>
+                        <button onClick={() => setViewType('grid')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Tampilan Grid"><LayoutGrid size={18} /></button>
                         <button onClick={() => setViewType('qr-codes')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="QR Code Siswa"><QrCodeIcon size={18} /></button>
                     </div>
                 </div>
@@ -434,8 +434,8 @@ const StudentList: React.FC<StudentListProps> = ({
         <div className="flex flex-wrap gap-2 justify-end">
            <div className="bg-white p-1 rounded-lg border border-gray-200 flex shadow-sm mr-2">
               <button onClick={() => setViewType('dashboard')} className="p-2 rounded-md transition-all text-gray-400 hover:text-gray-600" title="Dashboard"><PieChartIcon size={18} /></button>
-              <button onClick={() => setViewType('grid')} className={`p-2 rounded-md transition-all ${viewType === 'grid' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="Tampilan Grid"><LayoutGrid size={18} /></button>
               <button onClick={() => setViewType('list')} className={`p-2 rounded-md transition-all ${viewType === 'list' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="Tampilan Tabel"><ListIcon size={18} /></button>
+              <button onClick={() => setViewType('grid')} className={`p-2 rounded-md transition-all ${viewType === 'grid' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="Tampilan Grid"><LayoutGrid size={18} /></button>
               <button onClick={() => setViewType('qr-codes')} className={`p-2 rounded-md transition-all ${viewType === 'qr-codes' ? 'bg-[#5AB2FF] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="QR Code Siswa"><QrCodeIcon size={18} /></button>
            </div>
            
@@ -543,6 +543,8 @@ const StudentList: React.FC<StudentListProps> = ({
                     <th className="px-4 py-3">Tempat Lahir</th>
                     <th className="px-4 py-3">Tanggal Lahir</th>
                     <th className="px-4 py-3">Agama</th>
+                    <th className="px-4 py-3">Nama Ayah</th>
+                    <th className="px-4 py-3">Nama Ibu</th>
                     <th className="px-4 py-3">Alamat</th>
                 </tr>
               </thead>
@@ -556,6 +558,8 @@ const StudentList: React.FC<StudentListProps> = ({
                     <td className="px-4 py-3 whitespace-nowrap">{student.birthPlace || '-'}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{student.birthDate}</td>
                     <td className="px-4 py-3">{student.religion || '-'}</td>
+                    <td className="px-4 py-3">{student.fatherName || '-'}</td>
+                    <td className="px-4 py-3">{student.motherName || '-'}</td>
                     <td className="px-4 py-3 truncate max-w-[150px]">{student.address}</td>
                   </tr>
                 ))}

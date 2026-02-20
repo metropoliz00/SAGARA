@@ -386,9 +386,11 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                 <th style="width: 5%">No</th>
                                 <th style="width: 10%">Jam</th>
                                 <th style="width: 15%">Mapel</th>
-                                <th style="width: 20%">Materi</th>
-                                <th style="width: 30%">Kegiatan</th>
-                                <th style="width: 20%">Ket.</th>
+                                <th style="width: 15%">Materi</th>
+                                <th style="width: 25%">Kegiatan</th>
+                                <th style="width: 10%">Evaluasi</th>
+                                <th style="width: 10%">Refleksi</th>
+                                <th style="width: 10%">Tindak Lanjut</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -399,7 +401,9 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                     <td>${row.subject || ''}</td>
                                     <td>${row.topic || ''}</td>
                                     <td>${row.activities || ''}</td>
-                                    <td>${row.followUp ? 'TL: '+row.followUp : (row.reflection ? 'Ref: '+row.reflection : '')}</td>
+                                    <td>${row.evaluation || ''}</td>
+                                    <td>${row.reflection || ''}</td>
+                                    <td>${row.followUp || ''}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -735,11 +739,13 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                 <table className="w-full text-xs text-left">
                                     <thead className="bg-white border-b border-gray-100 text-gray-500 print:border-gray-400 print:text-black">
                                         <tr>
-                                            <th className="p-2 w-32 min-w-[120px]">Jam</th>
-                                            <th className="p-2 w-48">Mata Pelajaran</th>
-                                            <th className="p-2 w-48">Materi</th>
+                                            <th className="p-2 w-24 min-w-[100px]">Jam</th>
+                                            <th className="p-2 w-40">Mata Pelajaran</th>
+                                            <th className="p-2 w-40">Materi</th>
                                             <th className="p-2">Kegiatan Pembelajaran</th>
-                                            <th className="p-2 w-32">Keterangan</th>
+                                            <th className="p-2 w-32">Evaluasi</th>
+                                            <th className="p-2 w-32">Refleksi</th>
+                                            <th className="p-2 w-32">Tindak Lanjut</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 print:divide-gray-400">
@@ -754,9 +760,9 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                                 </td>
                                                 <td className="p-2 align-top">{row.topic || '-'}</td>
                                                 <td className="p-2 align-top">{row.activities || '-'}</td>
-                                                <td className="p-2 align-top italic text-gray-500">
-                                                    {row.followUp ? `TL: ${row.followUp}` : row.reflection ? `Ref: ${row.reflection}` : '-'}
-                                                </td>
+                                                <td className="p-2 align-top text-gray-600">{row.evaluation || '-'}</td>
+                                                <td className="p-2 align-top text-gray-600">{row.reflection || '-'}</td>
+                                                <td className="p-2 align-top text-gray-600">{row.followUp || '-'}</td>
                                             </tr>
                                         )})}
                                     </tbody>
