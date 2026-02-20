@@ -480,14 +480,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={attendanceTrendData}>
-                    <defs>
-                        <linearGradient id="colorHadir" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5AB2FF" stopOpacity={0.1}/><stop offset="95%" stopColor="#5AB2FF" stopOpacity={0}/></linearGradient>
-                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} domain={[0, 100]} unit="%" />
                     <Tooltip content={<CustomAttendanceTooltip />} cursor={{ fill: 'rgba(90, 178, 255, 0.1)' }} />
-                    <Area type="monotone" dataKey="H_percent" stroke="#5AB2FF" strokeWidth={3} fill="url(#colorHadir)" name="Hadir (%)" />
+                    <Legend iconType="circle"/>
+                    <Area type="monotone" dataKey="H_percent" name="Hadir" stroke="#10B981" fill="#10B981" fillOpacity={0.1} strokeWidth={2}/>
+                    <Area type="monotone" dataKey="S_percent" name="Sakit" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.1} strokeWidth={2}/>
+                    <Area type="monotone" dataKey="I_percent" name="Izin" stroke="#6366F1" fill="#6366F1" fillOpacity={0.1} strokeWidth={2}/>
+                    <Area type="monotone" dataKey="A_percent" name="Alpha" stroke="#EF4444" fill="#EF4444" fillOpacity={0.1} strokeWidth={2}/>
                     </AreaChart>
                 </ResponsiveContainer>
                 </div>
@@ -503,10 +504,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <YAxis tick={{fill: '#9CA3AF', fontSize: 12}} domain={[0, 100]} unit="%"/>
                             <Tooltip content={<CustomMonthlyTooltip />} cursor={{ fill: 'rgba(90, 178, 255, 0.1)' }}/>
                             <Legend iconType="circle"/>
-                            <Area type="monotone" dataKey="Hadir" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.1} strokeWidth={2}/>
-                            <Area type="monotone" dataKey="Sakit" stackId="1" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.1} strokeWidth={2}/>
-                            <Area type="monotone" dataKey="Izin" stackId="1" stroke="#6366F1" fill="#6366F1" fillOpacity={0.1} strokeWidth={2}/>
-                            <Area type="monotone" dataKey="Alpha" stackId="1" stroke="#EF4444" fill="#EF4444" fillOpacity={0.1} strokeWidth={2}/>
+                            <Area type="monotone" dataKey="Hadir" stroke="#10B981" fill="#10B981" fillOpacity={0.1} strokeWidth={2}/>
+                            <Area type="monotone" dataKey="Sakit" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.1} strokeWidth={2}/>
+                            <Area type="monotone" dataKey="Izin" stroke="#6366F1" fill="#6366F1" fillOpacity={0.1} strokeWidth={2}/>
+                            <Area type="monotone" dataKey="Alpha" stroke="#EF4444" fill="#EF4444" fillOpacity={0.1} strokeWidth={2}/>
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
