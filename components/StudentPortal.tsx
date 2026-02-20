@@ -39,6 +39,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   // -- STATES FOR DASHBOARD GRADES --
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(MOCK_SUBJECTS[0]?.id || 'pai');
   const [showRecapReport, setShowRecapReport] = useState(false);
+  const [showSummative, setShowSummative] = useState(false);
   const [kktpMap, setKktpMap] = useState<Record<string, number>>({});
 
   // -- STATES FOR FORMS --
@@ -103,6 +104,12 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                           setShowRecapReport(true);
                       } else {
                           setShowRecapReport(false);
+                      }
+                      
+                      if (config.settings?.showSummativeToStudents) {
+                          setShowSummative(true);
+                      } else {
+                          setShowSummative(false);
                       }
                       
                       // Load KKTP data
@@ -517,6 +524,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                   {/* Split view for Grades and Agenda */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* 3. Academic Summary (Nilai Sumatif) - UPDATED 1 ROW MOBILE */}
+                      {showSummative && (
                       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                               <h3 className="font-bold text-gray-800 flex items-center">
@@ -598,6 +606,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
                               </div>
                           </div>
                       </div>
+                      )}
 
                       {/* 5. Agenda */}
                       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
