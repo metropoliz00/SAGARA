@@ -32,6 +32,10 @@ const GradesView: React.FC<GradesViewProps> = ({
   const [showRecapToStudents, setShowRecapToStudents] = useState(false);
   const [isTogglingRecap, setIsTogglingRecap] = useState(false);
 
+  // New State for Summative Scores Visibility
+  const [showSummativeToStudents, setShowSummativeToStudents] = useState(false);
+  const [isTogglingSummative, setIsTogglingSummative] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setGrades(initialGrades); }, [initialGrades]);
@@ -44,6 +48,9 @@ const GradesView: React.FC<GradesViewProps> = ({
            if (config.kktp) setKktpMap(config.kktp);
            if (config.settings?.showStudentRecap !== undefined) {
                setShowRecapToStudents(config.settings.showStudentRecap);
+           }
+           if (config.settings?.showSummativeToStudents !== undefined) {
+               setShowSummativeToStudents(config.settings.showSummativeToStudents);
            }
         }
         
@@ -72,6 +79,21 @@ const GradesView: React.FC<GradesViewProps> = ({
           onShowNotification("Gagal mengubah pengaturan.", 'error');
       } finally {
           setIsTogglingRecap(false);
+      }
+  };
+
+  const toggleSummativeVisibility = async () => {
+      if (isReadOnly) return;
+      const newValue = !showSummativeToStudents;
+      setIsTogglingSummative(true);
+      try {
+          await apiService.saveClassConfig('SUMMATIVE_VISIBILITY', { showSummativeToStudents: newValue }, classId);
+          setShowSummativeToStudents(newValue);
+          onShowNotification(newValue ? "Nilai sumatif sekarang muncul di portal siswa." : "Nilai sumatif disembunyikan dari portal siswa.", 'success');
+      } catch (e) {
+          onShowNotification("Gagal mengubah pengaturan.", 'error');
+      } finally {
+          setIsTogglingSummative(false);
       }
   };
 
@@ -304,6 +326,23 @@ const GradesView: React.FC<GradesViewProps> = ({
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
+              {/* NEW TOGGLE FOR SUMMATIVE VISIBILITY */}
+              {viewMode === 'input' && !isReadOnly && (
+                  <button 
+                    onClick={toggleSummativeVisibility}
+                    disabled={isTogglingSummative}
+                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                        showSummativeToStudents 
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                    }`}
+                    title={showSummativeToStudents ? "Sembunyikan nilai sumatif dari siswa" : "Tampilkan nilai sumatif ke siswa"}
+                  >
+                      {isTogglingSummative ? <Loader2 size={14} className="animate-spin mr-1.5"/> : showSummativeToStudents ? <Eye size={14} className="mr-1.5"/> : <EyeOff size={14} className="mr-1.5"/>}
+                      <span>Portal Siswa (Sumatif): {showSummativeToStudents ? 'ON' : 'OFF'}</span>
+                  </button>
+              )}
+              
               
               {/* NEW TOGGLE FOR STUDENT VISIBILITY */}
               {viewMode === 'recap' && !isReadOnly && (

@@ -247,7 +247,7 @@ export const apiService = {
       academicCalendar?: AcademicCalendarData, 
       timeSlots?: string[], 
       organization?: OrganizationStructure,
-      settings?: { showStudentRecap?: boolean } 
+      settings?: { showStudentRecap?: boolean; showSummativeToStudents?: boolean } 
   }> => {
      const defaultConfig = {schedule: [], piket: [], seats: { classical: [], groups: [], ushape: [] }, academicCalendar: {}, timeSlots: [], organization: { roles: {}, sections: [] }, settings: {} };
      if (!isApiConfigured() || !classId) return defaultConfig;
