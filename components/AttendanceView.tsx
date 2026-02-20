@@ -667,7 +667,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
           <div>
               <h2 className="text-2xl font-bold text-gray-800">Manajemen Absensi</h2>
               <p className="text-gray-500">
-                  {isReadOnly ? 'Pantau kehadiran Anda.' : 'Kelola kehadiran harian, input borongan, rekap bulanan, dan hari libur.'}
+                  {isReadOnly ? 'Pantau kehadiran Anda.' : 'Kelola kehadiran harian, input rentang, rekap bulanan, dan hari libur.'}
               </p>
           </div>
           <div className="flex bg-white p-1 rounded-xl border border-[#CAF4FF] shadow-sm overflow-x-auto">

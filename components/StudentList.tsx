@@ -84,7 +84,90 @@ const StudentList: React.FC<StudentListProps> = ({
   const isPhotoError = (url?: string) => url && (url.startsWith('ERROR') || url.startsWith('error'));
 
   const handlePrint = () => {
-    window.print();
+    const tableRows = filteredStudents.map((s, index) => `
+      <tr style="background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; line-height: 1;">
+        <td style="text-align: center;">${index + 1}</td>
+        <td>${s.name}</td>
+        <td>${s.nis}</td>
+        <td>${s.nisn || '-'}</td>
+        <td style="text-align: center;">${s.gender}</td>
+        <td>${s.birthPlace || '-'}</td>
+        <td>${s.birthDate}</td>
+        <td>${s.religion || '-'}</td>
+        <td>${s.fatherName || '-'}</td>
+        <td>${s.motherName || '-'}</td>
+        <td>${s.address}</td>
+      </tr>
+    `).join('');
+
+    const printContent = `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">DAFTAR SISWA</h2>
+        <h3 style="margin: 0;">KELAS: ${classId}</h3>
+        <h4 style="margin: 0;">TAHUN AJARAN: ${schoolProfile?.year || new Date().getFullYear()}</h4>
+      </div>
+      <table>
+        <thead style="background-color: #e9ecef;">
+          <tr>
+            <th>No</th>
+            <th>Nama</th>
+            <th>NIS</th>
+            <th>NISN</th>
+            <th>L/P</th>
+            <th>Tempat Lahir</th>
+            <th>Tanggal Lahir</th>
+            <th>Agama</th>
+            <th>Nama Ayah</th>
+            <th>Nama Ibu</th>
+            <th>Alamat</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+      <div style="margin-top: 30px; display: flex; justify-content: space-between; font-size: 12px;">
+        <div style="text-align: center;">
+          <p>Mengetahui,</p>
+          <p>Kepala ${schoolProfile?.name || 'Sekolah'}</p>
+          <br/><br/><br/>
+          <p style="text-decoration: underline;">${schoolProfile?.headmaster || '.........................'}</p>
+          <p>NIP. ${schoolProfile?.headmasterNip || '.........................'}</p>
+        </div>
+        <div style="text-align: center;">
+          <p>Remen, ${new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+          <p>Guru Kelas ${classId}</p>
+          <br/><br/><br/>
+          <p style="text-decoration: underline;">${teacherProfile?.name || '.........................'}</p>
+          <p>NIP. ${teacherProfile?.nip || '.........................'}</p>
+        </div>
+      </div>
+    `;
+
+    const newWindow = window.open("", "", "width=1200,height=800");
+    newWindow?.document.write(`
+      <html>
+        <head>
+          <title>Daftar Siswa Kelas ${classId}</title>
+          <style>
+            body { font-family: 'Times New Roman', serif; line-height: 1; }
+            table { width: 100%; border-collapse: collapse; font-size: 10px; }
+            th, td { border: 1px solid black; padding: 4px; text-align: left; }
+            th { text-align: center; }
+            @page { size: A4 landscape; margin: 20mm; }
+          </style>
+        </head>
+        <body>
+          ${printContent}
+        </body>
+      </html>
+    `);
+    newWindow?.document.close();
+    setTimeout(() => {
+      newWindow?.focus();
+      newWindow?.print();
+      newWindow?.close();
+    }, 500);
   };
 
   const handleDeleteClick = (id: string) => {
