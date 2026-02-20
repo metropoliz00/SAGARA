@@ -21,17 +21,17 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave, onSh
     setLocalPiketGroups(piketGroups);
   }, [piketGroups]);
 
-  const { availableStudents, studentMap } = useMemo(() => {
-    const studentDayCounts: Record<string, number> = {};
+  const { availableStudents, studentMap, studentDayCounts } = useMemo(() => {
+    const counts: Record<string, number> = {};
     localPiketGroups.forEach(g => {
       g.studentIds.forEach(id => {
-        studentDayCounts[id] = (studentDayCounts[id] || 0) + 1;
+        counts[id] = (counts[id] || 0) + 1;
       });
     });
 
-    const available = students.filter(s => (studentDayCounts[s.id] || 0) < 3);
+    const available = students.filter(s => (counts[s.id] || 0) < 3);
     const map = new Map(students.map(s => [s.id, s]));
-    return { availableStudents: available, studentMap: map };
+    return { availableStudents: available, studentMap: map, studentDayCounts: counts };
   }, [students, localPiketGroups]);
 
   const handleDragStart = (e: React.DragEvent, studentId: string, sourceDay: string | null) => {
@@ -81,13 +81,15 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave, onSh
     if (isAlreadyInTarget) return;
 
     // 1. Remove from source (if moving from another day)
+    let canProceed = false;
     if (sourceDay) {
         const sourceGroupIdx = newGroups.findIndex(g => g.day === sourceDay);
-        if (sourceGroupIdx > -1) {
+        if (sourceGroupIdx > -1 && newGroups[sourceGroupIdx].studentIds.includes(studentId)) {
             newGroups[sourceGroupIdx] = {
                 ...newGroups[sourceGroupIdx],
                 studentIds: newGroups[sourceGroupIdx].studentIds.filter(id => id !== studentId)
             };
+            canProceed = true;
         }
     } else {
         // If coming from the list, verify they aren't already at the max limit
@@ -95,8 +97,14 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave, onSh
         newGroups.forEach(g => {
             if (g.studentIds.includes(studentId)) currentCount++;
         });
-        if (currentCount >= 3) return;
+        if (currentCount < 3) {
+            canProceed = true;
+        } else {
+            onShowNotification("Maksimal 3 hari piket per siswa.", "warning");
+        }
     }
+
+    if (!canProceed) return;
 
     // 2. Add to target
     const newTargetGroupIdx = newGroups.findIndex(g => g.day === targetDay);
@@ -180,7 +188,7 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave, onSh
                                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold shrink-0 ${student.gender === 'L' ? 'bg-blue-500' : 'bg-pink-500'}`}>
                                       {student.gender}
                                   </div>
-                                  <span className="text-xs font-medium text-gray-700 truncate">{student.name}</span>
+                                  <span className="text-xs font-medium text-gray-700 truncate">{student.name} ({studentDayCounts[student.id] || 0}/3)</span>
                               </div>
                               <GripVertical size={14} className="text-gray-300" />
                           </div>
