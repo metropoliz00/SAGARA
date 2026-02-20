@@ -395,7 +395,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
       {/* --- CONTENT RENDERER --- */}
       
       {activeTab === 'schedule' && <ScheduleTab schedule={schedule} timeSlots={timeSlots} onSave={handleSaveScheduleAndTimes} onShowNotification={onShowNotification} />}
-      {activeTab === 'piket' && <PiketTab piketGroups={piketGroups} students={students} onSave={handleSavePiket} />}
+      {activeTab === 'piket' && <PiketTab piketGroups={piketGroups} students={students} onSave={handleSavePiket} onShowNotification={onShowNotification} />}
       {activeTab === 'seating' && <SeatingTab seatingLayouts={seatingLayouts} setSeatingLayouts={setSeatingLayouts} students={students} onSave={handleSaveSeating} teacherProfile={teacherProfile} />}
       {activeTab === 'organization' && (
           <OrganizationChartTab 

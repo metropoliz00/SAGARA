@@ -7,9 +7,10 @@ interface PiketTabProps {
   piketGroups: PiketGroup[];
   students: Student[];
   onSave: (groups: PiketGroup[]) => void;
+  onShowNotification: (message: string, type: 'success' | 'error' | 'warning') => void;
 }
 
-const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) => {
+const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave, onShowNotification }) => {
   const [localPiketGroups, setLocalPiketGroups] = useState<PiketGroup[]>(piketGroups);
   const [isSaving, setIsSaving] = useState(false);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
@@ -20,11 +21,17 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) =>
     setLocalPiketGroups(piketGroups);
   }, [piketGroups]);
 
-  const { unassignedStudents, studentMap } = useMemo(() => {
-    const assignedIds = new Set(localPiketGroups.flatMap(g => g.studentIds));
-    const unassigned = students.filter(s => !assignedIds.has(s.id));
+  const { availableStudents, studentMap } = useMemo(() => {
+    const studentDayCounts: Record<string, number> = {};
+    localPiketGroups.forEach(g => {
+      g.studentIds.forEach(id => {
+        studentDayCounts[id] = (studentDayCounts[id] || 0) + 1;
+      });
+    });
+
+    const available = students.filter(s => (studentDayCounts[s.id] || 0) < 3);
     const map = new Map(students.map(s => [s.id, s]));
-    return { unassignedStudents: unassigned, studentMap: map };
+    return { availableStudents: available, studentMap: map };
   }, [students, localPiketGroups]);
 
   const handleDragStart = (e: React.DragEvent, studentId: string, sourceDay: string | null) => {
@@ -52,7 +59,28 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) =>
 
     let newGroups = [...localPiketGroups];
 
-    // 1. Remove from source
+    // If dropping back to the list (targetDay is null), just remove from sourceDay
+    if (!targetDay) {
+        if (sourceDay) {
+            const sourceGroupIdx = newGroups.findIndex(g => g.day === sourceDay);
+            if (sourceGroupIdx > -1) {
+                newGroups[sourceGroupIdx] = {
+                    ...newGroups[sourceGroupIdx],
+                    studentIds: newGroups[sourceGroupIdx].studentIds.filter(id => id !== studentId)
+                };
+            }
+        }
+        setLocalPiketGroups(newGroups);
+        return;
+    }
+
+    // Check if student is already in targetDay
+    const targetGroupIdx = newGroups.findIndex(g => g.day === targetDay);
+    const isAlreadyInTarget = targetGroupIdx > -1 && newGroups[targetGroupIdx].studentIds.includes(studentId);
+    
+    if (isAlreadyInTarget) return;
+
+    // 1. Remove from source (if moving from another day)
     if (sourceDay) {
         const sourceGroupIdx = newGroups.findIndex(g => g.day === sourceDay);
         if (sourceGroupIdx > -1) {
@@ -61,18 +89,24 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) =>
                 studentIds: newGroups[sourceGroupIdx].studentIds.filter(id => id !== studentId)
             };
         }
+    } else {
+        // If coming from the list, verify they aren't already at the max limit
+        let currentCount = 0;
+        newGroups.forEach(g => {
+            if (g.studentIds.includes(studentId)) currentCount++;
+        });
+        if (currentCount >= 3) return;
     }
 
     // 2. Add to target
-    if (targetDay) {
-        const targetGroupIdx = newGroups.findIndex(g => g.day === targetDay);
-        if (targetGroupIdx > -1) {
-            if (!newGroups[targetGroupIdx].studentIds.includes(studentId)) {
-                newGroups[targetGroupIdx].studentIds.push(studentId);
-            }
-        } else {
-            newGroups.push({ day: targetDay, studentIds: [studentId] });
-        }
+    const newTargetGroupIdx = newGroups.findIndex(g => g.day === targetDay);
+    if (newTargetGroupIdx > -1) {
+        newGroups[newTargetGroupIdx] = {
+            ...newGroups[newTargetGroupIdx],
+            studentIds: [...newGroups[newTargetGroupIdx].studentIds, studentId]
+        };
+    } else {
+        newGroups.push({ day: targetDay, studentIds: [studentId] });
     }
     
     setLocalPiketGroups(newGroups);
@@ -89,8 +123,30 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) =>
 
   const handleSaveAll = async () => {
     setIsSaving(true);
-    await onSave(localPiketGroups);
-    setIsSaving(false);
+    try {
+      const studentDayCounts: { [studentId: string]: number } = {};
+      for (const group of localPiketGroups) {
+        for (const studentId of group.studentIds) {
+          studentDayCounts[studentId] = (studentDayCounts[studentId] || 0) + 1;
+        }
+      }
+
+      const overAssignedStudents = Object.entries(studentDayCounts).filter(([, count]) => count > 3);
+
+      if (overAssignedStudents.length > 0) {
+        const studentNames = overAssignedStudents.map(([studentId]) => studentMap.get(studentId)?.name || studentId).join(', ');
+        onShowNotification(`Siswa ${studentNames} ditugaskan lebih dari 3 hari piket. Mohon perbaiki.`, 'warning');
+        return;
+      }
+
+      await onSave(localPiketGroups);
+      onShowNotification('Jadwal piket berhasil disimpan!', 'success');
+    } catch (e) {
+      console.error(e);
+      onShowNotification('Gagal menyimpan jadwal piket.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -105,15 +161,15 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) =>
                   onDrop={(e) => handleDrop(e, null)}
               >
                   <h3 className="font-bold text-gray-800 mb-2 flex items-center justify-between">
-                      <span className="flex items-center"><Users size={18} className="mr-2 text-indigo-600"/> Siswa Belum Piket</span>
+                      <span className="flex items-center"><Users size={18} className="mr-2 text-indigo-600"/> Daftar Siswa</span>
                       <button onClick={() => setIsPanelOpen(false)} title="Tutup panel" className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-700">
                           <X size={18} />
                       </button>
                   </h3>
-                  <p className="text-xs text-gray-400 mb-3 border-b pb-3">Seret siswa ke kolom hari atau seret kembali ke sini untuk menghapus.</p>
+                  <p className="text-xs text-gray-400 mb-3 border-b pb-3">Seret siswa ke kolom hari. Maksimal 3 hari per siswa.</p>
 
                   <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar p-1">
-                      {unassignedStudents.map(student => (
+                      {availableStudents.map(student => (
                           <div 
                               key={student.id}
                               draggable
@@ -129,7 +185,7 @@ const PiketTab: React.FC<PiketTabProps> = ({ piketGroups, students, onSave }) =>
                               <GripVertical size={14} className="text-gray-300" />
                           </div>
                       ))}
-                      {unassignedStudents.length === 0 && <p className="text-xs text-gray-400 text-center italic py-10">Semua siswa sudah mendapat jadwal.</p>}
+                      {availableStudents.length === 0 && <p className="text-xs text-gray-400 text-center italic py-10">Semua siswa sudah mencapai batas maksimal piket.</p>}
                   </div>
               </div>
           </div>
