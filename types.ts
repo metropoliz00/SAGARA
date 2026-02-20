@@ -210,7 +210,8 @@ export interface LearningJournalEntry {
   followUp: string;
   model?: string;
   pendekatan?: string;
-  metode?: string;
+  metode?: string[];
+  metodeLainnya?: string;
 }
 
 export interface LearningDocumentation {

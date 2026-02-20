@@ -4,7 +4,7 @@ import { apiService } from '../services/apiService';
 import { 
   Save, Calendar, Printer, Plus, Trash2, Loader2, 
   ChevronLeft, ChevronRight, NotebookPen, RefreshCw,
-  LayoutList, CalendarRange, Coffee
+  LayoutList, CalendarRange, Coffee, Copy
 } from 'lucide-react';
 
 interface LearningJournalViewProps {
@@ -20,8 +20,23 @@ interface LearningJournalViewProps {
 const WEEKDAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const MODEL_OPTIONS = ['Problem-Based Learning (PBL)', 'Project-Based Learning (PjBL)', 'Inquiry', 'Discovery Learning', 'Lainnya'];
 const PENDEKATAN_OPTIONS = ['Pendekatan kontekstual', 'konstruktivisme', 'saintifik', 'gamifiaksi', 'lainnya'];
-const METODE_OPTIONS = ['Tanya jawab', 'Ceramah', 'Diskusi kelompok', 'Demosntrasi', 'Simulasi/bermain peran', 'presentasi', 'lainnya'];
-const EVALUASI_OPTIONS = ['Formatif', 'Sumatif'];
+const METODE_OPTIONS = ['Tanya jawab', 'Ceramah', 'Diskusi kelompok', 'Demonstrasi', 'Simulasi/bermain peran', 'Presentasi', 'Lainnya'];
+const EVALUASI_OPTIONS = {
+  Formatif: [
+    'Kuis singkat',
+    'Diskusi Kelompok',
+    'Lembar Refleksi',
+    'Presentasi',
+    'Observasi'
+  ],
+  Sumatif: [
+    'Tes Lisan/Tulis',
+    'Proyek/Tugas Besar',
+    'Ujian Praktik/Kinerja',
+    'Portofolio',
+    'Uji Kompetensi'
+  ]
+};
 
 
 const LearningJournalView: React.FC<LearningJournalViewProps> = ({ 
@@ -34,6 +49,8 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, rowIndex: number } | null>(null);
+  const [copiedRow, setCopiedRow] = useState<Partial<LearningJournalEntry> | null>(null);
 
   // Handle Target Date Navigation
   useEffect(() => {
@@ -63,6 +80,12 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
   useEffect(() => {
     if (classId) loadData();
   }, [classId]);
+
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, []);
 
   // --- Helper Functions ---
 
@@ -103,8 +126,12 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
       return days;
   }, [currentMonday]);
   
-  const generateActivitiesString = (pendekatan?: string, model?: string, metode?: string) => {
-      return `Pendahuluan (apersepsi), kegiatan inti (${pendekatan || '-'}, ${model || '-'}, ${metode || '-'}), dan penutup (evaluasi/kesimpulan).`;
+  const generateActivitiesString = (pendekatan?: string, model?: string, metode?: string[], metodeLainnya?: string) => {
+            let metodeStr = metode && metode.length > 0 ? metode.join(', ') : '-';
+      if (metode?.includes('Lainnya') && metodeLainnya) {
+        metodeStr = metode.filter(m => m !== 'Lainnya').concat(metodeLainnya).join(', ');
+      }
+      return `Pendahuluan (apersepsi), kegiatan inti (${pendekatan || '-'}, ${model || '-'}, ${metodeStr}), dan penutup (evaluasi/kesimpulan).`;
   };
 
   // Logic to merge Schedule with Entries for a SPECIFIC date
@@ -128,13 +155,14 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                 timeSlot: sch.time,
                 subject: sch.subject,
                 topic: '',
-                activities: generateActivitiesString(PENDEKATAN_OPTIONS[0], MODEL_OPTIONS[0], METODE_OPTIONS[0]),
-                evaluation: 'Formatif',
+                activities: generateActivitiesString(PENDEKATAN_OPTIONS[0], MODEL_OPTIONS[0], [METODE_OPTIONS[0]]),
+                evaluation: 'Kuis singkat',
                 reflection: '',
                 followUp: '',
                 pendekatan: PENDEKATAN_OPTIONS[0],
                 model: MODEL_OPTIONS[0],
-                metode: METODE_OPTIONS[0],
+                metode: [METODE_OPTIONS[0]],
+                metodeLainnya: '',
             });
         }
     });
@@ -183,23 +211,20 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
     return true; // Default case
   };
 
-  const updateDraft = (index: number, field: keyof LearningJournalEntry, value: string) => {
+  const updateDraft = (index: number, field: keyof LearningJournalEntry, value: string | string[]) => {
     const newData = [...draftData];
     if (!isRowEditable(newData[index])) return;
-    
+
     let updatedRow = { ...newData[index], [field]: value };
-    newData[index] = updatedRow;
 
     const pbmFields: (keyof LearningJournalEntry)[] = ['model', 'pendekatan', 'metode'];
 
-    // If a PBM field changed, update activities string for this row
-    if (pbmFields.includes(field)) {
-        updatedRow.activities = generateActivitiesString(updatedRow.pendekatan, updatedRow.model, updatedRow.metode);
+    if (pbmFields.includes(field) || field === 'metodeLainnya') {
+      updatedRow.activities = generateActivitiesString(updatedRow.pendekatan, updatedRow.model, updatedRow.metode, updatedRow.metodeLainnya);
     }
-    
-    // Auto-fill logic
-    const contentFields: (keyof LearningJournalEntry)[] = ['topic', 'activities', 'evaluation', 'reflection', 'followUp', 'model', 'pendekatan', 'metode'];
-    if (updatedRow.subject && contentFields.includes(field)) {
+
+    // Auto-fill logic for the same subject
+    if (updatedRow.subject) {
         for (let i = 0; i < newData.length; i++) {
             if (newData[i].subject === updatedRow.subject) {
                 newData[i] = { ...newData[i], [field]: value };
@@ -209,9 +234,23 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                 }
             }
         }
+    } else {
+        newData[index] = updatedRow;
     }
 
     setDraftData(newData);
+  };
+
+  const handleMetodeChange = (index: number, metode: string) => {
+    const currentMetode = draftData[index]?.metode || [];
+    const newMetode = currentMetode.includes(metode)
+      ? currentMetode.filter(m => m !== metode)
+      : [...currentMetode, metode];
+    updateDraft(index, 'metode', newMetode);
+
+    if (metode === 'Lainnya' && !newMetode.includes('Lainnya')) {
+      updateDraft(index, 'metodeLainnya', '');
+    }
   };
 
   const addManualRow = () => {
@@ -231,13 +270,14 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
               subject: '',
               timeSlot: '',
               topic: '',
-              activities: generateActivitiesString(defaultPendekatan, defaultModel, defaultMetode),
-              evaluation: 'Formatif',
+              activities: generateActivitiesString(defaultPendekatan, defaultModel, [defaultMetode]),
+              evaluation: 'Kuis singkat',
               reflection: '',
               followUp: '',
               pendekatan: defaultPendekatan,
               model: defaultModel,
-              metode: defaultMetode,
+              metode: [defaultMetode],
+              metodeLainnya: '',
           }
       ]);
   };
@@ -338,8 +378,35 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
       setCurrentDate(d.toISOString().split('T')[0]);
   };
 
+  const handleContextMenu = (e: React.MouseEvent, rowIndex: number) => {
+    e.preventDefault();
+    setContextMenu({ x: e.pageX, y: e.pageY, rowIndex });
+  };
+
+  const handleCopy = (rowIndex: number) => {
+    const { id, date, day, subject, timeSlot, ...rest } = draftData[rowIndex];
+    setCopiedRow(rest);
+    alert('Baris disalin!');
+  };
+
+  const handlePaste = (rowIndex: number) => {
+    if (!copiedRow) return;
+    const newData = [...draftData];
+    const originalRow = newData[rowIndex];
+    newData[rowIndex] = { ...originalRow, ...copiedRow };
+    setDraftData(newData);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {contextMenu && (
+        <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 w-48">
+          <button onClick={() => handleCopy(contextMenu.rowIndex)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Salin</button>
+          <button onClick={() => handlePaste(contextMenu.rowIndex)} disabled={!copiedRow} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50">Tempel</button>
+          <div className="border-t my-1"></div>
+          <button onClick={() => removeRow(contextMenu.rowIndex)} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Hapus Baris Ini</button>
+        </div>
+      )}
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
             <div>
@@ -413,6 +480,11 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
             {viewMode === 'daily' && (
                 <div className="flex gap-2"> 
                     {!isReadOnly && (
+                        <button onClick={handleCopyYesterday} className="flex items-center gap-2 bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 font-bold text-sm transition-colors">
+                            <Copy size={16}/> Salin Jurnal Kemarin
+                        </button>
+                    )}
+                    {!isReadOnly && (
                         <button onClick={addManualRow} className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg hover:bg-indigo-50 font-bold text-sm transition-colors">
                             <Plus size={16}/> Tambah Baris
                         </button>
@@ -453,30 +525,63 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                             <tr><td colSpan={8} className="p-8 text-center text-gray-400 italic">Tidak ada jadwal atau jurnal untuk hari ini.</td></tr>
                         ) : (
                             draftData.map((row, idx) => {
-                                const isBreak = row.subject?.toLowerCase().includes('istirahat');
-                                const disabled = !isRowEditable(row);
+                                const specialActivities = ['upacara', 'pembiasaan', 'literasi/numerasi', 'istirahat'];
+                                const subjectLower = row.subject?.toLowerCase() || '';
+                                const isSpecialActivity = specialActivities.some(activity => subjectLower.includes(activity));
+                                const isBreak = subjectLower.includes('istirahat');
+                                const disabled = !isRowEditable(row) || isSpecialActivity;
                                 return (
-                                <tr key={row.id || idx} className={`transition-colors print:break-inside-avoid ${isBreak ? 'bg-orange-50/60' : 'hover:bg-indigo-50/20'}`}>
+                                <tr onContextMenu={(e) => handleContextMenu(e, idx)} key={row.id || idx} className={`transition-colors print:break-inside-avoid ${isBreak ? 'bg-orange-50/60' : 'hover:bg-indigo-50/20'}`}>
                                     <td className="p-3 border text-center text-gray-500">{idx + 1}</td>
                                     <td className="p-3 border"><input value={row.timeSlot || ''} onChange={e => updateDraft(idx, 'timeSlot', e.target.value)} className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-300 font-medium" placeholder="07.00 - ..." disabled={disabled}/></td>
                                     <td className="p-3 border font-semibold"><div className="flex items-center">{isBreak && <Coffee size={14} className="mr-2 text-orange-600 no-print"/>}<input value={row.subject || ''} onChange={e => updateDraft(idx, 'subject', e.target.value)} className={`w-full bg-transparent outline-none text-gray-800 placeholder-gray-300 font-bold ${isBreak ? 'text-orange-700' : ''}`} placeholder="Mapel..." disabled={disabled}/></div></td>
-                                    <td className="p-3 border"><textarea value={row.topic || ''} onChange={e => updateDraft(idx, 'topic', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Tulis materi..." rows={2} disabled={disabled}/></td>
-                                    <td className="p-3 border">
+                                    <td className="p-3 border">{isSpecialActivity ? <span className="text-gray-400">-</span> : <textarea value={row.topic || ''} onChange={e => updateDraft(idx, 'topic', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Tulis materi..." rows={2} disabled={disabled}/>}</td>
+                                    <td className="p-3 border">{isSpecialActivity ? <span className="text-gray-400">-</span> : 
                                         <div className="space-y-2">
                                             <div><label className="text-[10px] font-bold text-gray-400">Pendekatan</label><select value={row.pendekatan || ''} onChange={e => updateDraft(idx, 'pendekatan', e.target.value)} disabled={disabled} className="w-full bg-transparent text-xs outline-none p-1 border-b"><option value="">-Pilih-</option>{PENDEKATAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
                                             <div><label className="text-[10px] font-bold text-gray-400">Model</label><select value={row.model || ''} onChange={e => updateDraft(idx, 'model', e.target.value)} disabled={disabled} className="w-full bg-transparent text-xs outline-none p-1 border-b"><option value="">-Pilih-</option>{MODEL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
-                                            <div><label className="text-[10px] font-bold text-gray-400">Metode</label><select value={row.metode || ''} onChange={e => updateDraft(idx, 'metode', e.target.value)} disabled={disabled} className="w-full bg-transparent text-xs outline-none p-1 border-b"><option value="">-Pilih-</option>{METODE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-400">Metode</label>
+                                                <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
+                                                    {METODE_OPTIONS.map(opt => (
+                                                        <label key={opt} className="flex items-center text-xs text-gray-600">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={(row.metode || []).includes(opt)}
+                                                                onChange={() => handleMetodeChange(idx, opt)}
+                                                                disabled={disabled}
+                                                                className="mr-1 h-3 w-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                            />
+                                                            {opt}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                {(row.metode || []).includes('Lainnya') && (
+                                                    <input 
+                                                        type="text"
+                                                        value={row.metodeLainnya || ''}
+                                                        onChange={(e) => updateDraft(idx, 'metodeLainnya', e.target.value)}
+                                                        disabled={disabled}
+                                                        className="mt-1 w-full bg-transparent text-xs outline-none p-1 border-b"
+                                                        placeholder="Tulis metode lainnya..."
+                                                    />
+                                                )}
+                                            </div>
                                             <textarea value={row.activities || ''} readOnly className="mt-2 w-full bg-gray-50/50 p-1 text-[10px] text-gray-500 rounded border-none outline-none resize-none" rows={3}/>
                                         </div>
-                                    </td>
-                                    <td className="p-3 border">
+                                    }</td>
+                                    <td className="p-3 border">{isSpecialActivity ? <span className="text-gray-400">-</span> : 
                                         <select value={row.evaluation || ''} onChange={e => updateDraft(idx, 'evaluation', e.target.value)} disabled={disabled} className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-300 font-medium p-1 border-b">
-                                            {EVALUASI_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                            {Object.entries(EVALUASI_OPTIONS).map(([group, options]) => (
+                                                <optgroup label={group} key={group}>
+                                                    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                </optgroup>
+                                            ))}
                                         </select>
-                                    </td>
-                                    <td className="p-3 border">
+                                    }</td>
+                                    <td className="p-3 border">{isSpecialActivity ? <span className="text-gray-400">-</span> : 
                                         <textarea value={row.reflection || ''} onChange={e => updateDraft(idx, 'reflection', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Refleksi & Tindak Lanjut..." rows={5} disabled={disabled}/>
-                                    </td>
+                                    }</td>
                                     {!isReadOnly && (<td className="p-3 border text-center no-print align-middle"><button onClick={() => removeRow(idx)} className={`transition-colors ${disabled ? 'text-gray-200 cursor-not-allowed' : 'text-gray-300 hover:text-red-500'}`} disabled={disabled}><Trash2 size={16} /></button></td>)}
                                 </tr>
                             )})

@@ -362,6 +362,9 @@ export const apiService = {
   },
 
   // --- Backup/Restore ---
+  backupData: async (classId: string): Promise<any> => {
+    return await fetchApi('POST', { action: 'backupData', payload: { classId } });
+  },
   restoreData: async (data: any): Promise<any> => {
     return await fetchApi('POST', { action: 'restoreData', payload: data });
   },
