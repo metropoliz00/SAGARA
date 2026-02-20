@@ -114,21 +114,33 @@ const Dashboard: React.FC<DashboardProps> = ({
     monday.setDate(today.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
     const weekData = [];
-    for (let i = 0; i < 6; i++) {
+    const totalClassStudents = students.length > 0 ? students.length : 1; // Avoid division by zero
+
+    for (let i = 0; i < 6; i++) { // Monday to Saturday
       const targetDate = new Date(monday);
       targetDate.setDate(monday.getDate() + i);
       const dateStr = getLocalISODate(targetDate);
       const dayRecords = (allAttendanceRecords as any[]).filter(r => r.date === dateStr);
+      
+      const presentCount = dayRecords.filter(r => r.status === 'present').length;
+      const totalRecordsForDay = dayRecords.length;
+
+      // Calculate percentage based on total students. If no attendance was taken, percentage is 0.
+      const presentPercent = totalRecordsForDay > 0 
+        ? Math.round((presentCount / totalClassStudents) * 100)
+        : 0;
+
       weekData.push({
         name: daysShort[targetDate.getDay()],
-        H: dayRecords.filter(r => r.status === 'present').length,
+        H: presentCount,
         S: dayRecords.filter(r => r.status === 'sick').length,
         I: dayRecords.filter(r => r.status === 'permit').length,
         A: dayRecords.filter(r => r.status === 'alpha').length,
+        H_percent: presentPercent
       });
     }
     return weekData;
-  }, [allAttendanceRecords]);
+  }, [allAttendanceRecords, students]);
 
   const absentToday = useMemo(() => {
     const todayStr = getLocalISODate(new Date());
@@ -187,6 +199,25 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="mt-2 text-xs text-gray-600 space-y-1">
             <p>Rata-rata Kelas: <span className="font-bold">{data.classAverage.toFixed(1)}</span></p>
             <p>Target KKTP: <span className="font-bold">{data.kkm}</span></p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomAttendanceTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg border border-gray-200">
+          <p className="font-bold text-gray-800 text-sm mb-2">{label}</p>
+          <p className={`text-xl font-bold text-blue-500 mb-2`}>{data.H_percent}% Hadir</p>
+          <div className="mt-2 text-xs text-gray-600 grid grid-cols-2 gap-x-4 gap-y-1">
+            <p>Hadir: <span className="font-bold">{data.H}</span></p>
+            <p>Sakit: <span className="font-bold">{data.S}</span></p>
+            <p>Izin: <span className="font-bold">{data.I}</span></p>
+            <p>Alpha: <span className="font-bold">{data.A}</span></p>
           </div>
         </div>
       );
@@ -394,9 +425,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} />
-                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                    <Area type="monotone" dataKey="H" stroke="#5AB2FF" strokeWidth={3} fill="url(#colorHadir)" name="Hadir (H)" />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} domain={[0, 100]} unit="%" />
+                    <Tooltip content={<CustomAttendanceTooltip />} cursor={{ fill: 'rgba(90, 178, 255, 0.1)' }} />
+                    <Area type="monotone" dataKey="H_percent" stroke="#5AB2FF" strokeWidth={3} fill="url(#colorHadir)" name="Hadir (%)" />
                     </AreaChart>
                 </ResponsiveContainer>
                 </div>
