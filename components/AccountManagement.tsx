@@ -7,6 +7,7 @@ import {
   RefreshCw, LayoutGrid, Shield, Briefcase, GraduationCap, CheckSquare, Square, FileSpreadsheet
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
+import { useModal } from '../context/ModalContext';
 
 interface AccountManagementProps {
   users: User[];
@@ -29,6 +30,7 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ users, students, 
   const [isSyncing, setIsSyncing] = useState(false);
   const [password, setPassword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const { showAlert, showConfirm } = useModal();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,10 +110,10 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ users, students, 
       setIsSyncing(true);
       try {
           const result = await apiService.syncStudentAccounts();
-          alert(result.message || 'Sinkronisasi selesai.');
+          showAlert(result.message || 'Sinkronisasi selesai.', 'success');
           window.location.reload();
       } catch (e) {
-          alert("Gagal melakukan sinkronisasi.");
+          showAlert("Gagal melakukan sinkronisasi.", "error");
       } finally {
           setIsSyncing(false);
       }
@@ -119,11 +121,11 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ users, students, 
 
   const handleSave = async () => {
     if (!editingUser || !editingUser.username || !editingUser.fullName || !editingUser.role) {
-      alert('Username, Nama Lengkap, dan Role wajib diisi.');
+      showAlert('Username, Nama Lengkap, dan Role wajib diisi.', 'error');
       return;
     }
     if (!editingUser.id && !password) {
-      alert('Password wajib diisi untuk akun baru.');
+      showAlert('Password wajib diisi untuk akun baru.', 'error');
       return;
     }
 
@@ -142,22 +144,22 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ users, students, 
       closeModal();
     } catch (error) {
       console.error('Failed to save user:', error);
-      alert('Gagal menyimpan akun.');
+      showAlert('Gagal menyimpan akun.', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Anda yakin ingin menghapus akun ini?')) {
+    showConfirm('Anda yakin ingin menghapus akun ini?', async () => {
         await onDelete(id);
         setSelectedIds(prev => prev.filter(pid => pid !== id));
-    }
+    });
   };
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (window.confirm(`Hapus ${selectedIds.length} akun yang dipilih?`)) {
+    showConfirm(`Hapus ${selectedIds.length} akun yang dipilih?`, async () => {
       setIsSaving(true);
       try {
         // Sequential delete to ensure stability (can be optimized to batch in backend later)
@@ -166,11 +168,11 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ users, students, 
         }
         setSelectedIds([]);
       } catch (e) {
-        alert("Terjadi kesalahan saat menghapus beberapa data.");
+        showAlert("Terjadi kesalahan saat menghapus beberapa data.", "error");
       } finally {
         setIsSaving(false);
       }
-    }
+    });
   };
 
   const handleFieldChange = (field: keyof User, value: string) => {
@@ -221,7 +223,7 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ users, students, 
         });
       }
       if (newUsersBatch.length > 0 && onBatchAdd) {
-          try { await onBatchAdd(newUsersBatch); } catch (e) { alert("Gagal import batch."); }
+          try { await onBatchAdd(newUsersBatch); } catch (e) { showAlert("Gagal import batch.", "error"); }
       }
       setIsSaving(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

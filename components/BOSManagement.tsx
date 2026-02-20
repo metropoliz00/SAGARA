@@ -5,6 +5,7 @@ import {
   Wallet, TrendingUp, TrendingDown, Plus, Filter, 
   Trash2, Printer, Loader2, Save, X, FileText, CalendarRange, Coins, Edit
 } from 'lucide-react';
+import { useModal } from '../context/ModalContext';
 
 interface BOSManagementProps {
   transactions: BOSTransaction[];
@@ -40,6 +41,7 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { showAlert, showConfirm } = useModal();
   
   const [form, setForm] = useState<Partial<BOSTransaction>>({
     date: new Date().toISOString().split('T')[0],
@@ -182,7 +184,7 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
 
   const handleSave = async () => {
     if (!form.date || !form.category || !form.amount || form.amount <= 0) {
-      alert("Mohon lengkapi data dengan benar.");
+      showAlert("Mohon lengkapi data dengan benar.", "error");
       return;
     }
     
@@ -202,16 +204,16 @@ const BOSManagement: React.FC<BOSManagementProps> = ({
       });
       setIsModalOpen(false);
     } catch (e) {
-      alert("Gagal menyimpan data.");
+      showAlert("Gagal menyimpan data.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Hapus transaksi ini?")) {
+    showConfirm("Hapus transaksi ini?", async () => {
       await onDelete(id);
-    }
+    });
   };
 
   const formatCurrency = (amount: number) => {

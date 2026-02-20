@@ -9,6 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
+import { useModal } from '../context/ModalContext';
 
 interface LearningReportsViewProps {
   reports: LearningReport[];
@@ -30,6 +31,7 @@ const LearningReportsView: React.FC<LearningReportsViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingReport, setEditingReport] = useState<Partial<LearningReport> | null>(null);
+  const { showAlert, showConfirm } = useModal();
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,7 +94,7 @@ const LearningReportsView: React.FC<LearningReportsViewProps> = ({
 
   const handleSave = async () => {
     if (!editingReport?.subject || !editingReport?.topic || !editingReport?.date) {
-      alert("Mohon lengkapi data wajib (Mapel, Materi, Tanggal).");
+      showAlert("Mohon lengkapi data wajib (Mapel, Materi, Tanggal).", "error");
       return;
     }
     setIsSaving(true);
@@ -102,16 +104,16 @@ const LearningReportsView: React.FC<LearningReportsViewProps> = ({
       setEditingReport(null);
     } catch (e) {
       console.error(e);
-      alert("Gagal menyimpan laporan.");
+      showAlert("Gagal menyimpan laporan.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Yakin ingin menghapus laporan ini?")) {
+    showConfirm("Yakin ingin menghapus laporan ini?", async () => {
       await onDelete(id);
-    }
+    });
   };
 
   return (

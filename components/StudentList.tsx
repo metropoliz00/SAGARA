@@ -10,6 +10,7 @@ import {
   Image as ImageIcon, PieChart as PieChartIcon,
   QrCode as QrCodeIcon
 } from 'lucide-react';
+import { useModal } from '../context/ModalContext';
 
 import BiodataTab from './student/BiodataTab';
 import HealthTab from './student/HealthTab';
@@ -17,7 +18,6 @@ import TalentsTab from './student/TalentsTab';
 import EconomyTab from './student/EconomyTab';
 import RecordsTab from './student/RecordsTab';
 import StudentDashboard from './student/StudentDashboard';
-import CustomModal from './CustomModal';
 
 interface StudentListProps {
   students: Student[];
@@ -45,8 +45,7 @@ const StudentList: React.FC<StudentListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalTab, setAddModalTab] = useState<TabType>('biodata');
-  
-  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, studentId: string | null}>({isOpen: false, studentId: null});
+  const { showAlert, showConfirm } = useModal();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,12 +87,11 @@ const StudentList: React.FC<StudentListProps> = ({
     window.print();
   };
 
-  const confirmDelete = () => {
-      if (deleteModal.studentId) {
-          onDelete(deleteModal.studentId);
+  const handleDeleteClick = (id: string) => {
+      showConfirm("Apakah Anda yakin ingin menghapus data siswa ini? Tindakan ini tidak dapat dibatalkan.", async () => {
+          onDelete(id);
           setSelectedStudent(null);
-          setDeleteModal({isOpen: false, studentId: null});
-      }
+      });
   };
 
   const handleDownloadTemplate = () => {
@@ -344,14 +342,6 @@ const StudentList: React.FC<StudentListProps> = ({
     return (
       <div className="space-y-6 animate-fade-in print-container">
         
-        <CustomModal 
-            isOpen={deleteModal.isOpen} 
-            type="confirm" 
-            message="Apakah Anda yakin ingin menghapus data siswa ini? Tindakan ini tidak dapat dibatalkan." 
-            onConfirm={confirmDelete} 
-            onCancel={() => setDeleteModal({isOpen: false, studentId: null})}
-        />
-
         <div className="flex items-center justify-between no-print">
           <button onClick={() => setSelectedStudent(null)} className="flex items-center text-gray-500 hover:text-[#5AB2FF] transition-colors">
             <ArrowLeft size={20} className="mr-2" /> <span className="font-medium">Kembali ke Daftar</span>
@@ -363,7 +353,7 @@ const StudentList: React.FC<StudentListProps> = ({
             {!isReadOnly && (
               <>
                 <button 
-                    onClick={() => setDeleteModal({isOpen: true, studentId: selectedStudent.id})} 
+                    onClick={() => handleDeleteClick(selectedStudent.id)} 
                     className="bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 font-medium"
                 >
                   <Trash2 size={18} />

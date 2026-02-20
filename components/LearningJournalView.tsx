@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LearningJournalEntry, ScheduleItem, SchoolProfileData, TeacherProfileData, User } from '../types';
 import { apiService } from '../services/apiService';
+import { useModal } from '../context/ModalContext';
 import { 
   Save, Calendar, Printer, Plus, Trash2, Loader2, 
   ChevronLeft, ChevronRight, NotebookPen, RefreshCw,
@@ -51,6 +52,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
   const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, rowIndex: number } | null>(null);
   const [copiedRow, setCopiedRow] = useState<Partial<LearningJournalEntry> | null>(null);
+  const { showAlert, showConfirm } = useModal();
 
   // Handle Target Date Navigation
   useEffect(() => {
@@ -278,10 +280,11 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
       if (!isRowEditable(row)) return;
 
       if (row.id && !row.id.startsWith('temp-') && !row.id.startsWith('manual-')) {
-          if (confirm("Hapus jurnal tersimpan ini?")) {
-              await apiService.deleteLearningJournal(row.id, classId);
-              setEntries(prev => prev.filter(e => e.id !== row.id));
-          }
+          const rowId = row.id;
+          showConfirm("Hapus jurnal tersimpan ini?", async () => {
+              await apiService.deleteLearningJournal(rowId, classId);
+              setEntries(prev => prev.filter(e => e.id !== rowId));
+          });
       } else {
           const newData = [...draftData];
           newData.splice(index, 1);
@@ -299,14 +302,14 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
               await onSaveBatch(validRows);
           } else {
               await apiService.saveLearningJournalBatch(validRows);
-              alert('Jurnal berhasil disimpan.');
+              showAlert('Jurnal berhasil disimpan.', 'success');
           }
           
           const newJournalData = await apiService.getLearningJournal(classId);
           setEntries(newJournalData);
       } catch (e) {
           console.error(e);
-          if (!onSaveBatch) alert('Gagal menyimpan jurnal.');
+          if (!onSaveBatch) showAlert('Gagal menyimpan jurnal.', 'error');
       } finally {
           setSaving(false);
       }
@@ -480,7 +483,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
   const handleCopy = (rowIndex: number) => {
     const { id, date, day, subject, timeSlot, ...rest } = draftData[rowIndex];
     setCopiedRow(rest);
-    alert('Baris disalin!');
+    showAlert('Baris disalin!', 'success');
   };
 
   const handlePaste = (rowIndex: number) => {
@@ -501,7 +504,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
     const yesterdaySavedEntries = entries.filter(e => e.date === yesterdayStr);
 
     if (yesterdaySavedEntries.length === 0) {
-      alert('Tidak ada data jurnal tersimpan dari hari kemarin untuk disalin.');
+      showAlert('Tidak ada data jurnal tersimpan dari hari kemarin untuk disalin.', 'error');
       return;
     }
 
@@ -523,7 +526,7 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
     });
 
     setDraftData(newDraft);
-    alert(`Berhasil menyalin data dari jurnal kemarin.`);
+    showAlert(`Berhasil menyalin data dari jurnal kemarin.`, 'success');
   };
 
   return (

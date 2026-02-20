@@ -3,6 +3,7 @@ import React from 'react';
 import { Upload, Trash2, FileText, Save, Loader2 } from 'lucide-react';
 import { TeacherProfileData } from '../../types';
 import { compressImage } from '../../utils/imageHelper';
+import { useModal } from '../../context/ModalContext';
 
 interface SignatureTabProps {
   profile: TeacherProfileData;
@@ -12,6 +13,8 @@ interface SignatureTabProps {
 }
 
 const SignatureTab: React.FC<SignatureTabProps> = ({ profile, setProfile, onSave, isSaving }) => {
+  const { showAlert } = useModal();
+
   const handleSignatureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -21,7 +24,7 @@ const SignatureTab: React.FC<SignatureTabProps> = ({ profile, setProfile, onSave
         setProfile({ ...profile, signature: resizedBase64 });
       } catch (error) {
         console.error("Gagal upload TTD", error);
-        alert("Gagal memproses tanda tangan.");
+        showAlert("Gagal memproses tanda tangan.", "error");
       }
     }
   };

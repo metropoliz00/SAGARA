@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Plus, CheckCircle, XCircle, PenTool, Trash2, Save, X } from 'lucide-react';
 import { InventoryItem } from '../../types';
+import { useModal } from '../../context/ModalContext';
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -13,6 +14,7 @@ interface InventoryTabProps {
 
 const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, onSave, onDelete, onShowNotification, classId }) => {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const { showConfirm } = useModal();
 
   const startAdd = () => {
     setEditingItem({ id: `inv-${Date.now()}`, classId: classId, name: '', condition: 'Baik', qty: 1 });
@@ -71,7 +73,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, onSave, onDelete
                    </td>
                    <td className="px-6 py-4 text-right no-print">
                       <button onClick={() => startEdit(item)} className="text-gray-400 hover:text-indigo-600 mr-3 p-1 hover:bg-gray-100 rounded"><PenTool size={16} /></button>
-                      <button onClick={() => { if(confirm("Hapus barang ini?")) onDelete(item.id); }} className="text-gray-400 hover:text-red-600 p-1 hover:bg-gray-100 rounded"><Trash2 size={16} /></button>
+                      <button onClick={() => { showConfirm("Hapus barang ini?", async () => onDelete(item.id)); }} className="text-gray-400 hover:text-red-600 p-1 hover:bg-gray-100 rounded"><Trash2 size={16} /></button>
                    </td>
                  </tr>
                ))}

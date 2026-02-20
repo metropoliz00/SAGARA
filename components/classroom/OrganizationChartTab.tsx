@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Student, TeacherProfileData, OrganizationStructure, User } from '../../types';
 import { Users, User as UserIcon, GripVertical, Plus, Save, Trash2, PenTool, Loader2, X } from 'lucide-react';
+import { useModal } from '../../context/ModalContext';
 
 interface OrganizationChartTabProps {
   students: Student[];
@@ -24,6 +25,7 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
     const [structure, setStructure] = useState<OrganizationStructure>(initialStructure || { roles: {}, sections: [] });
     const [editingSection, setEditingSection] = useState<{id: string, name: string} | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const { showConfirm } = useModal();
     
     useEffect(() => {
         setStructure(initialStructure || { roles: {}, sections: [] });
@@ -151,13 +153,13 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
     };
 
     const handleDeleteSection = (id: string) => {
-        if(confirm('Hapus seksi ini?')) {
+        showConfirm('Hapus seksi ini?', async () => {
             setStructure(prev => ({
                 ...prev,
                 roles: Object.fromEntries(Object.entries(prev.roles).filter(([key]) => key !== id)),
                 sections: prev.sections.filter(s => s.id !== id)
             }));
-        }
+        });
     };
     
     const handleSave = async () => {

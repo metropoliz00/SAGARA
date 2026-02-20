@@ -1,11 +1,11 @@
 
-// ... (imports remain the same)
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Student, GradeRecord, GradeData, Subject, SchoolProfileData, TeacherProfileData } from '../types';
 import { MOCK_SUBJECTS } from '../constants';
 import { apiService } from '../services/apiService';
 import * as XLSX from 'xlsx';
 import { Save, FileSpreadsheet, Printer, Upload, Download, Calculator, CheckCircle, AlertCircle, Settings2, Lock, ChevronDown, Trophy, List, Grid, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useModal } from '../context/ModalContext';
 
 interface GradesViewProps {
   students: Student[];
@@ -29,6 +29,7 @@ const GradesView: React.FC<GradesViewProps> = ({
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [kktpMap, setKktpMap] = useState<Record<string, number>>({});
   const [isSavingKktp, setIsSavingKktp] = useState(false);
+  const { showConfirm } = useModal();
   
   // New State for Student Recap Visibility
   const [showRecapToStudents, setShowRecapToStudents] = useState(false);
@@ -211,19 +212,20 @@ const GradesView: React.FC<GradesViewProps> = ({
 
   const handleSaveAll = async () => {
     if (!isSubjectEditable) return;
-    if (!confirm(`Simpan seluruh nilai untuk mata pelajaran ${activeSubject?.name}?`)) return;
-    setIsSavingAll(true);
-    try {
-        for (const student of students) {
-            const gradeData = getStudentGrade(student.id);
-            await onSave(student.id, selectedSubject, gradeData, classId);
+    showConfirm(`Simpan seluruh nilai untuk mata pelajaran ${activeSubject?.name}?`, async () => {
+        setIsSavingAll(true);
+        try {
+            for (const student of students) {
+                const gradeData = getStudentGrade(student.id);
+                await onSave(student.id, selectedSubject, gradeData, classId);
+            }
+            onShowNotification('Seluruh data nilai kelas berhasil disinkronkan!', 'success');
+        } catch (e) {
+            onShowNotification('Gagal menyimpan beberapa data. Cek koneksi Anda.', 'error');
+        } finally {
+            setIsSavingAll(false);
         }
-        onShowNotification('Seluruh data nilai kelas berhasil disinkronkan!', 'success');
-    } catch (e) {
-        onShowNotification('Gagal menyimpan beberapa data. Cek koneksi Anda.', 'error');
-    } finally {
-        setIsSavingAll(false);
-    }
+    });
   };
 
   const getSubjectInitials = (name: string) => {

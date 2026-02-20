@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { EmploymentLink } from '../types';
 import { Plus, Edit, Trash2, Save, X, ExternalLink, Link as LinkIcon, Loader2, Image as ImageIcon } from 'lucide-react';
 import { compressImage } from '../utils/imageHelper';
+import { useModal } from '../context/ModalContext';
 
 interface EmploymentLinksAdminProps {
   links: EmploymentLink[];
@@ -19,6 +20,7 @@ const EmploymentLinksAdmin: React.FC<EmploymentLinksAdminProps> = ({ links, onSa
   });
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showAlert, showConfirm } = useModal();
 
   const openModal = (link?: EmploymentLink) => {
     if (link) {
@@ -42,14 +44,14 @@ const EmploymentLinksAdmin: React.FC<EmploymentLinksAdminProps> = ({ links, onSa
         const base64 = await compressImage(file, 64, 0.8);
         setCurrentLink(prev => ({ ...prev, icon: base64 }));
       } catch (error) {
-        alert("Gagal memproses icon.");
+        showAlert("Gagal memproses icon.", "error");
       }
     }
   };
 
   const handleSave = async () => {
     if (!currentLink.title || !currentLink.url) {
-      alert("Judul dan URL wajib diisi.");
+      showAlert("Judul dan URL wajib diisi.", "error");
       return;
     }
     setIsSaving(true);
@@ -58,16 +60,16 @@ const EmploymentLinksAdmin: React.FC<EmploymentLinksAdminProps> = ({ links, onSa
       closeModal();
     } catch (e) {
       console.error(e);
-      alert("Gagal menyimpan link.");
+      showAlert("Gagal menyimpan link.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Hapus link ini?")) {
+    showConfirm("Hapus link ini?", async () => {
       await onDelete(id);
-    }
+    });
   };
 
   return (

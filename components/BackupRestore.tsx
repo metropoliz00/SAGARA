@@ -2,6 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Download, Upload, AlertTriangle, CheckCircle, Loader2, Database, FileJson } from 'lucide-react';
 import { apiService } from '../services/apiService';
+import { useModal } from '../context/ModalContext';
 
 interface BackupRestoreProps {
   data: any; // Contains all application state to be backed up
@@ -12,6 +13,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ data, onRestore }) => {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showAlert, showConfirm } = useModal();
 
   const handleDownloadBackup = () => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -36,23 +38,26 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ data, onRestore }) => {
     reader.onload = async (event) => {
       try {
         const jsonContent = JSON.parse(event.target?.result as string);
-        if (confirm("PERINGATAN: Tindakan ini akan MENIMPA SEMUA DATA yang ada di database dengan data dari file backup. Apakah Anda yakin ingin melanjutkan?")) {
+        showConfirm(
+          "PERINGATAN: Tindakan ini akan MENIMPA SEMUA DATA yang ada di database dengan data dari file backup. Apakah Anda yakin ingin melanjutkan?",
+          async () => {
             setIsRestoring(true);
             setRestoreStatus('idle');
             try {
                 await onRestore(jsonContent);
                 setRestoreStatus('success');
-                alert("Restore data berhasil! Silakan refresh halaman.");
+                showAlert("Restore data berhasil! Silakan refresh halaman.", "success");
             } catch (err) {
                 console.error(err);
                 setRestoreStatus('error');
-                alert("Gagal melakukan restore data.");
+                showAlert("Gagal melakukan restore data.", "error");
             } finally {
                 setIsRestoring(false);
             }
-        }
+          }
+        );
       } catch (err) {
-        alert("File backup tidak valid.");
+        showAlert("File backup tidak valid.", "error");
       }
       // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';

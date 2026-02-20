@@ -11,6 +11,7 @@ import {
   Camera, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
+import { useModal } from '../context/ModalContext';
 
 interface StudentPortalProps {
   student: Student;
@@ -35,6 +36,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   onSaveLiaison, onSavePermission, onSaveKarakter, onUpdateStudent, learningDocumentation = []
 }) => {
   const [activeTab, setActiveTab] = useState<PortalTab>('dashboard');
+  const { showAlert } = useModal();
   
   // -- STATES FOR DASHBOARD GRADES --
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(MOCK_SUBJECTS[0]?.id || 'pai');
@@ -156,10 +158,10 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
     setIsSavingProfile(true);
     try {
         await onUpdateStudent(profileData as Student);
-        alert('Data berhasil diperbarui!');
+        showAlert('Data berhasil diperbarui!', 'success');
         setIsEditingProfile(false);
     } catch (e) {
-        alert('Gagal menyimpan profil.');
+        showAlert('Gagal menyimpan profil.', 'error');
     } finally {
         setIsSavingProfile(false);
     }
@@ -168,7 +170,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   const handleSubmitPermission = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!permissionForm.reason) {
-          alert("Mohon isi alasan.");
+          showAlert("Mohon isi alasan.", "error");
           return;
       }
       setIsSubmittingPermission(true);
@@ -182,7 +184,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
           await onSavePermission(permissionForm.date, records);
           setPermissionForm({ ...permissionForm, reason: '' });
       } catch (e) {
-          alert("Gagal mengirim pengajuan.");
+          showAlert("Gagal mengirim pengajuan.", "error");
       } finally {
           setIsSubmittingPermission(false);
       }
@@ -191,7 +193,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
   const handleSubmitLiaison = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!liaisonForm.message) {
-          alert("Pesan tidak boleh kosong.");
+          showAlert("Pesan tidak boleh kosong.", "error");
           return;
       }
       setIsSubmittingLiaison(true);
@@ -207,7 +209,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
           });
           setLiaisonForm({ ...liaisonForm, message: '' });
       } catch (e) {
-          alert("Gagal mengirim pesan.");
+          showAlert("Gagal mengirim pesan.", "error");
       } finally {
           setIsSubmittingLiaison(false);
       }
@@ -228,9 +230,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({
               afirmasi: karakterForm.afirmasi
           };
           await onSaveKarakter(student.id, assessmentToSave);
-          alert("Self-assessment 7 Kebiasaan berhasil disimpan.");
+          showAlert("Self-assessment 7 Kebiasaan berhasil disimpan.", "success");
       } catch (e) {
-          alert("Gagal menyimpan.");
+          showAlert("Gagal menyimpan.", "error");
       } finally {
           setIsSavingKarakter(false);
       }

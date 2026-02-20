@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { Upload, Printer, Save, Loader2, Trash2 } from 'lucide-react';
 import { TeacherProfileData } from '../../types';
 import { compressImage } from '../../utils/imageHelper';
+import { useModal } from '../../context/ModalContext';
 
 interface TeacherIdentityTabProps {
   profile: TeacherProfileData;
@@ -13,6 +14,7 @@ interface TeacherIdentityTabProps {
 
 const TeacherIdentityTab: React.FC<TeacherIdentityTabProps> = ({ profile, setProfile, onSave, isSaving }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showAlert } = useModal();
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -23,7 +25,7 @@ const TeacherIdentityTab: React.FC<TeacherIdentityTabProps> = ({ profile, setPro
         setProfile({ ...profile, photo: resizedBase64 });
       } catch (error) {
         console.error("Error compressing image", error);
-        alert("Gagal memproses gambar. Format tidak didukung.");
+        showAlert("Gagal memproses gambar. Format tidak didukung.", "error");
       }
     }
   };
@@ -37,7 +39,7 @@ const TeacherIdentityTab: React.FC<TeacherIdentityTabProps> = ({ profile, setPro
         setProfile({ ...profile, signature: resizedBase64 });
       } catch (error) {
         console.error("Gagal upload TTD", error);
-        alert("Gagal memproses tanda tangan.");
+        showAlert("Gagal memproses tanda tangan.", "error");
       }
     }
   };

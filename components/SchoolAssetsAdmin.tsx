@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { SchoolAsset } from '../types';
 import { Building, Plus, Trash2, Edit, Save, X, Search, CheckCircle, AlertTriangle, XCircle, PenTool } from 'lucide-react';
+import { useModal } from '../context/ModalContext';
 
 interface SchoolAssetsAdminProps {
   assets: SchoolAsset[];
@@ -19,6 +20,7 @@ const SchoolAssetsAdmin: React.FC<SchoolAssetsAdminProps> = ({ assets, onSave, o
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const { showAlert, showConfirm } = useModal();
 
   const filteredAssets = assets.filter(asset => 
     asset.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -42,7 +44,7 @@ const SchoolAssetsAdmin: React.FC<SchoolAssetsAdminProps> = ({ assets, onSave, o
 
   const handleSave = async () => {
     if (!editingAsset.name || !editingAsset.condition || (editingAsset.qty !== undefined && editingAsset.qty < 0)) {
-      alert("Mohon lengkapi data dengan benar.");
+      showAlert("Mohon lengkapi data dengan benar.", "error");
       return;
     }
     setIsSaving(true);
@@ -56,16 +58,16 @@ const SchoolAssetsAdmin: React.FC<SchoolAssetsAdminProps> = ({ assets, onSave, o
       });
       setIsModalOpen(false);
     } catch (e) {
-      alert("Gagal menyimpan data.");
+      showAlert("Gagal menyimpan data.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Hapus data sarana prasarana ini?")) {
+    showConfirm("Hapus data sarana prasarana ini?", async () => {
       await onDelete(id);
-    }
+    });
   };
 
   const getConditionBadge = (condition: string) => {

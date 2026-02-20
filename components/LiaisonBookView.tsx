@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { LiaisonLog, Student } from '../types';
 import { Search, CheckCircle, XCircle, Clock, Filter, BookOpen, CheckSquare, MessageCircle, Send, Loader2, ChevronDown } from 'lucide-react';
 import { apiService } from '../services/apiService';
+import { useModal } from '../context/ModalContext';
 
 interface LiaisonBookViewProps {
   logs: LiaisonLog[];
@@ -17,6 +18,7 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onRep
   const [searchTerm, setSearchTerm] = useState('');
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
+  const { showAlert, showConfirm } = useModal();
 
   // --- State for New Message Form ---
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
@@ -45,9 +47,9 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onRep
   }, [enrichedLogs, searchTerm, filterStatus]);
 
   const handleStatusChange = async (id: string, newStatus: 'Diterima' | 'Ditolak' | 'Selesai') => {
-      if (confirm(`Ubah status laporan menjadi ${newStatus}?`)) {
+      showConfirm(`Ubah status laporan menjadi ${newStatus}?`, async () => {
           await onUpdateStatus([id], newStatus);
-      }
+      });
   };
 
   const handleSendReply = async (log: LiaisonLog) => {
@@ -74,7 +76,7 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onRep
         setReplyText(prev => ({ ...prev, [log.id]: '' }));
         // No need to reload, App.tsx will refresh the state via props.
     } catch (e) {
-        alert('Gagal mengirim balasan.');
+        showAlert('Gagal mengirim balasan.', 'error');
     } finally {
         setSendingReply(null);
     }
@@ -83,7 +85,7 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onRep
   const handleNewMessageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.studentId || !newMessage.message) {
-      alert('Mohon pilih siswa dan isi pesan.');
+      showAlert('Mohon pilih siswa dan isi pesan.', 'error');
       return;
     }
     setIsSubmittingNew(true);
@@ -100,7 +102,7 @@ const LiaisonBookView: React.FC<LiaisonBookViewProps> = ({ logs, students, onRep
       setNewMessage({ studentId: '', category: 'Informasi', message: '' });
       setIsNewMessageOpen(false);
     } catch (err) {
-      alert('Gagal mengirim pesan baru.');
+      showAlert('Gagal mengirim pesan baru.', 'error');
     } finally {
       setIsSubmittingNew(false);
     }

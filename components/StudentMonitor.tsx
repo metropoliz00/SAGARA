@@ -11,6 +11,7 @@ import {
   MapPin, TrendingUp, ListTodo, Award, Star, AlertTriangle, HeartHandshake, LayoutDashboard, Medal,
   Activity, Trophy, User as UserIcon, Save, Loader2, GraduationCap, Heart, Sparkles, AlertCircle
 } from 'lucide-react';
+import { useModal } from '../context/ModalContext';
 
 interface StudentMonitorProps {
   students: Student[];
@@ -36,6 +37,7 @@ const StudentMonitor: React.FC<StudentMonitorProps> = ({
   const [activeTab, setActiveTab] = useState<MonitorTab>('profile');
   const [teacherNotes, setTeacherNotes] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const { showAlert } = useModal();
   
   // Grade Selection State
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(MOCK_SUBJECTS[0]?.id || 'pai');
@@ -104,9 +106,9 @@ const StudentMonitor: React.FC<StudentMonitorProps> = ({
     setIsSavingNotes(true);
     try {
       await onUpdateStudent({ ...selectedStudent, teacherNotes: teacherNotes });
-      alert('Catatan berhasil disimpan.');
+      showAlert('Catatan berhasil disimpan.', 'success');
     } catch (e) {
-      alert('Gagal menyimpan catatan.');
+      showAlert('Gagal menyimpan catatan.', 'error');
     } finally {
       setIsSavingNotes(false);
     }

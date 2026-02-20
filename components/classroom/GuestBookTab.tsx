@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { BookOpen, Save, Calendar, Clock, Plus, PenTool, Trash2, X } from 'lucide-react';
 import { Guest } from '../../types';
+import { useModal } from '../../context/ModalContext';
 
 interface GuestBookTabProps {
   guests: Guest[];
@@ -13,6 +14,7 @@ interface GuestBookTabProps {
 
 const GuestBookTab: React.FC<GuestBookTabProps> = ({ guests, onSave, onDelete, onShowNotification, classId }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { showConfirm } = useModal();
   const [editingGuest, setEditingGuest] = useState<Partial<Guest>>({
     date: new Date().toISOString().split('T')[0],
     time: '',
@@ -111,7 +113,7 @@ const GuestBookTab: React.FC<GuestBookTabProps> = ({ guests, onSave, onDelete, o
                    <td className="px-6 py-4 text-right no-print">
                       <button onClick={() => handleOpenModal(guest)} className="text-gray-400 hover:text-indigo-600 mr-3 p-1 rounded hover:bg-gray-100"><PenTool size={16} /></button>
                       <button 
-                        onClick={() => { if(confirm("Hapus data tamu ini?")) onDelete(guest.id); }} 
+                        onClick={() => { showConfirm("Hapus data tamu ini?", async () => onDelete(guest.id)); }} 
                         className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-gray-100"
                       >
                         <Trash2 size={16} />

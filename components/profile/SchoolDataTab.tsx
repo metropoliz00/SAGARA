@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { SchoolProfileData } from '../../types';
 import { compressImage } from '../../utils/imageHelper';
 import { Loader2, AlertCircle, Save, Lock, Upload, Trash2, Megaphone } from 'lucide-react';
+import { useModal } from '../../context/ModalContext';
 
 interface SchoolDataTabProps {
   school: SchoolProfileData;
@@ -15,6 +16,7 @@ interface SchoolDataTabProps {
 const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave, isSaving, isReadOnly = false }) => {
   const [uploadingRegency, setUploadingRegency] = useState(false);
   const [uploadingSchool, setUploadingSchool] = useState(false);
+  const { showAlert } = useModal();
 
   const academicYears = [
     "2025/2026",
@@ -46,7 +48,7 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
         }
       } catch (error) {
         console.error("Gagal kompresi logo", error);
-        alert("Gagal memproses gambar. Cobalah gambar yang lebih kecil atau format JPG.");
+        showAlert("Gagal memproses gambar. Cobalah gambar yang lebih kecil atau format JPG.", "error");
       } finally {
         // Reset loading & input
         if (type === 'regency') setUploadingRegency(false);
@@ -65,7 +67,7 @@ const SchoolDataTab: React.FC<SchoolDataTabProps> = ({ school, setSchool, onSave
         setSchool({ ...school, headmasterSignature: resizedBase64 });
       } catch (error) {
         console.error("Gagal upload TTD", error);
-        alert("Gagal memproses tanda tangan.");
+        showAlert("Gagal memproses tanda tangan.", "error");
       }
     }
   };
