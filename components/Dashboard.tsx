@@ -161,6 +161,13 @@ const Dashboard: React.FC<DashboardProps> = ({
       return variants[index % variants.length];
   };
 
+  const monthlyChartData = [
+    { name: 'Hadir', value: totalPresent, color: '#10B981' },
+    { name: 'Sakit', value: totalSick, color: '#F59E0B' },
+    { name: 'Izin', value: totalPermit, color: '#6366F1' },
+    { name: 'Alpha', value: totalAlpha, color: '#EF4444' },
+  ].filter(d => d.value > 0);
+
   const curriculumProgress = useMemo(() => {
     if (!subjects || !grades || students.length === 0) return [];
     return subjects.map((subject) => {
@@ -430,6 +437,43 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <Area type="monotone" dataKey="H_percent" stroke="#5AB2FF" strokeWidth={3} fill="url(#colorHadir)" name="Hadir (%)" />
                     </AreaChart>
                 </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Rekap Absensi Bulan Ini</h3>
+                <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={monthlyChartData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={100}
+                                fill="#8884d8"
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ cx, cy, midAngle, innerRadius, outerRadius, value, index }) => {
+                                    const RADIAN = Math.PI / 180;
+                                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                    return (
+                                        <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={14} fontWeight="bold">
+                                            {`${value}`}
+                                        </text>
+                                    );
+                                }}
+                            >
+                                {monthlyChartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend iconType="circle"/>
+                        </PieChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
