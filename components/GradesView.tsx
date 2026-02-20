@@ -1,7 +1,7 @@
 
 // ... (imports remain the same)
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Student, GradeRecord, GradeData, Subject } from '../types';
+import { Student, GradeRecord, GradeData, Subject, SchoolProfileData, TeacherProfileData } from '../types';
 import { MOCK_SUBJECTS } from '../constants';
 import { apiService } from '../services/apiService';
 import * as XLSX from 'xlsx';
@@ -15,11 +15,13 @@ interface GradesViewProps {
   classId: string;
   isReadOnly?: boolean;
   allowedSubjects?: string[];
+  schoolProfile?: SchoolProfileData;
+  teacherProfile?: TeacherProfileData;
 }
 
 const GradesView: React.FC<GradesViewProps> = ({ 
   students, initialGrades, onSave, onShowNotification, classId, 
-  isReadOnly = false, allowedSubjects = ['all'] 
+  isReadOnly = false, allowedSubjects = ['all'], schoolProfile, teacherProfile
 }) => {
   const [viewMode, setViewMode] = useState<'input' | 'recap'>('input');
   const [selectedSubject, setSelectedSubject] = useState<string>(MOCK_SUBJECTS[0].id);
@@ -224,7 +226,162 @@ const GradesView: React.FC<GradesViewProps> = ({
     }
   };
 
-  const handlePrint = () => window.print();
+  const getSubjectInitials = (name: string) => {
+      const ignore = ['pendidikan', 'dan', 'bahasa'];
+      const parts = name.split(' ').filter(p => !ignore.includes(p.toLowerCase()));
+      if (parts.length === 1) return parts[0].substring(0, 3).toUpperCase();
+      return parts.map(p => p[0]).join('').toUpperCase();
+  };
+
+  const handlePrint = () => {
+      const signatureBlock = `
+        <div class="print-footer clearfix">
+            <div class="signature-box signature-left">
+                <p>Mengetahui,</p>
+                <p>Kepala ${schoolProfile?.name || 'Sekolah'}</p>
+                <div class="signature-space"></div>
+                <p class="underline">${schoolProfile?.headmaster || '.........................'}</p>
+                <p>NIP. ${schoolProfile?.headmasterNip || '.........................'}</p>
+            </div>
+            <div class="signature-box signature-right">
+                <p>Remen, ${new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                <p>Guru Kelas ${classId}</p>
+                <div class="signature-space"></div>
+                <p class="underline">${teacherProfile?.name || '.........................'}</p>
+                <p>NIP. ${teacherProfile?.nip || '.........................'}</p>
+            </div>
+        </div>
+      `;
+
+      let content = '';
+
+      if (viewMode === 'input') {
+          // Summative Recap
+          const subjectName = activeSubject?.name || selectedSubject;
+          content = `
+            <div class="print-header">
+                <h2>REKAP NILAI SUMATIF</h2>
+                <p>KELAS ${classId}</p>
+                <p>TAHUN AJARAN ${schoolProfile?.year || new Date().getFullYear()}</p>
+                <p>MATA PELAJARAN: ${subjectName.toUpperCase()}</p>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%">No</th>
+                        <th style="width: 25%">Nama Siswa</th>
+                        <th style="width: 10%">NIS</th>
+                        <th style="width: 10%">NISN</th>
+                        <th style="width: 8%">SUM 1</th>
+                        <th style="width: 8%">SUM 2</th>
+                        <th style="width: 8%">SUM 3</th>
+                        <th style="width: 8%">SUM 4</th>
+                        <th style="width: 8%">SAS</th>
+                        <th style="width: 10%">NILAI AKHIR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${students.map((s, idx) => {
+                        const g = getStudentGrade(s.id);
+                        const avg = calculateFinalAverage(g);
+                        return `
+                        <tr>
+                            <td style="text-align: center">${idx + 1}</td>
+                            <td>${s.name}</td>
+                            <td>${s.nis}</td>
+                            <td>${s.nisn || '-'}</td>
+                            <td style="text-align: center">${g.sum1 || '-'}</td>
+                            <td style="text-align: center">${g.sum2 || '-'}</td>
+                            <td style="text-align: center">${g.sum3 || '-'}</td>
+                            <td style="text-align: center">${g.sum4 || '-'}</td>
+                            <td style="text-align: center">${g.sas || '-'}</td>
+                            <td style="text-align: center; font-weight: bold;">${avg || '-'}</td>
+                        </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+            ${signatureBlock}
+          `;
+      } else {
+          // Report Card Recap
+          content = `
+            <div class="print-header">
+                <h2>REKAP NILAI RAPOR</h2>
+                <p>KELAS ${classId}</p>
+                <p>TAHUN AJARAN ${schoolProfile?.year || new Date().getFullYear()}</p>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%">No</th>
+                        <th style="width: 20%">Nama Siswa</th>
+                        <th style="width: 10%">NIS</th>
+                        <th style="width: 10%">NISN</th>
+                        ${MOCK_SUBJECTS.map(s => `<th style="width: 5%">${getSubjectInitials(s.name)}</th>`).join('')}
+                        <th style="width: 8%">Total</th>
+                        <th style="width: 8%">Rank</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${recapData.map((s, idx) => `
+                        <tr>
+                            <td style="text-align: center">${idx + 1}</td>
+                            <td>${s.name}</td>
+                            <td>${s.nis}</td>
+                            <td>${s.nisn || '-'}</td>
+                            ${MOCK_SUBJECTS.map(subj => `<td style="text-align: center">${s.scores[subj.id] || '-'}</td>`).join('')}
+                            <td style="text-align: center; font-weight: bold;">${s.totalScore}</td>
+                            <td style="text-align: center">${s.rank}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ${signatureBlock}
+          `;
+      }
+
+      const newWindow = window.open("", "", "width=1200,height=800");
+  
+      newWindow?.document.write(`
+        <html>
+          <head>
+            <title>Rekap Nilai - Kelas ${classId}</title>
+            <style>
+              body { font-family: 'Times New Roman', Times, serif; padding: 20px; font-size: 10pt; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+              th, td { border: 1px solid black; padding: 4px; text-align: left; vertical-align: middle; }
+              th { text-align: center; font-weight: bold; background-color: #f0f0f0; }
+              .print-header { text-align: center; margin-bottom: 20px; line-height: 1.2; font-weight: bold; }
+              .print-header h2, .print-header p { margin: 0; padding: 0; text-transform: uppercase; }
+              .print-footer { margin-top: 30px; width: 100%; font-size: 11pt; page-break-inside: avoid; }
+              .signature-box { width: 45%; text-align: center; }
+              .signature-box p { margin: 0; line-height: 1.4; }
+              .signature-left { float: left; }
+              .signature-right { float: right; }
+              .signature-space { height: 60px; }
+              .underline { text-decoration: underline; font-weight: bold; }
+              .clearfix::after { content: ""; clear: both; display: table; }
+              @page { size: A4 landscape; margin: 1.5cm; }
+              @media print {
+                body { -webkit-print-color-adjust: exact; }
+              }
+            </style>
+          </head>
+          <body>
+            ${content}
+          </body>
+        </html>
+      `);
+    
+      newWindow?.document.close();
+      setTimeout(() => {
+          newWindow?.focus();
+          newWindow?.print();
+          newWindow?.close();
+      }, 500);
+  };
+
   const handleDownloadTemplate = () => { 
       const headers = ["NIS", "Nama Siswa", "Mata Pelajaran(ID)", "SUM 1", "SUM 2", "SUM 3", "SUM 4", "SAS"];
       const example = ["2024001", "Contoh Siswa", selectedSubject, "80", "85", "90", "88", "85"];
@@ -297,13 +454,6 @@ const GradesView: React.FC<GradesViewProps> = ({
         if(fileInputRef.current) fileInputRef.current.value = '';
       };
       reader.readAsBinaryString(file);
-  };
-
-  const getSubjectInitials = (name: string) => {
-      const ignore = ['pendidikan', 'dan', 'bahasa'];
-      const parts = name.split(' ').filter(p => !ignore.includes(p.toLowerCase()));
-      if (parts.length === 1) return parts[0].substring(0, 3).toUpperCase();
-      return parts.map(p => p[0]).join('').toUpperCase();
   };
 
   return (

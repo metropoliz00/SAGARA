@@ -846,6 +846,8 @@ const App: React.FC = () => {
                   classId={activeClassId}
                   isReadOnly={isGlobalReadOnly}
                   allowedSubjects={allowedSubjects}
+                  schoolProfile={schoolProfile}
+                  teacherProfile={teacherProfile}
                 />;
       case 'attitude':
           if (isStudentRole) { setCurrentView('dashboard'); return null; }
