@@ -53,7 +53,14 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
     }, [users, classId, teacherProfile]);
 
     const { unassignedStudents, studentMap } = useMemo(() => {
-        const assignedIds = new Set(Object.values(structure.roles).filter(Boolean));
+        const assignedIds = new Set<string>();
+        Object.values(structure.roles).forEach(val => {
+            if (Array.isArray(val)) {
+                val.forEach(id => assignedIds.add(id));
+            } else if (val) {
+                assignedIds.add(val);
+            }
+        });
         const unassigned = students.filter(s => !assignedIds.has(s.id));
         const map = new Map(students.map(s => [s.id, s]));
         return { unassignedStudents: unassigned, studentMap: map };
@@ -64,6 +71,8 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
         e.dataTransfer.effectAllowed = 'move';
     };
 
+    const isSectionRole = (roleId: string) => structure.sections.some(s => s.id === roleId);
+
     const handleDrop = (e: React.DragEvent, targetRole: string) => {
         e.preventDefault();
         const { studentId, sourceRole } = JSON.parse(e.dataTransfer.getData('application/json'));
@@ -71,29 +80,55 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
 
         setStructure(prev => {
             const newRoles = { ...prev.roles };
-            const studentInTarget = newRoles[targetRole]; // Student being replaced
+            const studentInTarget = newRoles[targetRole]; // Student being replaced (if single)
 
-            // 1. Place dragged student into target role
-            newRoles[targetRole] = studentId;
-
-            // 2. Clear student from source role
+            // 1. Remove from source
             if (sourceRole !== 'unassigned') {
-                newRoles[sourceRole] = null;
+                const sourceVal = newRoles[sourceRole];
+                if (Array.isArray(sourceVal)) {
+                    newRoles[sourceRole] = sourceVal.filter(id => id !== studentId);
+                } else if (sourceVal === studentId) {
+                    newRoles[sourceRole] = null;
+                }
             }
-            
-            // 3. If target was occupied, move the replaced student to the source role (swap)
-            if (studentInTarget && sourceRole !== 'unassigned') {
-                newRoles[sourceRole] = studentInTarget;
+
+            // 2. Add to target
+            if (isSectionRole(targetRole)) {
+                const currentVal = newRoles[targetRole];
+                if (Array.isArray(currentVal)) {
+                    if (!currentVal.includes(studentId)) {
+                        newRoles[targetRole] = [...currentVal, studentId];
+                    }
+                } else if (currentVal && typeof currentVal === 'string') {
+                    if (currentVal !== studentId) {
+                        newRoles[targetRole] = [currentVal, studentId];
+                    }
+                } else {
+                    newRoles[targetRole] = [studentId];
+                }
+            } else {
+                // Single role
+                newRoles[targetRole] = studentId;
+                
+                // Swap if possible (only if source was single and not unassigned)
+                if (studentInTarget && typeof studentInTarget === 'string' && sourceRole !== 'unassigned' && !isSectionRole(sourceRole)) {
+                    newRoles[sourceRole] = studentInTarget;
+                }
             }
             
             return { ...prev, roles: newRoles };
         });
     };
 
-    const removeStudentFromRole = (roleId: string) => {
+    const removeStudentFromRole = (roleId: string, studentId?: string) => {
         setStructure(prev => {
             const newRoles = { ...prev.roles };
-            delete newRoles[roleId];
+            const val = newRoles[roleId];
+            if (Array.isArray(val) && studentId) {
+                newRoles[roleId] = val.filter(id => id !== studentId);
+            } else {
+                delete newRoles[roleId];
+            }
             return { ...prev, roles: newRoles };
         });
     };
@@ -132,8 +167,9 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
     };
     
     const RoleBox = ({ roleId, label }: { roleId: string; label: string }) => {
-        const studentId = structure.roles[roleId];
-        const student = studentId ? studentMap.get(studentId) : null;
+        const roleValue = structure.roles[roleId];
+        const studentIds = Array.isArray(roleValue) ? roleValue : (roleValue ? [roleValue] : []);
+        
         return (
             <div 
                 className="flex flex-col items-center"
@@ -141,22 +177,31 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
                 onDrop={(e) => handleDrop(e, roleId)}
             >
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
-                <div className={`w-32 h-20 mt-1 rounded-lg flex items-center justify-center p-2 text-center transition-all ${student ? 'bg-white shadow-md border-2 border-indigo-200 cursor-grab active:cursor-grabbing' : 'bg-gray-100 border-2 border-dashed border-gray-300'}`}>
-                    {student ? (
-                        <div 
-                            className="w-full h-full flex flex-col items-center" 
-                            draggable 
-                            onDragStart={(e) => handleDragStart(e, student.id, roleId)}
-                            title={student.name}
-                        >
-                            {student.photo ? (
-                                <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover"/>
-                            ) : (
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500">
-                                    <UserIcon size={16} />
-                                </div>
-                            )}
-                            <p className="text-xs font-bold text-gray-800 mt-1 leading-tight">{student.name.split(' ').slice(0, 2).join(' ')}</p>
+                <div className={`w-32 min-h-[5rem] mt-1 rounded-lg flex flex-col items-center justify-center p-2 text-center transition-all ${studentIds.length > 0 ? 'bg-white shadow-md border-2 border-indigo-200' : 'bg-gray-100 border-2 border-dashed border-gray-300'}`}>
+                    {studentIds.length > 0 ? (
+                        <div className="flex flex-col gap-2 w-full">
+                            {studentIds.map(sid => {
+                                const student = studentMap.get(sid);
+                                if (!student) return null;
+                                return (
+                                    <div 
+                                        key={sid}
+                                        className="w-full flex flex-col items-center cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded p-1" 
+                                        draggable 
+                                        onDragStart={(e) => handleDragStart(e, student.id, roleId)}
+                                        title={student.name}
+                                    >
+                                        {student.photo ? (
+                                            <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover"/>
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500">
+                                                <UserIcon size={16} />
+                                            </div>
+                                        )}
+                                        <p className="text-xs font-bold text-gray-800 mt-1 leading-tight">{student.name.split(' ').slice(0, 2).join(' ')}</p>
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : <span className="text-xs text-gray-400">Tarik Siswa</span>}
                 </div>
@@ -172,7 +217,10 @@ const OrganizationChartTab: React.FC<OrganizationChartTabProps> = ({ students, t
                 <div 
                     className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar p-1 bg-gray-50 rounded-lg"
                     onDragOver={e => e.preventDefault()}
-                    onDrop={e => removeStudentFromRole(JSON.parse(e.dataTransfer.getData('application/json')).sourceRole)}
+                    onDrop={e => {
+                    const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                    removeStudentFromRole(data.sourceRole, data.studentId);
+                }}
                 >
                     {unassignedStudents.map(student => (
                         <div key={student.id} draggable onDragStart={(e) => handleDragStart(e, student.id, 'unassigned')} className="bg-white border p-2 rounded-lg flex items-center gap-2 cursor-grab active:cursor-grabbing hover:shadow-md">

@@ -211,7 +211,6 @@ export interface LearningJournalEntry {
   model?: string;
   pendekatan?: string;
   metode?: string[];
-  metodeLainnya?: string;
 }
 
 export interface LearningDocumentation {
@@ -285,7 +284,7 @@ export interface AcademicCalendarData {
 }
 
 export interface OrganizationStructure {
-  roles: Record<string, string | null>;
+  roles: Record<string, string | string[] | null>;
   sections: { id: string; name: string }[];
 }
 
