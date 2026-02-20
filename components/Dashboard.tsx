@@ -85,25 +85,41 @@ const Dashboard: React.FC<DashboardProps> = ({
   const maleStudents = students.filter(s => s.gender === 'L').length;
   const femaleStudents = students.filter(s => s.gender === 'P').length;
 
+  const classAttendanceRecords = useMemo(() => {
+      const studentIds = students.map(s => s.id);
+      return (allAttendanceRecords as any[]).filter(record => studentIds.includes(record.studentId));
+  }, [allAttendanceRecords, students]);
+
   const monthlyStats = useMemo(() => {
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
-    const monthlyRecords = (allAttendanceRecords as any[]).filter(record => {
+    const monthlyRecords = classAttendanceRecords.filter(record => {
         const recordDate = new Date(record.date + 'T00:00:00');
         return recordDate.getFullYear() === currentYear && (recordDate.getMonth() + 1) === currentMonth;
     });
     return {
-        present: monthlyRecords.filter(r => r.status === 'present').length,
-        sick: monthlyRecords.filter(r => r.status === 'sick').length,
-        permit: monthlyRecords.filter(r => r.status === 'permit').length,
-        alpha: monthlyRecords.filter(r => r.status === 'alpha').length,
+        present: new Set(monthlyRecords.filter(r => r.status === 'present').map(r => r.studentId)).size,
+        sick: new Set(monthlyRecords.filter(r => r.status === 'sick').map(r => r.studentId)).size,
+        permit: new Set(monthlyRecords.filter(r => r.status === 'permit').map(r => r.studentId)).size,
+        alpha: new Set(monthlyRecords.filter(r => r.status === 'alpha').map(r => r.studentId)).size,
     };
-  }, [allAttendanceRecords]);
+  }, [classAttendanceRecords]);
 
   const totalPresent = monthlyStats.present;
   const totalSick = monthlyStats.sick;
   const totalPermit = monthlyStats.permit;
   const totalAlpha = monthlyStats.alpha;
+
+  const todayStats = useMemo(() => {
+    const todayStr = getLocalISODate(new Date());
+    const todayRecords = classAttendanceRecords.filter(r => r.date === todayStr);
+    return {
+        present: new Set(todayRecords.filter(r => r.status === 'present').map(r => r.studentId)).size,
+        sick: new Set(todayRecords.filter(r => r.status === 'sick').map(r => r.studentId)).size,
+        permit: new Set(todayRecords.filter(r => r.status === 'permit').map(r => r.studentId)).size,
+        alpha: new Set(todayRecords.filter(r => r.status === 'alpha').map(r => r.studentId)).size,
+    };
+  }, [classAttendanceRecords]);
 
   const attendanceTrendData = useMemo(() => {
     const daysShort = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
@@ -120,12 +136,12 @@ const Dashboard: React.FC<DashboardProps> = ({
       const targetDate = new Date(monday);
       targetDate.setDate(monday.getDate() + i);
       const dateStr = getLocalISODate(targetDate);
-      const dayRecords = (allAttendanceRecords as any[]).filter(r => r.date === dateStr);
+      const dayRecords = classAttendanceRecords.filter(r => r.date === dateStr);
       
-      const presentCount = dayRecords.filter(r => r.status === 'present').length;
-      const sickCount = dayRecords.filter(r => r.status === 'sick').length;
-      const permitCount = dayRecords.filter(r => r.status === 'permit').length;
-      const alphaCount = dayRecords.filter(r => r.status === 'alpha').length;
+      const presentCount = new Set(dayRecords.filter(r => r.status === 'present').map(r => r.studentId)).size;
+      const sickCount = new Set(dayRecords.filter(r => r.status === 'sick').map(r => r.studentId)).size;
+      const permitCount = new Set(dayRecords.filter(r => r.status === 'permit').map(r => r.studentId)).size;
+      const alphaCount = new Set(dayRecords.filter(r => r.status === 'alpha').map(r => r.studentId)).size;
 
       // Calculate percentage based on total students.
       const presentPercent = Math.round((presentCount / totalClassStudents) * 100);
@@ -146,15 +162,15 @@ const Dashboard: React.FC<DashboardProps> = ({
       });
     }
     return weekData;
-  }, [allAttendanceRecords, students]);
+  }, [classAttendanceRecords, students]);
 
   const absentToday = useMemo(() => {
     const todayStr = getLocalISODate(new Date());
-    return allAttendanceRecords.filter(record => record.date === todayStr && record.status !== 'present').map(record => {
+    return classAttendanceRecords.filter(record => record.date === todayStr && record.status !== 'present').map(record => {
             const student = students.find(s => s.id === record.studentId);
             return { ...record, name: student?.name || 'Siswa tidak ditemukan' };
         });
-  }, [allAttendanceRecords, students]);
+  }, [classAttendanceRecords, students]);
 
   const priorityAgenda = agendas.find(a => a.type === 'urgent' && !a.completed) || agendas.find(a => !a.completed);
   const incompleteAgendas = agendas.filter(a => !a.completed);
@@ -175,7 +191,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const data = [];
     const totalClassStudents = students.length > 0 ? students.length : 1;
 
-    const monthlyRecords = (allAttendanceRecords as any[]).filter(record => {
+    const monthlyRecords = classAttendanceRecords.filter(record => {
         const recordDate = new Date(record.date + 'T00:00:00');
         return recordDate.getFullYear() === year && recordDate.getMonth() === month;
     });
@@ -184,10 +200,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const dayRecords = monthlyRecords.filter(r => r.date === dateStr);
         
-        const presentCount = dayRecords.filter(r => r.status === 'present').length;
-        const sickCount = dayRecords.filter(r => r.status === 'sick').length;
-        const permitCount = dayRecords.filter(r => r.status === 'permit').length;
-        const alphaCount = dayRecords.filter(r => r.status === 'alpha').length;
+        const presentCount = new Set(dayRecords.filter(r => r.status === 'present').map(r => r.studentId)).size;
+        const sickCount = new Set(dayRecords.filter(r => r.status === 'sick').map(r => r.studentId)).size;
+        const permitCount = new Set(dayRecords.filter(r => r.status === 'permit').map(r => r.studentId)).size;
+        const alphaCount = new Set(dayRecords.filter(r => r.status === 'alpha').map(r => r.studentId)).size;
 
         data.push({
             name: `${i}`,
@@ -202,7 +218,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         });
     }
     return data;
-  }, [allAttendanceRecords, students]);
+  }, [classAttendanceRecords, students]);
 
   const curriculumProgress = useMemo(() => {
     if (!subjects || !grades || students.length === 0) return [];
@@ -391,20 +407,20 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div onClick={() => onChangeView('attendance')} className="bg-gradient-to-br from-[#A0DEFF] to-white text-slate-800 p-5 rounded-2xl shadow-lg shadow-sky-200 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                 <div className="flex justify-between items-start">
                     <div>
-                    <p className="text-sm font-medium text-slate-600 mb-1">Kehadiran</p>
+                    <p className="text-sm font-medium text-slate-600 mb-1">Kehadiran Hari Ini</p>
                     <div className="flex items-end gap-2">
                         <h3 className="text-3xl font-bold">
-                        {totalStudents > 0 ? Math.round((totalPresent / (totalPresent + totalSick + totalPermit + totalAlpha || 1)) * 100) : 0}%
+                        {totalStudents > 0 ? Math.round((todayStats.present / totalStudents) * 100) : 0}%
                         </h3>
                     </div>
                     </div>
                     <div className="p-2 bg-slate-800/10 rounded-lg"><UserCheck size={20} className="text-slate-700" /></div>
                 </div>
                 <div className="mt-4 flex space-x-1 text-[10px] font-bold text-white">
-                    <div className="flex-1 bg-emerald-500 rounded-l-md py-1 text-center truncate shadow-sm">H: {totalPresent}</div>
-                    <div className="w-10 bg-amber-400 py-1 text-center shadow-sm">S: {totalSick}</div>
-                    <div className="w-10 bg-indigo-500 py-1 text-center shadow-sm">I: {totalPermit}</div>
-                    <div className="w-8 bg-rose-500 rounded-r-md py-1 text-center shadow-sm">A: {totalAlpha}</div>
+                    <div className="flex-1 bg-emerald-500 rounded-l-md py-1 text-center truncate shadow-sm">H: {todayStats.present}</div>
+                    <div className="w-10 bg-amber-400 py-1 text-center shadow-sm">S: {todayStats.sick}</div>
+                    <div className="w-10 bg-indigo-500 py-1 text-center shadow-sm">I: {todayStats.permit}</div>
+                    <div className="w-8 bg-rose-500 rounded-r-md py-1 text-center shadow-sm">A: {todayStats.alpha}</div>
                 </div>
             </div>
 
