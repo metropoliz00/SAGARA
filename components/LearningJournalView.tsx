@@ -313,23 +313,123 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
   };
 
   const handlePrint = () => {
-    const printContent = document.getElementById("print-area")?.innerHTML;
-    if (!printContent) return;
+    const signatureBlock = `
+        <div class="print-footer clearfix">
+            <div class="signature-box signature-left">
+                <p>Mengetahui,</p>
+                <p>Kepala ${schoolProfile?.name || 'Sekolah'}</p>
+                <div class="signature-space"></div>
+                <p class="underline">${schoolProfile?.headmaster || '.........................'}</p>
+                <p>NIP. ${schoolProfile?.headmasterNip || '.........................'}</p>
+            </div>
+            <div class="signature-box signature-right">
+                <p>Remen, ${new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                <p>Guru Kelas ${classId}</p>
+                <div class="signature-space"></div>
+                <p class="underline">${teacherProfile?.name || '.........................'}</p>
+                <p>NIP. ${teacherProfile?.nip || '.........................'}</p>
+            </div>
+        </div>
+    `;
+
+    let content = '';
+
+    if (viewMode === 'daily') {
+        content = `
+            <div class="print-header">
+                <h2>JURNAL HARIAN PEMBELAJARAN</h2>
+                <p>KELAS ${classId}</p>
+                <p>HARI/TANGGAL: ${getDayName(currentDate).toUpperCase()}, ${new Date(currentDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}).toUpperCase()}</p>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%">No</th>
+                        <th style="width: 15%">Jam</th>
+                        <th style="width: 20%">Mata Pelajaran</th>
+                        <th style="width: 20%">Materi / Topik</th>
+                        <th style="width: 40%">Kegiatan Pembelajaran</th>
+                        <th style="width: 10%">Ket.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${draftData.map((row, idx) => `
+                        <tr>
+                            <td style="text-align: center">${idx + 1}</td>
+                            <td>${row.timeSlot || ''}</td>
+                            <td>${row.subject || ''}</td>
+                            <td>${row.topic || ''}</td>
+                            <td>${row.activities || ''}</td>
+                            <td>${row.followUp ? 'TL: '+row.followUp : (row.reflection ? 'Ref: '+row.reflection : '')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ${signatureBlock}
+        `;
+    } else {
+        const weekContent = weekDates.map(dateStr => {
+            const rows = getRowsForDate(dateStr);
+            if (rows.length === 0) return '';
+            
+            return `
+                <div style="page-break-inside: avoid; margin-bottom: 20px;">
+                    <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 2px;">
+                        ${getDayName(dateStr)}, ${new Date(dateStr).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">No</th>
+                                <th style="width: 10%">Jam</th>
+                                <th style="width: 15%">Mapel</th>
+                                <th style="width: 20%">Materi</th>
+                                <th style="width: 30%">Kegiatan</th>
+                                <th style="width: 20%">Ket.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map((row, idx) => `
+                                <tr>
+                                    <td style="text-align: center">${idx + 1}</td>
+                                    <td>${row.timeSlot || ''}</td>
+                                    <td>${row.subject || ''}</td>
+                                    <td>${row.topic || ''}</td>
+                                    <td>${row.activities || ''}</td>
+                                    <td>${row.followUp ? 'TL: '+row.followUp : (row.reflection ? 'Ref: '+row.reflection : '')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }).join('');
+
+        content = `
+            <div class="print-header">
+                <h2>JURNAL PEMBELAJARAN MINGGUAN</h2>
+                <p>KELAS ${classId}</p>
+                <p>PERIODE: ${currentMonday.toLocaleDateString('id-ID', {day:'numeric', month:'long'})} - ${currentSaturday.toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</p>
+            </div>
+            ${weekContent}
+            ${signatureBlock}
+        `;
+    }
   
     const newWindow = window.open("", "", "width=1200,height=800");
   
     newWindow?.document.write(`
       <html>
         <head>
-          <title>Jurnal Harian Pembelajaran - Kelas ${classId}</title>
+          <title>Jurnal Pembelajaran - Kelas ${classId}</title>
           <style>
             body { font-family: 'Times New Roman', Times, serif; padding: 20px; font-size: 10pt; }
-            table { width: 100%; border-collapse: collapse; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
             th, td { border: 1px solid black; padding: 4px; text-align: left; vertical-align: top; }
-            th { text-align: center; font-weight: bold; }
+            th { text-align: center; font-weight: bold; background-color: #f0f0f0; }
             .print-header { text-align: center; margin-bottom: 20px; line-height: 1.2; font-weight: bold; }
             .print-header h2, .print-header p { margin: 0; padding: 0; text-transform: uppercase; }
-            .print-footer { margin-top: 30px; width: 100%; font-size: 11pt; }
+            .print-footer { margin-top: 30px; width: 100%; font-size: 11pt; page-break-inside: avoid; }
             .signature-box { width: 45%; text-align: center; }
             .signature-box p { margin: 0; line-height: 1.4; }
             .signature-left { float: left; }
@@ -338,10 +438,13 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
             .underline { text-decoration: underline; font-weight: bold; }
             .clearfix::after { content: ""; clear: both; display: table; }
             @page { size: A4 landscape; margin: 1.5cm; }
+            @media print {
+              body { -webkit-print-color-adjust: exact; }
+            }
           </style>
         </head>
         <body>
-          ${printContent}
+          ${content}
         </body>
       </html>
     `);
@@ -673,57 +776,6 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                 <span>* Mata pelajaran otomatis terisi sesuai jadwal hari ini ({getDayName(currentDate)}). Anda dapat menambah baris manual jika diperlukan.</span>
             </div>
         )}
-
-        {/* Hidden Div for Printing */}
-        <div id="print-area" style={{ display: 'none' }}>
-            <div className="print-header">
-                <h2>JURNAL HARIAN PEMBELAJARAN</h2>
-                <p>KELAS {classId}</p>
-                <p>TAHUN AJARAN {schoolProfile?.year}</p>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>No</th>
-                        <th>Jam</th>
-                        <th>Mata Pelajaran</th>
-                        <th>Kegiatan Pembelajaran</th>
-                        <th>Evaluasi</th>
-                        <th>Refleksi</th>
-                        <th>Tindak Lanjut</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {draftData.map((row, idx) => (
-                    <tr key={idx}>
-                        <td style={{textAlign: 'center'}}>{idx + 1}</td>
-                        <td>{row.timeSlot}</td>
-                        <td>{row.subject}</td>
-                        <td>{row.activities}</td>
-                        <td>{row.evaluation}</td>
-                        <td>{row.reflection}</td>
-                        <td>{row.followUp}</td>
-                    </tr>
-                    ))}
-                </tbody>
-            </table>
-            <div className="print-footer clearfix">
-                <div className="signature-box signature-left">
-                    <p>Mengetahui,</p>
-                    <p>Kepala {schoolProfile?.name}</p>
-                    <div className="signature-space"></div>
-                    <p className="underline">{schoolProfile?.headmaster}</p>
-                    <p>NIP. {schoolProfile?.headmasterNip}</p>
-                </div>
-                <div className="signature-box signature-right">
-                    <p>Remen, {new Date(currentDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
-                    <p>Guru Kelas {classId}</p>
-                    <div className="signature-space"></div>
-                    <p className="underline">{teacherProfile?.name}</p>
-                    <p>NIP. {teacherProfile?.nip}</p>
-                </div>
-            </div>
-      </div>
     </div>
   );
 };
