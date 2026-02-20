@@ -429,9 +429,9 @@ const GradesView: React.FC<GradesViewProps> = ({
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx, .xls, .csv" />
                         <button onClick={handleDownloadTemplate} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Download Template"><Download size={18}/></button>
                         <button onClick={handleImportClick} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Import Excel"><Upload size={18}/></button>
+                        <button onClick={handleExport} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Export Excel"><FileSpreadsheet size={18}/></button>
                     </>
                 )}
-                <button onClick={handleExport} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Export Excel"><FileSpreadsheet size={18}/></button>
                 <button onClick={handlePrint} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50" title="Cetak"><Printer size={18}/></button>
               </div>
           </div>
