@@ -1,6 +1,18 @@
 
 import { Student, Subject, ScheduleItem, GradeRecord, Extracurricular } from './types';
 
+export const CALENDAR_CODES: { [key: string]: { label: string; color: string; type: string } } = {
+  'LHB': { label: 'Libur Hari Besar', color: 'bg-red-500 text-white', type: 'nasional' },
+  'LU': { label: 'Libur Umum', color: 'bg-red-400 text-white', type: 'nasional' },
+  'LS1': { label: 'Libur Semester 1', color: 'bg-blue-500 text-white', type: 'semester' },
+  'LS2': { label: 'Libur Semester 2', color: 'bg-blue-400 text-white', type: 'semester' },
+  'CB': { label: 'Cuti Bersama', color: 'bg-yellow-500 text-black', type: 'cuti' },
+  'KPP': { label: 'Kegiatan Permulaan Puasa', color: 'bg-green-500 text-white', type: 'event' },
+  'LHR': { label: 'Libur Sekitar Hari Raya', color: 'bg-green-400 text-white', type: 'haribesar' },
+  'KTS': { label: 'Kegiatan Tengah Semester', color: 'bg-purple-500 text-white', type: 'event' },
+  'MPLS': { label: 'MPLS', color: 'bg-indigo-500 text-white', type: 'event' },
+};
+
 export const MOCK_STUDENTS: Student[] = [];
 
 // Daftar Kelas untuk Filter Admin

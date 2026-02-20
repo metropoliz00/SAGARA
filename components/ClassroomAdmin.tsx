@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { Student, InventoryItem, Guest, ScheduleItem, PiketGroup, TeacherProfileData, SeatingLayouts, AcademicCalendarData, Holiday, OrganizationStructure, User, SchoolProfileData } from '../types';
-import { DEFAULT_TIME_SLOTS } from '../constants';
+import { DEFAULT_TIME_SLOTS, CALENDAR_CODES } from '../constants';
 
 // Import Sub-Components
 import ScheduleTab from './classroom/ScheduleTab';
@@ -427,7 +427,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
             body { font-family: 'Times New Roman', serif; padding: 20px !important; }
             table { width: 100% !important; border-collapse: collapse; }
             th, td { border: 1px solid black; padding: 4px; }
-            @page { size: A4 ${activeTab === 'schedule' ? 'landscape' : ''}; margin: 20mm; }
+            @page { size: A4 ${activeTab === 'schedule' || activeTab === 'calendar' ? 'landscape' : ''}; margin: 20mm; }
 
             /* Custom Styles for Header/Footer & Colors */
             .print-header { text-align: center; margin-bottom: 20px; font-weight: bold; }
@@ -439,9 +439,19 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
             .signature-space { height: 60px; }
             .name { font-weight: bold; text-decoration: underline; }
 
-            /* Force background colors for "TABEL Berwarna" */
-            .bg-indigo-50 { background-color: #eef2ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Force background colors for print */
+            .bg-indigo-50 { background-color: #eef2ff !important; }
             .text-indigo-900 { color: #312e81 !important; }
+            .bg-red-500 { background-color: #ef4444 !important; color: white !important; }
+            .bg-red-400 { background-color: #f87171 !important; color: white !important; }
+            .bg-blue-500 { background-color: #3b82f6 !important; color: white !important; }
+            .bg-blue-400 { background-color: #60a5fa !important; color: white !important; }
+            .bg-yellow-500 { background-color: #eab308 !important; color: black !important; }
+            .bg-green-500 { background-color: #22c55e !important; color: white !important; }
+            .bg-green-400 { background-color: #4ade80 !important; color: white !important; }
+            .bg-purple-500 { background-color: #a855f7 !important; color: white !important; }
+            .bg-indigo-500 { background-color: #6366f1 !important; color: white !important; }
+            .text-white, .text-black { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             
             /* Hide no-print elements */
             .no-print { display: none !important; }
@@ -477,6 +487,21 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
           <div style="display: block !important; width: 100% !important;">
             ${clone.innerHTML}
           </div>
+
+          ${activeTab === 'calendar' ? `
+            <div class="print-legend" style="page-break-inside: avoid; margin-top: 20px;">
+              <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">Keterangan Kode Kalender:</h3>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px 15px; font-size: 11px;">
+                ${Object.entries(CALENDAR_CODES).map(([code, { label }]: [string, {label: string}]) => `
+                  <div style="display: flex; align-items: center;">
+                    <span style="font-weight: bold; width: 40px;">${code}</span>
+                    <span>: ${label}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
           <div class="print-footer">
             <div class="footer-section">
                 <p>Mengetahui,</p>

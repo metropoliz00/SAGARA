@@ -186,8 +186,15 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
       const newAttendance: Record<string, {status: AttendanceStatus, notes: string}> = { ...dailyAttendance };
       students.forEach(s => {
           if (!newAttendance[s.id]) newAttendance[s.id] = { status: 'present', notes: '' };
+          else newAttendance[s.id] = { ...newAttendance[s.id], status: 'present' };
       });
       setDailyAttendance(newAttendance);
+  };
+
+  const handleResetAttendance = () => {
+      if (isReadOnly) return;
+      setDailyAttendance({});
+      onShowNotification("Tanda kehadiran dikosongkan.", 'warning');
   };
 
   const handleSaveDaily = async () => {
@@ -916,7 +923,10 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({
              <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-[#CAF4FF]">
                  <label className="font-bold">Tanggal:</label>
                  <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} className="border p-2 rounded-lg"/>
-                 <button onClick={handleMarkAllPresent} className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg font-bold"><CheckSquare size={18} className="inline mr-2"/> Isi Hadir</button>
+                 <div className="flex items-center gap-2">
+                     <button onClick={handleMarkAllPresent} className="bg-emerald-100 text-emerald-700 px-3 py-2 rounded-lg font-bold text-sm hover:bg-emerald-200 transition-colors"><CheckSquare size={16} className="inline mr-1"/> Isi Hadir</button>
+                     <button onClick={handleResetAttendance} className="bg-rose-100 text-rose-700 px-3 py-2 rounded-lg font-bold text-sm hover:bg-rose-200 transition-colors"><RotateCcw size={16} className="inline mr-1"/> Reset</button>
+                 </div>
                  <button onClick={handleSaveDaily} disabled={saving} className="bg-gradient-to-r from-[#5AB2FF] to-[#A0DEFF] text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 shadow-md"><Save size={18} className="inline mr-2"/> {saving ? 'Menyimpan...' : 'Simpan'}</button>
              </div>
              <div className="bg-white rounded-xl border overflow-hidden">
