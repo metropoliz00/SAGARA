@@ -516,7 +516,7 @@ const GradesView: React.FC<GradesViewProps> = ({
            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto print-container">
                <div className="hidden print-only text-center py-4 border-b">
                    <h2 className="text-xl font-bold uppercase">REKAP NILAI RAPOR</h2>
-                   <p className="text-sm">Kelas {classId} • Tahun Pelajaran {new Date().getFullYear()}</p>
+                   <p className="text-sm">Kelas {classId} • Tahun Ajaran {new Date().getFullYear()}</p>
                </div>
                <table className="w-full text-xs text-left border-collapse min-w-[1000px]">
                    <thead className="bg-indigo-50 text-indigo-900 font-bold uppercase print:bg-gray-100 print:text-black">

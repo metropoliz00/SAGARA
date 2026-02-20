@@ -164,7 +164,7 @@ const AcademicCalendarTab: React.FC<AcademicCalendarTabProps> = ({ initialData, 
         <div className="flex-1 bg-white p-4 rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
             <div className="flex justify-between items-center mb-4 no-print">
                 <div className="flex items-center gap-2">
-                    <label htmlFor="year-select" className="font-bold text-gray-700">Tahun Pelajaran:</label>
+                    <label htmlFor="year-select" className="font-bold text-gray-700">Tahun Ajaran:</label>
                     <select id="year-select" value={startYear} onChange={handleYearChange} className="p-2 border rounded-lg font-semibold">
                         {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}/{y+1}</option>)}
                     </select>

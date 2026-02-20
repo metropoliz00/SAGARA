@@ -346,7 +346,7 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
     let title = "ADMINISTRASI KELAS";
     switch(activeTab) {
         case 'schedule': title = "JADWAL PELAJARAN"; break;
-        case 'piket': title = "JADWAL PIKET KELAS"; break;
+        case 'piket': title = "JADWAL PIKET"; break;
         case 'seating': title = "DENAH TEMPAT DUDUK"; break;
         case 'organization': title = "STRUKTUR ORGANISASI KELAS"; break;
         case 'calendar': title = "KALENDER AKADEMIK"; break;
