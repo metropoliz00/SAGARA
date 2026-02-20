@@ -626,7 +626,17 @@ const App: React.FC = () => {
           }));
       }
 
-      if(profilesTyped.school) setSchoolProfile(profilesTyped.school);
+      if(profilesTyped.school) {
+          setSchoolProfile(prev => ({
+              ...prev,
+              ...profilesTyped.school,
+              developerInfo: { 
+                  name: profilesTyped.school?.developerInfo?.name || prev.developerInfo?.name || '',
+                  moto: profilesTyped.school?.developerInfo?.moto || prev.developerInfo?.moto || '',
+                  photo: profilesTyped.school?.developerInfo?.photo || prev.developerInfo?.photo || ''
+              }
+          }));
+      }
 
     } catch (err: any) {
       console.warn("Gagal memuat data:", err);

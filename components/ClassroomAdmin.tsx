@@ -355,9 +355,9 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
     }
 
     const className = classId || "Unknown";
-    // Try to get academic year from calendar or default to current year
+    // Try to get academic year from school profile first, then calendar, or default to current year
     const currentYear = new Date().getFullYear();
-    const academicYear = academicCalendar?.year || `${currentYear}/${currentYear + 1}`;
+    const academicYear = schoolProfile?.year || academicCalendar?.year || `${currentYear}/${currentYear + 1}`;
 
     // Footer Data
     const schoolName = schoolProfile?.name || "[Nama Sekolah]";
