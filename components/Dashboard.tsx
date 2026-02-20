@@ -123,20 +123,26 @@ const Dashboard: React.FC<DashboardProps> = ({
       const dayRecords = (allAttendanceRecords as any[]).filter(r => r.date === dateStr);
       
       const presentCount = dayRecords.filter(r => r.status === 'present').length;
-      const totalRecordsForDay = dayRecords.length;
+      const sickCount = dayRecords.filter(r => r.status === 'sick').length;
+      const permitCount = dayRecords.filter(r => r.status === 'permit').length;
+      const alphaCount = dayRecords.filter(r => r.status === 'alpha').length;
 
-      // Calculate percentage based on total students. If no attendance was taken, percentage is 0.
-      const presentPercent = totalRecordsForDay > 0 
-        ? Math.round((presentCount / totalClassStudents) * 100)
-        : 0;
+      // Calculate percentage based on total students.
+      const presentPercent = Math.round((presentCount / totalClassStudents) * 100);
+      const sickPercent = Math.round((sickCount / totalClassStudents) * 100);
+      const permitPercent = Math.round((permitCount / totalClassStudents) * 100);
+      const alphaPercent = Math.round((alphaCount / totalClassStudents) * 100);
 
       weekData.push({
         name: daysShort[targetDate.getDay()],
         H: presentCount,
-        S: dayRecords.filter(r => r.status === 'sick').length,
-        I: dayRecords.filter(r => r.status === 'permit').length,
-        A: dayRecords.filter(r => r.status === 'alpha').length,
-        H_percent: presentPercent
+        S: sickCount,
+        I: permitCount,
+        A: alphaCount,
+        H_percent: presentPercent,
+        S_percent: sickPercent,
+        I_percent: permitPercent,
+        A_percent: alphaPercent
       });
     }
     return weekData;
@@ -167,6 +173,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const month = now.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const data = [];
+    const totalClassStudents = students.length > 0 ? students.length : 1;
 
     const monthlyRecords = (allAttendanceRecords as any[]).filter(record => {
         const recordDate = new Date(record.date + 'T00:00:00');
@@ -177,16 +184,25 @@ const Dashboard: React.FC<DashboardProps> = ({
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const dayRecords = monthlyRecords.filter(r => r.date === dateStr);
         
+        const presentCount = dayRecords.filter(r => r.status === 'present').length;
+        const sickCount = dayRecords.filter(r => r.status === 'sick').length;
+        const permitCount = dayRecords.filter(r => r.status === 'permit').length;
+        const alphaCount = dayRecords.filter(r => r.status === 'alpha').length;
+
         data.push({
             name: `${i}`,
-            Hadir: dayRecords.filter(r => r.status === 'present').length,
-            Sakit: dayRecords.filter(r => r.status === 'sick').length,
-            Izin: dayRecords.filter(r => r.status === 'permit').length,
-            Alpha: dayRecords.filter(r => r.status === 'alpha').length,
+            Hadir: Math.round((presentCount / totalClassStudents) * 100),
+            Sakit: Math.round((sickCount / totalClassStudents) * 100),
+            Izin: Math.round((permitCount / totalClassStudents) * 100),
+            Alpha: Math.round((alphaCount / totalClassStudents) * 100),
+            rawH: presentCount,
+            rawS: sickCount,
+            rawI: permitCount,
+            rawA: alphaCount
         });
     }
     return data;
-  }, [allAttendanceRecords]);
+  }, [allAttendanceRecords, students]);
 
   const curriculumProgress = useMemo(() => {
     if (!subjects || !grades || students.length === 0) return [];
@@ -239,12 +255,29 @@ const Dashboard: React.FC<DashboardProps> = ({
       return (
         <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg border border-gray-200">
           <p className="font-bold text-gray-800 text-sm mb-2">{label}</p>
-          <p className={`text-xl font-bold text-blue-500 mb-2`}>{data.H_percent}% Hadir</p>
           <div className="mt-2 text-xs text-gray-600 grid grid-cols-2 gap-x-4 gap-y-1">
-            <p>Hadir: <span className="font-bold">{data.H}</span></p>
-            <p>Sakit: <span className="font-bold">{data.S}</span></p>
-            <p>Izin: <span className="font-bold">{data.I}</span></p>
-            <p>Alpha: <span className="font-bold">{data.A}</span></p>
+            <p>Hadir: <span className="font-bold">{data.H} ({data.H_percent}%)</span></p>
+            <p>Sakit: <span className="font-bold">{data.S} ({data.S_percent}%)</span></p>
+            <p>Izin: <span className="font-bold">{data.I} ({data.I_percent}%)</span></p>
+            <p>Alpha: <span className="font-bold">{data.A} ({data.A_percent}%)</span></p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomMonthlyTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg border border-gray-200">
+          <p className="font-bold text-gray-800 text-sm mb-2">Tanggal {label}</p>
+          <div className="mt-2 text-xs text-gray-600 grid grid-cols-2 gap-x-4 gap-y-1">
+            <p>Hadir: <span className="font-bold">{data.rawH} ({data.Hadir}%)</span></p>
+            <p>Sakit: <span className="font-bold">{data.rawS} ({data.Sakit}%)</span></p>
+            <p>Izin: <span className="font-bold">{data.rawI} ({data.Izin}%)</span></p>
+            <p>Alpha: <span className="font-bold">{data.rawA} ({data.Alpha}%)</span></p>
           </div>
         </div>
       );
@@ -467,8 +500,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <AreaChart data={monthlyLineChartData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
                             <XAxis dataKey="name" tick={{fill: '#9CA3AF', fontSize: 12}}/>
-                            <YAxis tick={{fill: '#9CA3AF', fontSize: 12}} allowDecimals={false}/>
-                            <Tooltip />
+                            <YAxis tick={{fill: '#9CA3AF', fontSize: 12}} domain={[0, 100]} unit="%"/>
+                            <Tooltip content={<CustomMonthlyTooltip />} cursor={{ fill: 'rgba(90, 178, 255, 0.1)' }}/>
                             <Legend iconType="circle"/>
                             <Area type="monotone" dataKey="Hadir" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.1} strokeWidth={2}/>
                             <Area type="monotone" dataKey="Sakit" stackId="1" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.1} strokeWidth={2}/>
