@@ -6,7 +6,7 @@ import {
   Printer, FileSpreadsheet, Upload, Download, Loader2, CalendarDays, RefreshCw
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
-import { Student, InventoryItem, Guest, ScheduleItem, PiketGroup, TeacherProfileData, SeatingLayouts, AcademicCalendarData, Holiday, OrganizationStructure, User } from '../types';
+import { Student, InventoryItem, Guest, ScheduleItem, PiketGroup, TeacherProfileData, SeatingLayouts, AcademicCalendarData, Holiday, OrganizationStructure, User, SchoolProfileData } from '../types';
 import { DEFAULT_TIME_SLOTS } from '../constants';
 
 // Import Sub-Components
@@ -27,6 +27,7 @@ interface ClassroomAdminProps {
   classId: string;
   userRole?: string; // NEW PROP
   users?: User[]; // NEW: To find class teacher
+  schoolProfile?: SchoolProfileData; // NEW PROP
 }
 
 const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({ 
@@ -37,7 +38,8 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
   onAddHoliday, 
   classId,
   userRole, // Destructure new prop
-  users
+  users,
+  schoolProfile
 }) => {
   const [activeTab, setActiveTab] = useState<'schedule' | 'piket' | 'seating' | 'inventory' | 'guestbook' | 'calendar' | 'organization'>('schedule');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -337,7 +339,155 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
 
   // --- Utility Functions ---
   const handlePrint = () => {
-    window.print();
+    const printContent = document.getElementById("print-area");
+    if (!printContent) return;
+
+    // Determine Title based on active tab
+    let title = "ADMINISTRASI KELAS";
+    switch(activeTab) {
+        case 'schedule': title = "JADWAL PELAJARAN"; break;
+        case 'piket': title = "JADWAL PIKET KELAS"; break;
+        case 'seating': title = "DENAH TEMPAT DUDUK"; break;
+        case 'organization': title = "STRUKTUR ORGANISASI KELAS"; break;
+        case 'calendar': title = "KALENDER AKADEMIK"; break;
+        case 'inventory': title = "INVENTARIS KELAS"; break;
+        case 'guestbook': title = "BUKU TAMU KELAS"; break;
+    }
+
+    const className = classId || "Unknown";
+    // Try to get academic year from calendar or default to current year
+    const currentYear = new Date().getFullYear();
+    const academicYear = academicCalendar?.year || `${currentYear}/${currentYear + 1}`;
+
+    // Footer Data
+    const schoolName = schoolProfile?.name || "[Nama Sekolah]";
+    const principalName = schoolProfile?.headmaster || "[Nama Kepala Sekolah]";
+    const principalNIP = schoolProfile?.headmasterNip || "[NIP Kepala Sekolah]";
+    const teacherName = teacherProfile?.name || "[Nama Guru]";
+    const teacherNIP = teacherProfile?.nip || "[NIP Guru]";
+    const location = schoolProfile?.address?.split(',')[0] || "Tempat";
+    const date = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Clone to safely manipulate for printing without affecting React DOM
+    const clone = printContent.cloneNode(true) as HTMLElement;
+    
+    // Sync input values to clone attributes
+    const originalInputs = printContent.querySelectorAll('input, textarea, select');
+    const clonedInputs = clone.querySelectorAll('input, textarea, select');
+
+    originalInputs.forEach((input: any, index) => {
+        const clonedInput = clonedInputs[index] as any;
+        if (input.type === 'checkbox' || input.type === 'radio') {
+             if (input.checked) clonedInput.setAttribute('checked', 'checked');
+        } else {
+             clonedInput.setAttribute('value', input.value);
+        }
+        if (input.tagName === 'SELECT') {
+             const options = clonedInput.querySelectorAll('option');
+             options.forEach((opt: any, i: number) => {
+                 if (i === input.selectedIndex) opt.setAttribute('selected', 'selected');
+             });
+        }
+    });
+
+    // Handle Canvas elements (cloneNode doesn't copy canvas content)
+    const originalCanvases = printContent.querySelectorAll('canvas');
+    const clonedCanvases = clone.querySelectorAll('canvas');
+    originalCanvases.forEach((canvas, index) => {
+        const clonedCanvas = clonedCanvases[index];
+        const ctx = clonedCanvas.getContext('2d');
+        if (ctx) {
+            ctx.drawImage(canvas, 0, 0);
+        }
+    });
+
+    const newWindow = window.open("", "", "width=800,height=600");
+    
+    // Copy styles from current document to ensure Tailwind/layout works
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(node => node.outerHTML)
+      .join('');
+
+    newWindow?.document.write(`
+      <html>
+        <head>
+          ${styles}
+          <style>
+            /* Reset for Print */
+            html, body {
+                height: auto !important;
+                overflow: visible !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            body { font-family: 'Times New Roman', serif; padding: 20px !important; }
+            table { width: 100% !important; border-collapse: collapse; }
+            th, td { border: 1px solid black; padding: 4px; }
+            @page { size: A4 ${activeTab === 'schedule' ? 'landscape' : ''}; margin: 20mm; }
+
+            /* Custom Styles for Header/Footer & Colors */
+            .print-header { text-align: center; margin-bottom: 20px; font-weight: bold; }
+            .print-header h1 { font-size: 18px; margin: 0; text-transform: uppercase; }
+            .print-header p { font-size: 12px; margin: 2px 0 0; }
+            
+            .print-footer { display: flex; justify-content: space-between; margin-top: 30px; page-break-inside: avoid; font-size: 12px; }
+            .footer-section { text-align: center; width: 40%; }
+            .signature-space { height: 60px; }
+            .name { font-weight: bold; text-decoration: underline; }
+
+            /* Force background colors for "TABEL Berwarna" */
+            .bg-indigo-50 { background-color: #eef2ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .text-indigo-900 { color: #312e81 !important; }
+            
+            /* Hide no-print elements */
+            .no-print { display: none !important; }
+            
+            /* Ensure full width */
+            .w-full { width: 100% !important; }
+            .overflow-x-auto { overflow: visible !important; }
+            
+            /* Adjust grid for A4 */
+            @media print {
+                .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+                .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+                .lg\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <h1>${title}</h1>
+            <p>KELAS: ${className}</p>
+            <p>TAHUN AJARAN: ${academicYear}</p>
+          </div>
+          ${clone.innerHTML}
+          <div class="print-footer">
+            <div class="footer-section">
+                <p>Mengetahui,</p>
+                <p>Kepala ${schoolName}</p>
+                <div class="signature-space"></div>
+                <p class="name">${principalName}</p>
+                <p>NIP. ${principalNIP}</p>
+            </div>
+            <div class="footer-section">
+                <p>Remen, ${date}</p>
+                <p>Guru Kelas</p>
+                <div class="signature-space"></div>
+                <p class="name">${teacherName}</p>
+                <p>NIP. ${teacherNIP}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    newWindow?.document.close();
+    // Allow styles to load before printing
+    setTimeout(() => {
+        newWindow?.print();
+    }, 500);
   };
 
   return (
@@ -393,32 +543,33 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
       </div>
 
       {/* --- CONTENT RENDERER --- */}
-      
-      {activeTab === 'schedule' && <ScheduleTab schedule={schedule} timeSlots={timeSlots} onSave={handleSaveScheduleAndTimes} onShowNotification={onShowNotification} />}
-      {activeTab === 'piket' && <PiketTab piketGroups={piketGroups} students={students} onSave={handleSavePiket} onShowNotification={onShowNotification} />}
-      {activeTab === 'seating' && <SeatingTab seatingLayouts={seatingLayouts} setSeatingLayouts={setSeatingLayouts} students={students} onSave={handleSaveSeating} teacherProfile={teacherProfile} />}
-      {activeTab === 'organization' && (
-          <OrganizationChartTab 
-              students={students} 
-              teacherProfile={teacherProfile} 
-              users={users} 
-              classId={classId}
-              initialStructure={organization} 
-              onSave={handleSaveOrganization} 
-          />
-      )}
-      {activeTab === 'calendar' && (
-          <AcademicCalendarTab 
-              initialData={academicCalendar} 
-              onSave={handleSaveAcademicCalendar} 
-              onAddHoliday={onAddHoliday} 
-              onShowNotification={onShowNotification} 
-              classId={classId}
-              isReadOnly={userRole !== 'admin'} // ONLY ADMIN CAN EDIT CALENDAR
-          />
-      )}
-      {activeTab === 'inventory' && <InventoryTab inventory={inventory} onSave={handleSaveInventory} onDelete={handleDeleteInventory} onShowNotification={onShowNotification} classId={classId} />}
-      {activeTab === 'guestbook' && <GuestBookTab guests={guests} onSave={handleSaveGuest} onDelete={handleDeleteGuest} onShowNotification={onShowNotification} classId={classId} />}
+      <div id="print-area" className="w-full">
+        {activeTab === 'schedule' && <ScheduleTab schedule={schedule} timeSlots={timeSlots} onSave={handleSaveScheduleAndTimes} onShowNotification={onShowNotification} />}
+        {activeTab === 'piket' && <PiketTab piketGroups={piketGroups} students={students} onSave={handleSavePiket} onShowNotification={onShowNotification} />}
+        {activeTab === 'seating' && <SeatingTab seatingLayouts={seatingLayouts} setSeatingLayouts={setSeatingLayouts} students={students} onSave={handleSaveSeating} teacherProfile={teacherProfile} />}
+        {activeTab === 'organization' && (
+            <OrganizationChartTab 
+                students={students} 
+                teacherProfile={teacherProfile} 
+                users={users} 
+                classId={classId}
+                initialStructure={organization} 
+                onSave={handleSaveOrganization} 
+            />
+        )}
+        {activeTab === 'calendar' && (
+            <AcademicCalendarTab 
+                initialData={academicCalendar} 
+                onSave={handleSaveAcademicCalendar} 
+                onAddHoliday={onAddHoliday} 
+                onShowNotification={onShowNotification} 
+                classId={classId}
+                isReadOnly={userRole !== 'admin'} // ONLY ADMIN CAN EDIT CALENDAR
+            />
+        )}
+        {activeTab === 'inventory' && <InventoryTab inventory={inventory} onSave={handleSaveInventory} onDelete={handleDeleteInventory} onShowNotification={onShowNotification} classId={classId} />}
+        {activeTab === 'guestbook' && <GuestBookTab guests={guests} onSave={handleSaveGuest} onDelete={handleDeleteGuest} onShowNotification={onShowNotification} classId={classId} />}
+      </div>
 
     </div>
   );

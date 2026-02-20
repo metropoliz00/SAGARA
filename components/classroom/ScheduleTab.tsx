@@ -212,10 +212,10 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ schedule, timeSlots, onSave, 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
                 <table className="w-full border-collapse text-xs min-w-[1000px]">
                     <thead>
-                        <tr className="bg-indigo-50 print:bg-gray-100">
-                            <th className="p-2 border font-bold text-indigo-900 w-32 print:text-black">Waktu</th>
+                        <tr className="bg-indigo-50 print:bg-indigo-50">
+                            <th className="p-2 border font-bold text-indigo-900 w-32 print:text-indigo-900">Waktu</th>
                             {WEEKDAYS.map(day => (
-                                <th key={day} className="p-2 border font-bold text-indigo-900 print:text-black">{day}</th>
+                                <th key={day} className="p-2 border font-bold text-indigo-900 print:text-indigo-900">{day}</th>
                             ))}
                         </tr>
                     </thead>

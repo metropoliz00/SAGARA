@@ -907,6 +907,7 @@ const App: React.FC = () => {
                   classId={activeClassId}
                   userRole={currentUser.role}
                   users={users}
+                  schoolProfile={schoolProfile}
                 />;
       case 'support-docs':
         if (isStudentRole) { setCurrentView('dashboard'); return null; }
