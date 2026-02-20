@@ -537,13 +537,14 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                             <th className="p-3 border w-48">Materi / Topik</th>
                             <th className="p-3 border min-w-[300px]">Kegiatan Pembelajaran</th>
                             <th className="p-3 border w-40">Evaluasi</th>
-                            <th className="p-3 border w-40">Refleksi & Tindak Lanjut</th>
+                            <th className="p-3 border w-40">Refleksi</th>
+                            <th className="p-3 border w-40">Tindak Lanjut</th>
                             {!isReadOnly && <th className="p-3 border w-10 text-center no-print"></th>}
                         </tr>
                     </thead>
                     <tbody className="align-top">
                         {draftData.length === 0 ? (
-                            <tr><td colSpan={8} className="p-8 text-center text-gray-400 italic">Tidak ada jadwal atau jurnal untuk hari ini.</td></tr>
+                            <tr><td colSpan={9} className="p-8 text-center text-gray-400 italic">Tidak ada jadwal atau jurnal untuk hari ini.</td></tr>
                         ) : (
                             draftData.map((row, idx) => {
                                 const specialActivities = ['upacara', 'pembiasaan', 'literasi/numerasi', 'istirahat'];
@@ -591,7 +592,10 @@ const LearningJournalView: React.FC<LearningJournalViewProps> = ({
                                         </select>
                                     }</td>
                                     <td className="p-3 border">{isSpecialActivity ? <span className="text-gray-400">-</span> : 
-                                        <textarea value={row.reflection || ''} onChange={e => updateDraft(idx, 'reflection', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Refleksi & Tindak Lanjut..." rows={5} disabled={disabled}/>
+                                        <textarea value={row.reflection || ''} onChange={e => updateDraft(idx, 'reflection', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Refleksi..." rows={5} disabled={disabled}/>
+                                    }</td>
+                                    <td className="p-3 border">{isSpecialActivity ? <span className="text-gray-400">-</span> : 
+                                        <textarea value={row.followUp || ''} onChange={e => updateDraft(idx, 'followUp', e.target.value)} className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-300 h-full min-h-[40px]" placeholder="Tindak Lanjut..." rows={5} disabled={disabled}/>
                                     }</td>
                                     {!isReadOnly && (<td className="p-3 border text-center no-print align-middle"><button onClick={() => removeRow(idx)} className={`transition-colors ${disabled ? 'text-gray-200 cursor-not-allowed' : 'text-gray-300 hover:text-red-500'}`} disabled={disabled}><Trash2 size={16} /></button></td>)}
                                 </tr>
