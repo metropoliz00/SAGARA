@@ -384,9 +384,9 @@ const ClassroomAdmin: React.FC<ClassroomAdminProps> = ({
                 <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
              </button>
              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx, .xls, .csv" />
-             <button onClick={handleDownloadTemplate} title="Download Template" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Download size={18} /></button>
+             <button onClick={handleDownloadTemplate} title="Download Template" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><FileSpreadsheet size={18} /></button>
              <button onClick={handleImportClick} title="Import" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Upload size={18} /></button>
-             <button onClick={handleExport} title="Export Excel" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><FileSpreadsheet size={18} /></button>
+             <button onClick={handleExport} title="Export Excel" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Download size={18} /></button>
              <button onClick={handlePrint} title="Cetak" className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"><Printer size={18} /></button>
            </div>
         </div>
