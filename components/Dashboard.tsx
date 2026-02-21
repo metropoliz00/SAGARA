@@ -27,13 +27,16 @@ interface DashboardProps {
   onOpenPermissionModal?: () => void;
   schoolProfile?: SchoolProfileData; // Added schoolProfile prop
   learningDocumentation?: LearningDocumentation[];
+  hasNewMessages?: boolean;
+  unreadMessageCount?: number;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   students, agendas, holidays, allAttendanceRecords, 
   teacherName, teachingClass, onChangeView, grades, subjects, adminCompleteness = 0,
   employmentLinks = [], pendingPermissions = [], onOpenPermissionModal, schoolProfile,
-  learningDocumentation = []
+  learningDocumentation = [],
+  hasNewMessages = false, unreadMessageCount = 0
 }) => {
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -331,6 +334,18 @@ const Dashboard: React.FC<DashboardProps> = ({
             <p className="text-gray-500 text-sm mt-1">Berikut adalah ringkasan aktivitas {teachingClass ? `Kelas ${teachingClass}` : 'Sekolah'} hari ini.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+            <button 
+                onClick={() => onChangeView('communication')}
+                className="relative bg-white p-2.5 rounded-xl shadow-sm border border-gray-100 text-gray-500 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                title="Buku Penghubung"
+            >
+                <Bell size={24} className={hasNewMessages ? 'text-indigo-600' : ''} />
+                {hasNewMessages && (
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-bounce border-2 border-white">
+                        {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                    </div>
+                )}
+            </button>
             <div className="flex items-center space-x-2 bg-[#5AB2FF] text-white px-4 py-2 rounded-xl shadow-md">
                 <BookOpen size={18} />
                 <span className="text-sm font-bold">{teachingClass ? `Kelas ${teachingClass}` : 'ALL'}</span>

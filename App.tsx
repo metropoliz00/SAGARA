@@ -95,6 +95,8 @@ const App: React.FC = () => {
   });
 
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [processingPermissionId, setProcessingPermissionId] = useState<string | null>(null);
   const [adminPercentage, setAdminPercentage] = useState<number>(0);
   const [teacherProfile, setTeacherProfile] = useState<TeacherProfileData>({
@@ -654,8 +656,36 @@ const App: React.FC = () => {
   useEffect(() => {
     if (currentUser) {
        fetchData();
+       // Check for new messages
+       const lastCheck = localStorage.getItem('sagara_last_liaison_check');
+       const lastCheckTime = lastCheck ? new Date(lastCheck).getTime() : 0;
+       const newMessages = liaisonLogs.filter(log => {
+           const logTime = new Date(log.timestamp).getTime();
+           // Is it a reply from a different user, or a new message from a student?
+           const isReply = log.replies && log.replies.length > 0;
+           const lastReplyTime = isReply ? new Date(log.replies[log.replies.length - 1].timestamp).getTime() : 0;
+
+           if (currentUser.role === 'guru' && isReply && log.replies[log.replies.length - 1].senderId !== currentUser.id) {
+               return lastReplyTime > lastCheckTime;
+           }
+           if (currentUser.role === 'siswa' && isReply && log.replies[log.replies.length - 1].senderId !== currentUser.id) {
+               return lastReplyTime > lastCheckTime;
+           }
+           if (currentUser.role === 'guru' && !isReply && log.senderId !== currentUser.id) {
+              return logTime > lastCheckTime;
+           }
+           return false;
+       });
+
+       if (newMessages.length > 0) {
+           setHasNewMessages(true);
+           setUnreadMessageCount(newMessages.length);
+       } else {
+           setHasNewMessages(false);
+           setUnreadMessageCount(0);
+       }
     }
-  }, [currentUser, activeClassId]);
+  }, [currentUser, activeClassId, liaisonLogs]);
 
   if (!currentUser) {
       return <Login onLoginSuccess={setCurrentUser} />;

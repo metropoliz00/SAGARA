@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Student, SchoolProfileData, TeacherProfileData } from '../../types';
-import { BarChart2, Calendar, Users, Briefcase, GraduationCap, Heart, Sparkles, DollarSign, Trophy, AlertTriangle } from 'lucide-react';
+import { BarChart2, Calendar, Users, Briefcase, GraduationCap, Heart, Sparkles, DollarSign, Trophy, AlertTriangle, Bell } from 'lucide-react';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   Bar, XAxis, YAxis, CartesianGrid, BarChart as RechartsBarChart
@@ -11,13 +11,16 @@ interface StudentDashboardProps {
     students: Student[];
     schoolProfile?: SchoolProfileData;
     teacherProfile?: TeacherProfileData;
+    hasNewMessages?: boolean;
+    unreadMessageCount?: number;
+    onChangeView?: (view: ViewState) => void;
 }
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#64748b'];
 const POSITIVE_COLOR = '#10b981'; // green
 const NEGATIVE_COLOR = '#ef4444'; // red
 
-const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolProfile, teacherProfile }) => {
+const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolProfile, teacherProfile, hasNewMessages = false, unreadMessageCount = 0, onChangeView }) => {
 
     const calculateAge = (birthDate: string): number => {
         if (!birthDate) return 0;
@@ -158,6 +161,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ students, schoolPro
 
     return (
         <div className="animate-fade-in space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800">Dashboard Siswa</h2>
+                {onChangeView && (
+                <button 
+                    onClick={() => onChangeView('communication')}
+                    className="relative bg-white p-2.5 rounded-xl shadow-sm border border-gray-100 text-gray-500 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                    title="Buku Penghubung"
+                >
+                    <Bell size={24} className={hasNewMessages ? 'text-indigo-600' : ''} />
+                    {hasNewMessages && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-bounce border-2 border-white">
+                            {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                        </div>
+                    )}
+                </button>
+                )}
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print-report">
                 <div className="bg-white p-4 rounded-lg shadow-sm border col-span-1 lg:col-span-2">
                     <h3 className="font-bold text-gray-700 flex items-center mb-2"><Calendar size={16} className="mr-2 text-indigo-500" /> Daftar Umur Siswa Menurut Bulan Lahir</h3>
